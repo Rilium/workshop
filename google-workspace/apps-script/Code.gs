@@ -16,10 +16,16 @@ function authorizeFunniFinSetup() {
   const spreadsheet = getRequestsSpreadsheet();
   getRequestsSheet();
   getRequestEventsSheet();
+  getCatalogTopicsSheet();
+  getCatalogWorkshopsSheet();
+  getPricingRulesSheet();
+  getExpertsSheet();
+  getSettingsSheet();
 
   DriveApp.getFileById(spreadsheet.getId()).getName();
-  if (SETTINGS.calendarId) {
-    CalendarApp.getCalendarById(SETTINGS.calendarId);
+  const runtimeCalendarId = getRuntimeCalendarId();
+  if (runtimeCalendarId) {
+    CalendarApp.getCalendarById(runtimeCalendarId);
   }
   MailApp.getRemainingDailyQuota();
 
@@ -56,6 +62,27 @@ function handleGet(event) {
   if (action === "listWorkshopRequests") {
     return jsonResponse(listWorkshopRequests(event.parameter));
   }
+  if (action === "listCatalogConfig") {
+    return jsonResponse(listCatalogConfig());
+  }
+  if (action === "listCatalogWorkshops") {
+    return jsonResponse(listCatalogWorkshops());
+  }
+  if (action === "listPricingRules") {
+    return jsonResponse(listPricingRules());
+  }
+  if (action === "listExperts") {
+    return jsonResponse(listExperts());
+  }
+  if (action === "listWorkspaceSettings") {
+    return jsonResponse(listWorkspaceSettings());
+  }
+  if (action === "googleHealth") {
+    return jsonResponse(getGoogleHealth());
+  }
+  if (action === "listAdminConfig") {
+    return jsonResponse(listAdminConfig());
+  }
   if (action === "createAssetDraftFolder") {
     return jsonResponse(createAssetDraftFolder(event.parameter));
   }
@@ -65,7 +92,7 @@ function handleGet(event) {
   return jsonResponse({
     ok: true,
     service: "FunniFin Workshop Planner",
-    actions: ["freeBusy", "calendarLookup", "driveFolder", "brandPresentations", "listWorkshopRequests", "createWorkshopRequest", "updateWorkshopRequest", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification"],
+    actions: ["freeBusy", "calendarLookup", "driveFolder", "brandPresentations", "listWorkshopRequests", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification"],
   });
 }
 
@@ -84,6 +111,27 @@ function handlePost(event) {
   }
   if (body.action === "updateWorkshopRequest") {
     return jsonResponse(updateWorkshopRequest(body.payload || {}));
+  }
+  if (body.action === "updateCatalogTopic") {
+    return jsonResponse(updateCatalogTopic(body.payload || {}));
+  }
+  if (body.action === "updateCatalogWorkshop") {
+    return jsonResponse(updateCatalogWorkshop(body.payload || {}));
+  }
+  if (body.action === "updatePricingRule") {
+    return jsonResponse(updatePricingRule(body.payload || {}));
+  }
+  if (body.action === "updateExpert") {
+    return jsonResponse(updateExpert(body.payload || {}));
+  }
+  if (body.action === "deleteExpert") {
+    return jsonResponse(deleteExpert(body.payload || {}));
+  }
+  if (body.action === "updateWorkspaceSetting") {
+    return jsonResponse(updateWorkspaceSetting(body.payload || {}));
+  }
+  if (body.action === "seedAdminConfig") {
+    return jsonResponse(seedAdminConfig(body.payload || {}));
   }
   if (body.action === "createCalendarEvent") {
     return jsonResponse(createCalendarEvent(body.payload));
@@ -147,7 +195,7 @@ function createCalendarEvent(payload) {
     end: { dateTime: end.toISOString(), timeZone: SETTINGS.timezone },
     attendees: [
       { email: payload.managerEmail, displayName: payload.manager },
-      { email: SETTINGS.internalRecipient, displayName: "FunniFin" },
+      { email: getRuntimeInternalRecipient(), displayName: "FunniFin" },
     ],
     extendedProperties: {
       private: {
@@ -195,7 +243,7 @@ function insertCalendarEvent(event, calendarId, start, end, payload) {
     }
     const fallback = calendar.createEvent(event.summary, start, end, {
       description: event.description,
-      guests: [payload.managerEmail, SETTINGS.internalRecipient].filter(Boolean).join(","),
+      guests: [payload.managerEmail, getRuntimeInternalRecipient()].filter(Boolean).join(","),
       sendInvites: true,
     });
     fallback.setTag("projectId", payload.projectId);
@@ -214,10 +262,10 @@ function insertCalendarEvent(event, calendarId, start, end, payload) {
 function sendWorkshopRequestEmail(body) {
   MailApp.sendEmail({
     to: body.to,
-    cc: body.cc || SETTINGS.internalRecipient,
+    cc: body.cc || getRuntimeInternalRecipient(),
     subject: body.subject,
     htmlBody: body.html,
-    name: "FunniFin Workshop Planner",
+    name: body.fromName || getSettingValue("mail.fromName", "FunniFin Workshop Planner"),
   });
   return { sent: true };
 }
@@ -234,7 +282,7 @@ function sendWorkflowNotification(payload) {
     to: recipients.join(","),
     subject,
     htmlBody: html,
-    name: "FunniFin Workshop Planner",
+    name: payload.fromName || getSettingValue("mail.fromName", "FunniFin Workshop Planner"),
   });
   return { sent: true, subject, recipients };
 }
@@ -325,6 +373,535 @@ function updateWorkshopRequest(payload) {
   };
 }
 
+function listCatalogConfig() {
+  const sheet = getCatalogTopicsSheet();
+  const rows = sheet.getDataRange().getValues();
+  const topics = rows.length <= 1 ? [] : rows.slice(1).map(rowToCatalogTopic).filter(Boolean);
+  return {
+    ok: true,
+    source: "google-sheet",
+    topics,
+  };
+}
+
+function updateCatalogTopic(payload) {
+  if (!payload.id) throw new Error("Missing topic id");
+
+  const now = formatTimestamp(new Date());
+  const topic = {
+    id: String(payload.id),
+    title: String(payload.title || ""),
+    description: String(payload.description || ""),
+    badge: String(payload.badge || ""),
+    active: payload.active !== false,
+    updatedAt: now,
+  };
+
+  upsertSheetRow(getCatalogTopicsSheet(), CATALOG_TOPIC_HEADERS, topic.id, catalogTopicToRow(topic));
+  appendRequestEvent("catalog", "catalog_topic_updated", `Topic catalogo aggiornato: ${topic.title || topic.id}`, topic);
+
+  return {
+    ok: true,
+    source: "google-sheet",
+    topic,
+  };
+}
+
+function listCatalogWorkshops() {
+  const sheet = getCatalogWorkshopsSheet();
+  const rows = sheet.getDataRange().getValues();
+  const workshops = rows.length <= 1 ? [] : rows.slice(1).map(rowToCatalogWorkshop).filter(Boolean).filter((workshop) => workshop.active !== false);
+  return {
+    ok: true,
+    source: "google-sheet",
+    workshops,
+  };
+}
+
+function updateCatalogWorkshop(payload) {
+  if (!payload.id) throw new Error("Missing workshop id");
+
+  const now = formatTimestamp(new Date());
+  const workshop = {
+    id: String(payload.id),
+    topicId: String(payload.topicId || ""),
+    themeId: String(payload.themeId || ""),
+    title: String(payload.title || ""),
+    short: String(payload.short || ""),
+    long: String(payload.long || ""),
+    durationOptions: normalizeStringList(payload.durationOptions),
+    formatOptions: normalizeStringList(payload.formatOptions),
+    level: String(payload.level || "base"),
+    target: String(payload.target || ""),
+    participants: String(payload.participants || ""),
+    price1h: Number(payload.price1h || 0),
+    price2h: Number(payload.price2h || 0),
+    packageAvailable: payload.packageAvailable !== false,
+    customAvailable: payload.customAvailable !== false,
+    customExtra: Number(payload.customExtra || 0),
+    masterSlide: String(payload.masterSlide || ""),
+    experts: normalizeStringList(payload.experts),
+    state: String(payload.state || "attivo"),
+    active: payload.active !== false && payload.state !== "nascosto",
+    updatedAt: now,
+  };
+
+  upsertSheetRow(getCatalogWorkshopsSheet(), CATALOG_WORKSHOP_HEADERS, workshop.id, catalogWorkshopToRow(workshop));
+  appendRequestEvent("catalog", "catalog_workshop_updated", `Workshop catalogo aggiornato: ${workshop.title || workshop.id}`, workshop);
+
+  return {
+    ok: true,
+    source: "google-sheet",
+    workshop,
+  };
+}
+
+function catalogWorkshopToRow(workshop) {
+  return [
+    sheetText(workshop.id),
+    sheetText(workshop.topicId),
+    sheetText(workshop.themeId),
+    sheetText(workshop.title),
+    sheetText(workshop.short),
+    sheetText(workshop.long),
+    sheetText((workshop.durationOptions || []).join(",")),
+    sheetText((workshop.formatOptions || []).join(",")),
+    sheetText(workshop.level),
+    sheetText(workshop.target),
+    sheetText(workshop.participants),
+    workshop.price1h,
+    workshop.price2h,
+    workshop.packageAvailable ? "TRUE" : "FALSE",
+    workshop.customAvailable ? "TRUE" : "FALSE",
+    workshop.customExtra,
+    sheetText(workshop.masterSlide),
+    sheetText((workshop.experts || []).join(",")),
+    sheetText(workshop.state),
+    workshop.active === false ? "FALSE" : "TRUE",
+    sheetText(workshop.updatedAt),
+    sheetText(JSON.stringify(workshop)),
+  ];
+}
+
+function rowToCatalogWorkshop(row) {
+  try {
+    const payload = row[21] ? JSON.parse(row[21]) : {};
+    return {
+      id: String(row[0] || payload.id || ""),
+      topicId: String(row[1] || payload.topicId || ""),
+      themeId: String(row[2] || payload.themeId || ""),
+      title: String(row[3] || payload.title || ""),
+      short: String(row[4] || payload.short || ""),
+      long: String(row[5] || payload.long || ""),
+      durationOptions: row[6] ? String(row[6]).split(",").filter(Boolean) : normalizeStringList(payload.durationOptions),
+      formatOptions: row[7] ? String(row[7]).split(",").filter(Boolean) : normalizeStringList(payload.formatOptions),
+      level: String(row[8] || payload.level || "base"),
+      target: String(row[9] || payload.target || ""),
+      participants: String(row[10] || payload.participants || ""),
+      price1h: Number(row[11] || payload.price1h || 0),
+      price2h: Number(row[12] || payload.price2h || 0),
+      packageAvailable: String(row[13] || payload.packageAvailable).toUpperCase() !== "FALSE",
+      customAvailable: String(row[14] || payload.customAvailable).toUpperCase() !== "FALSE",
+      customExtra: Number(row[15] || payload.customExtra || 0),
+      masterSlide: String(row[16] || payload.masterSlide || ""),
+      experts: row[17] ? String(row[17]).split(",").filter(Boolean) : normalizeStringList(payload.experts),
+      state: String(row[18] || payload.state || "attivo"),
+      active: String(row[19] || payload.active).toUpperCase() !== "FALSE",
+      updatedAt: String(row[20] || payload.updatedAt || ""),
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+function listPricingRules() {
+  const sheet = getPricingRulesSheet();
+  const rows = sheet.getDataRange().getValues();
+  const rules = rows.length <= 1 ? [] : rows.slice(1).map(rowToPricingRule).filter(Boolean);
+  return {
+    ok: true,
+    source: "google-sheet",
+    rules,
+  };
+}
+
+function updatePricingRule(payload) {
+  if (!payload.id) throw new Error("Missing pricing rule id");
+
+  const now = formatTimestamp(new Date());
+  const rule = {
+    id: String(payload.id),
+    name: String(payload.name || ""),
+    min: Number(payload.min || 1),
+    max: Number(payload.max || 1),
+    discountPercent: Number(payload.discountPercent || 0),
+    specialQuote: Boolean(payload.specialQuote),
+    updatedAt: now,
+  };
+
+  upsertSheetRow(getPricingRulesSheet(), PRICING_RULE_HEADERS, rule.id, pricingRuleToRow(rule));
+  appendRequestEvent("pricing", "pricing_rule_updated", `Regola prezzo aggiornata: ${rule.name || rule.id}`, rule);
+
+  return {
+    ok: true,
+    source: "google-sheet",
+    rule,
+  };
+}
+
+function upsertSheetRow(sheet, headers, id, row) {
+  const rows = sheet.getDataRange().getValues();
+  const rowIndex = rows.findIndex((item, index) => index > 0 && item[0] === id);
+  if (rowIndex > 0) {
+    sheet.getRange(rowIndex + 1, 1, 1, headers.length).setValues([row]);
+    return;
+  }
+  sheet.appendRow(row);
+}
+
+function catalogTopicToRow(topic) {
+  return [
+    sheetText(topic.id),
+    sheetText(topic.title),
+    sheetText(topic.description),
+    sheetText(topic.badge),
+    topic.active === false ? "FALSE" : "TRUE",
+    sheetText(topic.updatedAt),
+    sheetText(JSON.stringify(topic)),
+  ];
+}
+
+function rowToCatalogTopic(row) {
+  try {
+    const payload = row[6] ? JSON.parse(row[6]) : {};
+    return {
+      id: String(row[0] || payload.id || ""),
+      title: String(row[1] || payload.title || ""),
+      description: String(row[2] || payload.description || ""),
+      badge: String(row[3] || payload.badge || ""),
+      active: String(row[4] || payload.active).toUpperCase() !== "FALSE",
+      updatedAt: String(row[5] || payload.updatedAt || ""),
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+function pricingRuleToRow(rule) {
+  return [
+    sheetText(rule.id),
+    sheetText(rule.name),
+    rule.min,
+    rule.max,
+    rule.discountPercent,
+    rule.specialQuote ? "TRUE" : "FALSE",
+    sheetText(rule.updatedAt),
+    sheetText(JSON.stringify(rule)),
+  ];
+}
+
+function rowToPricingRule(row) {
+  try {
+    const payload = row[7] ? JSON.parse(row[7]) : {};
+    return {
+      id: String(row[0] || payload.id || ""),
+      name: String(row[1] || payload.name || ""),
+      min: Number(row[2] || payload.min || 1),
+      max: Number(row[3] || payload.max || 1),
+      discountPercent: Number(row[4] || payload.discountPercent || 0),
+      specialQuote: String(row[5] || payload.specialQuote).toUpperCase() === "TRUE",
+      updatedAt: String(row[6] || payload.updatedAt || ""),
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+function listExperts() {
+  const sheet = getExpertsSheet();
+  const rows = sheet.getDataRange().getValues();
+  const experts = rows.length <= 1 ? [] : rows.slice(1).map(rowToExpert).filter(Boolean).filter((expert) => expert.active !== false);
+  return {
+    ok: true,
+    source: "google-sheet",
+    experts,
+  };
+}
+
+function updateExpert(payload) {
+  if (!payload.id) throw new Error("Missing expert id");
+
+  const now = formatTimestamp(new Date());
+  const expert = {
+    id: String(payload.id),
+    firstName: String(payload.firstName || ""),
+    lastName: String(payload.lastName || ""),
+    email: String(payload.email || ""),
+    photo: String(payload.photo || ""),
+    bio: String(payload.bio || ""),
+    topicIds: normalizeStringList(payload.topicIds),
+    themeIds: normalizeStringList(payload.themeIds),
+    availability: String(payload.availability || ""),
+    active: payload.active !== false,
+    updatedAt: now,
+  };
+
+  upsertSheetRow(getExpertsSheet(), EXPERT_HEADERS, expert.id, expertToRow(expert));
+  appendRequestEvent("experts", "expert_updated", `Esperto aggiornato: ${expert.firstName} ${expert.lastName}`.trim(), expert);
+
+  return {
+    ok: true,
+    source: "google-sheet",
+    expert,
+  };
+}
+
+function deleteExpert(payload) {
+  const expertId = payload.expertId || payload.id;
+  if (!expertId) throw new Error("Missing expert id");
+
+  const sheet = getExpertsSheet();
+  const rows = sheet.getDataRange().getValues();
+  const rowIndex = rows.findIndex((item, index) => index > 0 && item[0] === expertId);
+  if (rowIndex > 0) {
+    const current = rowToExpert(rows[rowIndex]) || { id: expertId };
+    const next = Object.assign({}, current, { active: false, updatedAt: formatTimestamp(new Date()) });
+    sheet.getRange(rowIndex + 1, 1, 1, EXPERT_HEADERS.length).setValues([expertToRow(next)]);
+  }
+  appendRequestEvent("experts", "expert_deleted", `Esperto rimosso: ${expertId}`, { expertId });
+
+  return {
+    ok: true,
+    source: "google-sheet",
+    deleted: true,
+    expertId: String(expertId),
+  };
+}
+
+function expertToRow(expert) {
+  return [
+    sheetText(expert.id),
+    sheetText(expert.firstName),
+    sheetText(expert.lastName),
+    sheetText(expert.email),
+    sheetText(expert.availability),
+    sheetText((expert.topicIds || []).join(",")),
+    sheetText((expert.themeIds || []).join(",")),
+    expert.active === false ? "FALSE" : "TRUE",
+    sheetText(expert.updatedAt || ""),
+    sheetText(JSON.stringify(expert)),
+  ];
+}
+
+function rowToExpert(row) {
+  try {
+    const payload = row[9] ? JSON.parse(row[9]) : {};
+    return {
+      id: String(row[0] || payload.id || ""),
+      firstName: String(row[1] || payload.firstName || ""),
+      lastName: String(row[2] || payload.lastName || ""),
+      email: String(row[3] || payload.email || ""),
+      photo: String(payload.photo || ""),
+      bio: String(payload.bio || ""),
+      availability: String(row[4] || payload.availability || ""),
+      topicIds: row[5] ? String(row[5]).split(",").filter(Boolean) : normalizeStringList(payload.topicIds),
+      themeIds: row[6] ? String(row[6]).split(",").filter(Boolean) : normalizeStringList(payload.themeIds),
+      active: String(row[7] || payload.active).toUpperCase() !== "FALSE",
+      updatedAt: String(row[8] || payload.updatedAt || ""),
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+function listWorkspaceSettings() {
+  const sheet = getSettingsSheet();
+  const rows = sheet.getDataRange().getValues();
+  const settings = rows.length <= 1 ? [] : rows.slice(1).map(rowToSetting).filter(Boolean);
+  return {
+    ok: true,
+    source: "google-sheet",
+    settings,
+  };
+}
+
+function updateWorkspaceSetting(payload) {
+  if (!payload.key) throw new Error("Missing setting key");
+
+  const setting = {
+    key: String(payload.key),
+    value: String(payload.value == null ? "" : payload.value),
+    group: String(payload.group || "general"),
+    label: String(payload.label || payload.key),
+    updatedAt: formatTimestamp(new Date()),
+  };
+  upsertSheetRow(getSettingsSheet(), SETTING_HEADERS, setting.key, settingToRow(setting));
+  appendRequestEvent("settings", "setting_updated", `Setting aggiornata: ${setting.key}`, setting);
+
+  return {
+    ok: true,
+    source: "google-sheet",
+    setting,
+  };
+}
+
+function getSettingValue(key, fallback) {
+  try {
+    const sheet = getSettingsSheet();
+    const rows = sheet.getDataRange().getValues();
+    for (let index = 1; index < rows.length; index += 1) {
+      if (String(rows[index][0] || "") === key) {
+        const value = String(rows[index][1] || "");
+        return value || fallback;
+      }
+    }
+  } catch (error) {
+    return fallback;
+  }
+  return fallback;
+}
+
+function getRuntimeCalendarId() {
+  return getSettingValue("calendar.id", SETTINGS.calendarId);
+}
+
+function getRuntimeCalendarName() {
+  return getSettingValue("calendar.name", SETTINGS.calendarName);
+}
+
+function getRuntimeDriveRootFolderId() {
+  return getSettingValue("drive.rootFolderId", SETTINGS.driveRootFolderId);
+}
+
+function getRuntimeSlidesRootFolderId() {
+  return getSettingValue("drive.slidesRootFolderId", SETTINGS.slidesRootFolderId);
+}
+
+function getRuntimeInternalRecipient() {
+  return getSettingValue("mail.internalRecipient", SETTINGS.internalRecipient);
+}
+
+function settingToRow(setting) {
+  return [
+    sheetText(setting.key),
+    sheetText(setting.value),
+    sheetText(setting.group),
+    sheetText(setting.label),
+    sheetText(setting.updatedAt),
+    sheetText(JSON.stringify(setting)),
+  ];
+}
+
+function rowToSetting(row) {
+  try {
+    const payload = row[5] ? JSON.parse(row[5]) : {};
+    return {
+      key: String(row[0] || payload.key || ""),
+      value: String(row[1] || payload.value || ""),
+      group: String(row[2] || payload.group || "general"),
+      label: String(row[3] || payload.label || row[0] || ""),
+      updatedAt: String(row[4] || payload.updatedAt || ""),
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+function getGoogleHealth() {
+  const spreadsheet = getRequestsSpreadsheet();
+  const calendarId = getRuntimeCalendarId();
+  const calendarName = getRuntimeCalendarName();
+  const driveRootFolderId = getRuntimeDriveRootFolderId();
+  const slidesRootFolderId = getRuntimeSlidesRootFolderId();
+  return {
+    ok: true,
+    source: "google-workspace",
+    spreadsheet: {
+      id: spreadsheet.getId(),
+      url: spreadsheet.getUrl(),
+      requests: Math.max(0, getRequestsSheet().getLastRow() - 1),
+      events: Math.max(0, getRequestEventsSheet().getLastRow() - 1),
+      catalogTopics: Math.max(0, getCatalogTopicsSheet().getLastRow() - 1),
+      catalogWorkshops: Math.max(0, getCatalogWorkshopsSheet().getLastRow() - 1),
+      pricingRules: Math.max(0, getPricingRulesSheet().getLastRow() - 1),
+      experts: Math.max(0, getExpertsSheet().getLastRow() - 1),
+      settings: Math.max(0, getSettingsSheet().getLastRow() - 1),
+    },
+    calendar: {
+      configured: Boolean(calendarId || calendarName),
+      id: calendarId,
+      name: calendarName,
+    },
+    drive: {
+      configured: Boolean(driveRootFolderId || slidesRootFolderId),
+      rootFolderId: driveRootFolderId,
+      slidesRootFolderId,
+    },
+    mail: {
+      remainingDailyQuota: MailApp.getRemainingDailyQuota(),
+    },
+    checkedAt: formatTimestamp(new Date()),
+  };
+}
+
+function listAdminConfig() {
+  return {
+    ok: true,
+    source: "google-sheet",
+    catalogTopics: listCatalogConfig().topics,
+    catalogWorkshops: listCatalogWorkshops().workshops,
+    pricingRules: listPricingRules().rules,
+    experts: listExperts().experts,
+    settings: listWorkspaceSettings().settings,
+    health: getGoogleHealth(),
+  };
+}
+
+function seedAdminConfig(payload) {
+  const result = {
+    catalogTopics: 0,
+    catalogWorkshops: 0,
+    pricingRules: 0,
+    experts: 0,
+    settings: 0,
+  };
+
+  (payload.catalogTopics || payload.topics || []).forEach((topic) => {
+    updateCatalogTopic(topic);
+    result.catalogTopics += 1;
+  });
+  (payload.catalogWorkshops || payload.workshops || []).forEach((workshop) => {
+    updateCatalogWorkshop(workshop);
+    result.catalogWorkshops += 1;
+  });
+  (payload.pricingRules || payload.rules || []).forEach((rule) => {
+    updatePricingRule(rule);
+    result.pricingRules += 1;
+  });
+  (payload.experts || []).forEach((expert) => {
+    updateExpert(expert);
+    result.experts += 1;
+  });
+  (payload.settings || []).forEach((setting) => {
+    updateWorkspaceSetting(setting);
+    result.settings += 1;
+  });
+
+  appendRequestEvent("admin", "admin_config_seeded", "Configurazione admin riallineata da seed batch.", result);
+
+  return {
+    ok: true,
+    source: "google-sheet",
+    seeded: result,
+    health: getGoogleHealth(),
+  };
+}
+
+function normalizeStringList(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean);
+  return String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
+}
+
 const REQUEST_HEADERS = [
   "id",
   "company",
@@ -346,6 +923,74 @@ const REQUEST_EVENT_HEADERS = [
   "requestId",
   "type",
   "note",
+  "payloadJson",
+];
+
+const CATALOG_TOPIC_HEADERS = [
+  "id",
+  "title",
+  "description",
+  "badge",
+  "active",
+  "updatedAt",
+  "payloadJson",
+];
+
+const CATALOG_WORKSHOP_HEADERS = [
+  "id",
+  "topicId",
+  "themeId",
+  "title",
+  "short",
+  "long",
+  "durationOptions",
+  "formatOptions",
+  "level",
+  "target",
+  "participants",
+  "price1h",
+  "price2h",
+  "packageAvailable",
+  "customAvailable",
+  "customExtra",
+  "masterSlide",
+  "experts",
+  "state",
+  "active",
+  "updatedAt",
+  "payloadJson",
+];
+
+const PRICING_RULE_HEADERS = [
+  "id",
+  "name",
+  "min",
+  "max",
+  "discountPercent",
+  "specialQuote",
+  "updatedAt",
+  "payloadJson",
+];
+
+const EXPERT_HEADERS = [
+  "id",
+  "firstName",
+  "lastName",
+  "email",
+  "availability",
+  "topicIds",
+  "themeIds",
+  "active",
+  "updatedAt",
+  "payloadJson",
+];
+
+const SETTING_HEADERS = [
+  "key",
+  "value",
+  "group",
+  "label",
+  "updatedAt",
   "payloadJson",
 ];
 
@@ -372,6 +1017,41 @@ function getRequestEventsSheet() {
   const spreadsheet = getRequestsSpreadsheet();
   const sheet = getOrCreateSheet(spreadsheet, "Events", REQUEST_EVENT_HEADERS);
   ensureHeaderRow(sheet, REQUEST_EVENT_HEADERS);
+  return sheet;
+}
+
+function getCatalogTopicsSheet() {
+  const spreadsheet = getRequestsSpreadsheet();
+  const sheet = getOrCreateSheet(spreadsheet, "CatalogTopics", CATALOG_TOPIC_HEADERS);
+  ensureHeaderRow(sheet, CATALOG_TOPIC_HEADERS);
+  return sheet;
+}
+
+function getCatalogWorkshopsSheet() {
+  const spreadsheet = getRequestsSpreadsheet();
+  const sheet = getOrCreateSheet(spreadsheet, "CatalogWorkshops", CATALOG_WORKSHOP_HEADERS);
+  ensureHeaderRow(sheet, CATALOG_WORKSHOP_HEADERS);
+  return sheet;
+}
+
+function getPricingRulesSheet() {
+  const spreadsheet = getRequestsSpreadsheet();
+  const sheet = getOrCreateSheet(spreadsheet, "PricingRules", PRICING_RULE_HEADERS);
+  ensureHeaderRow(sheet, PRICING_RULE_HEADERS);
+  return sheet;
+}
+
+function getExpertsSheet() {
+  const spreadsheet = getRequestsSpreadsheet();
+  const sheet = getOrCreateSheet(spreadsheet, "Experts", EXPERT_HEADERS);
+  ensureHeaderRow(sheet, EXPERT_HEADERS);
+  return sheet;
+}
+
+function getSettingsSheet() {
+  const spreadsheet = getRequestsSpreadsheet();
+  const sheet = getOrCreateSheet(spreadsheet, "Settings", SETTING_HEADERS);
+  ensureHeaderRow(sheet, SETTING_HEADERS);
   return sheet;
 }
 
@@ -519,16 +1199,18 @@ function buildCalendarIds(expertIds) {
 }
 
 function resolveCalendarId() {
-  if (SETTINGS.calendarId) {
-    return SETTINGS.calendarId;
+  const calendarId = getRuntimeCalendarId();
+  const calendarName = getRuntimeCalendarName();
+  if (calendarId) {
+    return calendarId;
   }
 
-  if (SETTINGS.calendarName) {
-    const matches = CalendarApp.getCalendarsByName(SETTINGS.calendarName);
+  if (calendarName) {
+    const matches = CalendarApp.getCalendarsByName(calendarName);
     if (matches.length) {
       return matches[0].getId();
     }
-    const normalizedTarget = normalizeCalendarName(SETTINGS.calendarName);
+    const normalizedTarget = normalizeCalendarName(calendarName);
     const normalizedMatch = CalendarApp.getAllCalendars().find((calendar) => normalizeCalendarName(calendar.getName()) === normalizedTarget);
     if (normalizedMatch) {
       return normalizedMatch.getId();
@@ -540,7 +1222,7 @@ function resolveCalendarId() {
 
 function lookupCalendars(params) {
   const listAll = params.all === "1" || params.all === "true";
-  const name = listAll ? "" : params.name || SETTINGS.calendarName;
+  const name = listAll ? "" : params.name || getRuntimeCalendarName();
   const calendars = listAll ? CalendarApp.getAllCalendars() : CalendarApp.getCalendarsByName(name);
   const normalizedTarget = name ? normalizeCalendarName(name) : "";
   const normalizedMatches = name
@@ -573,7 +1255,7 @@ function sanitizeDriveName(value) {
 }
 
 function listDriveFolder(params) {
-  const folderId = params.folderId || SETTINGS.slidesRootFolderId || SETTINGS.driveRootFolderId;
+  const folderId = params.folderId || getRuntimeSlidesRootFolderId() || getRuntimeDriveRootFolderId();
   if (!folderId) {
     throw new Error("Missing folderId or SLIDES_ROOT_FOLDER_ID");
   }
@@ -620,7 +1302,7 @@ function listDriveFolder(params) {
 }
 
 function ensurePresentationStructure(payload) {
-  const rootId = payload.folderId || SETTINGS.slidesRootFolderId || SETTINGS.driveRootFolderId;
+  const rootId = payload.folderId || getRuntimeSlidesRootFolderId() || getRuntimeDriveRootFolderId();
   if (!rootId) {
     throw new Error("Missing folderId or SLIDES_ROOT_FOLDER_ID");
   }
@@ -654,7 +1336,7 @@ function ensurePresentationStructure(payload) {
 }
 
 function createAssetDraftFolder(params) {
-  const parentId = params.parentId || SETTINGS.driveRootFolderId || SETTINGS.slidesRootFolderId;
+  const parentId = params.parentId || getRuntimeDriveRootFolderId() || getRuntimeSlidesRootFolderId();
   if (!parentId) {
     throw new Error("Missing DRIVE_ROOT_FOLDER_ID or SLIDES_ROOT_FOLDER_ID");
   }
@@ -707,7 +1389,7 @@ function deleteAssetDraftFolder(params) {
 }
 
 function listBrandPresentations(params) {
-  const folderId = params.folderId || SETTINGS.slidesRootFolderId || SETTINGS.driveRootFolderId;
+  const folderId = params.folderId || getRuntimeSlidesRootFolderId() || getRuntimeDriveRootFolderId();
   if (!folderId) {
     throw new Error("Missing folderId or SLIDES_ROOT_FOLDER_ID");
   }

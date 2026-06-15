@@ -28,6 +28,10 @@ export type WorkshopRequestEmailPayload = {
     saved: number;
     packageName: string;
   };
+  mail?: {
+    cc?: string;
+    fromName?: string;
+  };
 };
 
 export type WorkflowNotificationRecipientRole = "client" | "funnifin" | "expert" | "brand";
@@ -63,6 +67,8 @@ export type WorkflowNotificationPayload = {
     expertName?: string;
   }>;
   recipients: WorkflowNotificationRecipientRole[];
+  recipientEmails?: Partial<Record<WorkflowNotificationRecipientRole, string>>;
+  fromName?: string;
   note?: string;
   event?: {
     mode: "tentative" | "confirmed";
@@ -167,7 +173,8 @@ export async function sendWorkshopRequestEmail(payload: WorkshopRequestEmailPayl
     const body = {
       action: SECRET_SETTINGS.google.email.actions.sendWorkshopRequest,
       to: payload.contact.email,
-      cc: SECRET_SETTINGS.google.email.internalRecipient,
+      cc: payload.mail?.cc || SECRET_SETTINGS.google.email.internalRecipient,
+      fromName: payload.mail?.fromName || SECRET_SETTINGS.google.email.fromName,
       subject,
       html,
       payload,
@@ -186,7 +193,7 @@ export async function sendWorkshopRequestEmail(payload: WorkshopRequestEmailPayl
     sent: false,
     html,
     subject,
-    recipients: [payload.contact.email, SECRET_SETTINGS.google.email.internalRecipient],
+    recipients: [payload.contact.email, payload.mail?.cc || SECRET_SETTINGS.google.email.internalRecipient],
   };
 }
 
@@ -194,7 +201,7 @@ export async function sendWorkflowNotification(payload: WorkflowNotificationPayl
   const env = (import.meta as unknown as { env: Record<string, string | undefined> }).env;
   const scriptUrl = env[SECRET_SETTINGS.google.env.appScriptDeploymentUrl];
   const recipientMap = SECRET_SETTINGS.google.email.testRecipients;
-  const to = payload.recipients.map((role) => (role === "client" ? payload.project.email : recipientMap[role]));
+  const to = payload.recipients.map((role) => (role === "client" ? payload.project.email : payload.recipientEmails?.[role] || recipientMap[role]));
 
   if (scriptUrl) {
     const body = {
@@ -202,6 +209,7 @@ export async function sendWorkflowNotification(payload: WorkflowNotificationPayl
       payload: {
         ...payload,
         to,
+        fromName: payload.fromName || SECRET_SETTINGS.google.email.fromName,
         recipientLabels: payload.recipients,
       },
     };

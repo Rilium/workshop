@@ -11,6 +11,7 @@ export type RequestProjectStatus =
   | "in_preparazione_esperto"
   | "in_revisione_brand"
   | "approvazione_finale"
+  | "evento_provvisorio"
   | "confermato";
 
 export type RequestWorkshopRecord = {

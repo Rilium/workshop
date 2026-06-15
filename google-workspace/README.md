@@ -39,6 +39,8 @@ Poi redeploy.
 - Cliente: invio richiesta manda email al cliente e a FunniFin tramite Apps Script.
 - Cliente: invio richiesta crea prima un record reale su Google Sheet (`Requests`) e poi manda il recap email.
 - FunniFin: la coda progetti legge `listWorkshopRequests`; status, date, esperto e calendario aggiornano lo stesso record tramite `updateWorkshopRequest`.
+- FunniFin: catalogo, regole prezzo, pool esperti e settings operative possono essere salvati su Google Sheet tramite `listCatalogConfig`, `updateCatalogTopic`, `listPricingRules`, `updatePricingRule`, `listExperts`, `updateExpert`, `listWorkspaceSettings` e `updateWorkspaceSetting`.
+- FunniFin: la tab Google controlla `googleHealth` per Sheets, Calendar, Drive e quota MailApp.
 - FunniFin: le azioni di fase possono aprire una modal e inviare template HTML ai destinatari test:
   - Cliente: `rinaldi.rilio+2@gmail.com`
   - FunniFin: `rinaldi.rilio+1@gmail.com`
@@ -76,3 +78,23 @@ Per creare nella root vuota le sottocartelle operative, fai una POST allo stesso
 ```
 
 Google raccomanda di creare un Meet univoco per ogni evento tramite `conferenceData.createRequest` e `conferenceDataVersion=1`; lo script fa cosi.
+
+## Seed iniziale admin
+
+Dopo aver caricato `apps-script/Code.gs` e creato un nuovo deploy Apps Script, popola o riallinea tutti i fogli operativi con:
+
+```bash
+npm run google:seed
+```
+
+Il seed aggiorna:
+
+- `CatalogTopics`
+- `CatalogWorkshops`
+- `PricingRules`
+- `Experts`
+- `Settings`
+
+e chiude con una lettura `googleHealth`.
+
+Se il comando dice `Apps Script deployment is missing actions`, il deploy live non e ancora il `Code.gs` aggiornato: crea un nuovo deploy Apps Script e rilancia il seed.

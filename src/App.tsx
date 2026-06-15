@@ -34,6 +34,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { sendWorkflowNotification, sendWorkshopRequestEmail, type WorkflowNotificationPayload, type WorkflowNotificationRecipientRole } from "./emailService";
 import { createWorkshopCalendarEvent, getWorkshopAvailability } from "./googleCalendarService";
 import { createAssetDraftFolder, deleteAssetDraftFolder, uploadAssetFiles, type AssetDraftFolder, type UploadedAsset } from "./driveAssetService";
+import {
+  deleteExpert,
+  getGoogleHealth,
+  listCatalogConfig,
+  listExperts,
+  listPricingRules,
+  listWorkspaceSettings,
+  updateCatalogTopic,
+  updateExpert,
+  updatePricingRule,
+  updateWorkspaceSetting,
+  type GoogleHealth,
+  type WorkspaceSetting,
+} from "./googleAdminService";
 import { getBrandPresentations, getDriveFolderPreview, type BrandPresentation, type BrandPresentationStatus, type DriveFolderItem, type DriveFolderResponse } from "./googleDriveService";
 import { createWorkshopRequest, listWorkshopRequests, updateWorkshopRequest, type RequestWorkshopRecord, type WorkshopRequestRecord } from "./requestService";
 import { SECRET_SETTINGS } from "./secretSettings";
@@ -52,6 +66,7 @@ type ProjectStatus =
   | "in_preparazione_esperto"
   | "in_revisione_brand"
   | "approvazione_finale"
+  | "evento_provvisorio"
   | "confermato";
 
 type Topic = {
@@ -201,6 +216,177 @@ type AdminProjectWorkshopRow = {
   approval: DateApproval;
   assignedExpert?: string;
 };
+type WorkspaceSettingDefinition = WorkspaceSetting & {
+  helper: string;
+  inputType?: "text" | "email" | "password" | "url";
+  placeholder?: string;
+  sensitive?: boolean;
+  readOnly?: boolean;
+};
+
+const adminSettingGroups: Array<{ id: string; title: string; description: string; icon: "settings" | "send" | "users" }> = [
+  {
+    id: "mail",
+    title: "Gmail e invii",
+    description: "Destinatari e mittente usati adesso dalle notifiche del pannello FunniFin.",
+    icon: "send",
+  },
+  {
+    id: "provider",
+    title: "Google Workspace",
+    description: "Calendar e Drive letti dal backend Apps Script. Questi valori sostituiscono le Script Properties.",
+    icon: "users",
+  },
+  {
+    id: "runtime",
+    title: "Runtime app",
+    description: "Endpoint e variabili Vercel che la build pubblica sta usando. Si modificano da Vercel/env.",
+    icon: "settings",
+  },
+];
+
+const adminSettingDefinitions: WorkspaceSettingDefinition[] = [
+  {
+    key: "mail.provider",
+    value: "Google MailApp",
+    group: "mail",
+    label: "Provider invii",
+    helper: "Provider logico usato dal backend. Oggi invia tramite Apps Script MailApp/Gmail.",
+    placeholder: "Google MailApp",
+    updatedAt: "",
+  },
+  {
+    key: "mail.fromName",
+    value: SECRET_SETTINGS.google.email.fromName,
+    group: "mail",
+    label: "Nome mittente",
+    helper: "Nome visibile nelle email inviate dal flusso.",
+    placeholder: "FunniFin Workshop Planner",
+    updatedAt: "",
+  },
+  {
+    key: "mail.internalRecipient",
+    value: SECRET_SETTINGS.google.email.internalRecipient,
+    group: "mail",
+    label: "Inbox interna",
+    helper: "CC operativo per richieste cliente e fallback FunniFin.",
+    inputType: "email",
+    placeholder: "team@azienda.it",
+    updatedAt: "",
+  },
+  {
+    key: "mail.funnifin",
+    value: SECRET_SETTINGS.google.email.testRecipients.funnifin,
+    group: "mail",
+    label: "Email FunniFin",
+    helper: "Riceve notifiche interne, candidature e handoff.",
+    inputType: "email",
+    placeholder: "funnifin@azienda.it",
+    updatedAt: "",
+  },
+  {
+    key: "mail.expert",
+    value: SECRET_SETTINGS.google.email.testRecipients.expert,
+    group: "mail",
+    label: "Email Esperti",
+    helper: "Destinatario per inviti candidatura esperto.",
+    inputType: "email",
+    placeholder: "esperti@azienda.it",
+    updatedAt: "",
+  },
+  {
+    key: "mail.brand",
+    value: SECRET_SETTINGS.google.email.testRecipients.brand,
+    group: "mail",
+    label: "Email Brand",
+    helper: "Destinatario per revisioni materiali e deck.",
+    inputType: "email",
+    placeholder: "brand@azienda.it",
+    updatedAt: "",
+  },
+  {
+    key: "funnifin.name",
+    value: "Team FunniFin",
+    group: "provider",
+    label: "Nome FunniFin",
+    helper: "Identita mostrata nelle viste operative.",
+    updatedAt: "",
+  },
+  {
+    key: "brand.name",
+    value: "Brand Review",
+    group: "provider",
+    label: "Nome Brand",
+    helper: "Nome usato nel pannello brand.",
+    updatedAt: "",
+  },
+  {
+    key: "calendar.id",
+    value: "",
+    group: "provider",
+    label: "Calendar ID",
+    helper: "Calendario target per eventi workshop.",
+    placeholder: "primary o calendar-id@group.calendar.google.com",
+    updatedAt: "",
+  },
+  {
+    key: "calendar.name",
+    value: "",
+    group: "provider",
+    label: "Calendar name",
+    helper: "Nome calendario usato come fallback se l'ID non e presente.",
+    placeholder: "FunniFin Workshop",
+    updatedAt: "",
+  },
+  {
+    key: "drive.rootFolderId",
+    value: "",
+    group: "provider",
+    label: "Drive root materiali",
+    helper: "Cartella parent per materiali cliente e upload.",
+    placeholder: "ID cartella Drive",
+    updatedAt: "",
+  },
+  {
+    key: "drive.slidesRootFolderId",
+    value: "",
+    group: "provider",
+    label: "Drive root Slides",
+    helper: "Cartella root dove cercare presentazioni e master.",
+    placeholder: "ID cartella Drive",
+    updatedAt: "",
+  },
+  {
+    key: "env.appScriptDeploymentUrl",
+    value: "",
+    group: "runtime",
+    label: "Apps Script endpoint",
+    helper: "Endpoint chiamato da richieste, mail, Calendar e Drive.",
+    inputType: "url",
+    readOnly: true,
+    updatedAt: "",
+  },
+  {
+    key: "env.driveRootFolderId",
+    value: "",
+    group: "runtime",
+    label: "Vercel Drive root",
+    helper: "Fallback frontend letto da VITE_DRIVE_ROOT_FOLDER_ID.",
+    readOnly: true,
+    updatedAt: "",
+  },
+  {
+    key: "env.slidesTemplateFolderId",
+    value: "",
+    group: "runtime",
+    label: "Vercel Slides root",
+    helper: "Fallback frontend letto da VITE_SLIDES_TEMPLATE_FOLDER_ID.",
+    readOnly: true,
+    updatedAt: "",
+  },
+];
+
+const appEnv = (import.meta as unknown as { env: Record<string, string | undefined> }).env;
 
 const experts = [
   { id: "laura-bianchi", name: "Laura Bianchi", skills: ["budget", "previdenza", "investimenti"], availability: "3 slot liberi" },
@@ -766,6 +952,7 @@ const projectStatuses: ProjectStatus[] = [
   "in_preparazione_esperto",
   "in_revisione_brand",
   "approvazione_finale",
+  "evento_provvisorio",
   "confermato",
 ];
 
@@ -780,6 +967,7 @@ const statusLabel: Record<ProjectStatus, string> = {
   in_preparazione_esperto: "In preparazione esperto",
   in_revisione_brand: "In revisione brand",
   approvazione_finale: "Approvazione finale",
+  evento_provvisorio: "Evento provvisorio",
   confermato: "Confermato",
 };
 
@@ -794,6 +982,7 @@ const statusDescription: Record<ProjectStatus, string> = {
   in_preparazione_esperto: "L'esperto sta preparando contenuti e materiali operativi.",
   in_revisione_brand: "Il team brand sta revisionando deck, tono e asset.",
   approvazione_finale: "Tutti i passaggi principali sono pronti per creare l'evento finale.",
+  evento_provvisorio: "Evento Google Calendar creato come provvisorio, in attesa della conferma definitiva.",
   confermato: "Evento confermato, calendario e materiali collegati.",
 };
 
@@ -2264,6 +2453,11 @@ function AdminView({
   const [driveSlideLinks, setDriveSlideLinks] = useState<Partial<Record<string, DriveSlideLink>>>({});
   const [expertDirectory, setExpertDirectory] = useState<ExpertProfile[]>(initialExpertProfiles);
   const [selectedExpertProfileId, setSelectedExpertProfileId] = useState<string | null>(null);
+  const [workspaceSettings, setWorkspaceSettings] = useState<WorkspaceSetting[]>([]);
+  const [sensitiveSettingDrafts, setSensitiveSettingDrafts] = useState<Record<string, string>>({});
+  const [googleHealth, setGoogleHealth] = useState<GoogleHealth | null>(null);
+  const [googleHealthError, setGoogleHealthError] = useState("");
+  const [googleHealthLoading, setGoogleHealthLoading] = useState(false);
   const [adminActionModal, setAdminActionModal] = useState<AdminActionModalState | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<Record<string, CalendarEventRecord>>({});
   const [driveFolderPreview, setDriveFolderPreview] = useState<DriveFolderResponse | null>(null);
@@ -2273,6 +2467,133 @@ function AdminView({
   );
   const [dateApprovals, setDateApprovals] = useState<Record<string, DateApproval>>({});
   const [workshopExperts, setWorkshopExperts] = useState<Record<string, string>>({});
+  const workspaceSettingMap = useMemo(
+    () => new Map(workspaceSettings.map((setting) => [setting.key, setting])),
+    [workspaceSettings],
+  );
+  const getWorkspaceSettingValue = (key: string, fallback = "") => workspaceSettingMap.get(key)?.value || fallback;
+  const workspaceRecipientEmails = useMemo<Partial<Record<WorkflowNotificationRecipientRole, string>>>(
+    () => ({
+      funnifin: getWorkspaceSettingValue("mail.funnifin", SECRET_SETTINGS.google.email.testRecipients.funnifin),
+      expert: getWorkspaceSettingValue("mail.expert", SECRET_SETTINGS.google.email.testRecipients.expert),
+      brand: getWorkspaceSettingValue("mail.brand", SECRET_SETTINGS.google.email.testRecipients.brand),
+    }),
+    [workspaceSettingMap],
+  );
+  const effectiveAdminSettingDefinitions = useMemo(
+    () =>
+      adminSettingDefinitions.map((definition) => {
+        const runtimeValue =
+          definition.key === "calendar.id"
+            ? googleHealth?.calendar.id || appEnv[SECRET_SETTINGS.google.env.funnifinCalendarId] || ""
+            : definition.key === "calendar.name"
+              ? googleHealth?.calendar.name || appEnv[SECRET_SETTINGS.google.env.funnifinCalendarName] || ""
+              : definition.key === "drive.rootFolderId"
+                ? googleHealth?.drive.rootFolderId || appEnv[SECRET_SETTINGS.google.env.driveRootFolderId] || ""
+                : definition.key === "drive.slidesRootFolderId"
+                  ? googleHealth?.drive.slidesRootFolderId || appEnv[SECRET_SETTINGS.google.env.slidesTemplateFolderId] || ""
+                  : definition.key === "env.appScriptDeploymentUrl"
+                    ? appEnv[SECRET_SETTINGS.google.env.appScriptDeploymentUrl] || ""
+                    : definition.key === "env.driveRootFolderId"
+                      ? appEnv[SECRET_SETTINGS.google.env.driveRootFolderId] || ""
+                      : definition.key === "env.slidesTemplateFolderId"
+                        ? appEnv[SECRET_SETTINGS.google.env.slidesTemplateFolderId] || ""
+                        : definition.value;
+        return { ...definition, value: runtimeValue };
+      }),
+    [googleHealth],
+  );
+  useEffect(() => {
+    let alive = true;
+    listPricingRules()
+      .then((remoteRules) => {
+        if (!alive || remoteRules.length === 0) return;
+        setRules(remoteRules.map((rule) => ({
+          id: rule.id,
+          name: rule.name,
+          min: rule.min,
+          max: rule.max,
+          discountPercent: rule.discountPercent,
+          specialQuote: rule.specialQuote,
+        })));
+        setPricingSavedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+      })
+      .catch((error) => {
+        if (!alive) return;
+        notify("Prezzi Google non letti", error instanceof Error ? error.message : "Uso le regole locali.");
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  useEffect(() => {
+    let alive = true;
+    listCatalogConfig()
+      .then((remoteTopics) => {
+        if (!alive || remoteTopics.length === 0) return;
+        setCatalogEdits((current) => {
+          const next = { ...current };
+          remoteTopics.forEach((topic) => {
+            next[topic.id] = {
+              title: topic.title,
+              description: topic.description,
+              badge: topic.badge,
+              active: topic.active,
+            };
+          });
+          return next;
+        });
+        setCatalogRefreshedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+      })
+      .catch((error) => {
+        if (!alive) return;
+        notify("Catalogo Google non letto", error instanceof Error ? error.message : "Uso la configurazione locale.");
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  useEffect(() => {
+    let alive = true;
+    listExperts()
+      .then((remoteExperts) => {
+        if (!alive || remoteExperts.length === 0) return;
+        setExpertDirectory(remoteExperts.map((expert) => ({
+          id: expert.id,
+          firstName: expert.firstName,
+          lastName: expert.lastName,
+          email: expert.email,
+          photo: expert.photo,
+          bio: expert.bio,
+          topicIds: expert.topicIds,
+          themeIds: expert.themeIds,
+          availability: expert.availability,
+        })));
+        setExpertsSyncedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+      })
+      .catch((error) => {
+        if (!alive) return;
+        notify("Esperti Google non letti", error instanceof Error ? error.message : "Uso la rubrica locale.");
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  useEffect(() => {
+    let alive = true;
+    listWorkspaceSettings()
+      .then((settings) => {
+        if (!alive) return;
+        setWorkspaceSettings(settings);
+      })
+      .catch((error) => {
+        if (!alive) return;
+        notify("Settings Google non letti", error instanceof Error ? error.message : "Uso configurazione locale/env.");
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
   const selectedExpertProfile = selectedExpertProfileId ? expertDirectory.find((expert) => expert.id === selectedExpertProfileId) : undefined;
   const selectedProject = adminProjects.find((project) => project.id === selectedProjectId) ?? adminProjects[0] ?? localProject;
   const selectedProjectRows = selectedProject.workshopIds
@@ -2477,6 +2798,8 @@ function AdminView({
           expertName: record.expertName,
         })),
         recipients: notification.recipients,
+        recipientEmails: workspaceRecipientEmails,
+        fromName: getWorkspaceSettingValue("mail.fromName", SECRET_SETTINGS.google.email.fromName),
         note: notification.note,
       });
       notify("Richiesta modificata", `Modifica salvata e email inviata a ${notification.recipients.join(", ")}.`);
@@ -2493,6 +2816,29 @@ function AdminView({
   const expertFullName = (expert: ExpertProfile) => `${expert.firstName} ${expert.lastName}`.trim();
   const updateExpertProfile = (expertId: string, patch: Partial<ExpertProfile>) => {
     setExpertDirectory((current) => current.map((expert) => (expert.id === expertId ? { ...expert, ...patch } : expert)));
+  };
+  const saveExpertProfile = (expert: ExpertProfile) => {
+    void updateExpert({ ...expert, active: true })
+      .then((savedExpert) => {
+        setExpertDirectory((current) => current.map((item) => (item.id === savedExpert.id ? {
+          id: savedExpert.id,
+          firstName: savedExpert.firstName,
+          lastName: savedExpert.lastName,
+          email: savedExpert.email,
+          photo: savedExpert.photo,
+          bio: savedExpert.bio,
+          topicIds: savedExpert.topicIds,
+          themeIds: savedExpert.themeIds,
+          availability: savedExpert.availability,
+        } : item)));
+        setExpertsSyncedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+        notify("Profilo esperto salvato su Google", `${expertFullName(savedExpert)} aggiornato nel pool esperti.`);
+        setSelectedExpertProfileId(null);
+      })
+      .catch((error) => {
+        notify("Profilo esperto salvato solo in locale", error instanceof Error ? error.message : "Google Sheets non disponibile.");
+        setSelectedExpertProfileId(null);
+      });
   };
   const createExpertProfile = () => {
     const id = `esperto-${Date.now()}`;
@@ -2518,7 +2864,14 @@ function AdminView({
     const nextDirectory = expertDirectory.filter((item) => item.id !== expertId);
     setExpertDirectory(nextDirectory);
     setSelectedExpertProfileId(null);
-    if (expert) notify("Esperto eliminato", `${expertFullName(expert)} rimosso dal pool esperti.`);
+    void deleteExpert(expertId)
+      .then(() => {
+        setExpertsSyncedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+        if (expert) notify("Esperto eliminato da Google", `${expertFullName(expert)} rimosso dal pool esperti.`);
+      })
+      .catch((error) => {
+        if (expert) notify("Esperto eliminato solo in locale", error instanceof Error ? error.message : `${expertFullName(expert)} rimosso dalla vista corrente.`);
+      });
   };
   const syncDriveSlidesFromRoot = () => {
     const today = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -2566,6 +2919,8 @@ function AdminView({
           expertName: row.assignedExpert,
         })),
         recipients: choice.recipients,
+        recipientEmails: workspaceRecipientEmails,
+        fromName: getWorkspaceSettingValue("mail.fromName", SECRET_SETTINGS.google.email.fromName),
         note: choice.note,
         event,
         actionUrl: phase === "candidacies_open" ? `${window.location.origin}${window.location.pathname}#esperto-candidature` : undefined,
@@ -2819,6 +3174,12 @@ function AdminView({
       meta: `${expertDirectory.length} profili`,
       body: "Competenze, disponibilita e assegnazioni ai workshop.",
     },
+    {
+      id: "Google",
+      title: "Google backend",
+      meta: googleHealth ? `${googleHealth.spreadsheet.requests} richieste` : "health",
+      body: "Sheets, Calendar, Drive, Mail quota e settings operative.",
+    },
   ];
   const adminMainAction = (() => {
     if (adminTab !== "Operativo") {
@@ -2915,16 +3276,108 @@ function AdminView({
       notify("Slide Drive sincronizzate", `${driveLinkedCount}/${workshops.length} workshop hanno una slide operativa collegata.`);
       return;
     }
-    setCatalogRefreshedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-    notify("Catalogo Canva verificato", `${topics.length} interessi, ${catalogThemeRows.length} temi e ${workshops.length} workshop vendibili allineati al PDF.`);
+    void listCatalogConfig()
+      .then((remoteTopics) => {
+        if (remoteTopics.length > 0) {
+          setCatalogEdits((current) => {
+            const next = { ...current };
+            remoteTopics.forEach((topic) => {
+              next[topic.id] = {
+                title: topic.title,
+                description: topic.description,
+                badge: topic.badge,
+                active: topic.active,
+              };
+            });
+            return next;
+          });
+        }
+        setCatalogRefreshedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+        notify("Catalogo aggiornato", remoteTopics.length > 0 ? `${remoteTopics.length} topic letti da Google Sheets.` : `${topics.length} interessi, ${catalogThemeRows.length} temi e ${workshops.length} workshop vendibili allineati al PDF.`);
+      })
+      .catch((error) => {
+        setCatalogRefreshedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+        notify("Catalogo locale verificato", error instanceof Error ? error.message : "Google Sheets non disponibile, uso configurazione locale.");
+      });
   };
   const refreshPricingSection = () => {
-    setPricingSavedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-    notify("Regole prezzo aggiornate", `${rules.length} regole disponibili; preventivo cliente ricalcolato sulla selezione corrente.`);
+    void listPricingRules()
+      .then((remoteRules) => {
+        if (remoteRules.length > 0) {
+          setRules(remoteRules.map((rule) => ({
+            id: rule.id,
+            name: rule.name,
+            min: rule.min,
+            max: rule.max,
+            discountPercent: rule.discountPercent,
+            specialQuote: rule.specialQuote,
+          })));
+        }
+        setPricingSavedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+        notify("Regole prezzo aggiornate", remoteRules.length > 0 ? `${remoteRules.length} regole lette da Google Sheets.` : `${rules.length} regole locali disponibili; preventivo cliente ricalcolato.`);
+      })
+      .catch((error) => {
+        setPricingSavedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+        notify("Prezzi locali verificati", error instanceof Error ? error.message : "Google Sheets non disponibile, uso regole locali.");
+      });
   };
   const refreshExpertsSection = () => {
-    setExpertsSyncedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-    notify("Vista esperti aggiornata", `${expertDirectory.length} profili riletti dalla rubrica interna.`);
+    void listExperts()
+      .then((remoteExperts) => {
+        if (remoteExperts.length > 0) {
+          setExpertDirectory(remoteExperts.map((expert) => ({
+            id: expert.id,
+            firstName: expert.firstName,
+            lastName: expert.lastName,
+            email: expert.email,
+            photo: expert.photo,
+            bio: expert.bio,
+            topicIds: expert.topicIds,
+            themeIds: expert.themeIds,
+            availability: expert.availability,
+          })));
+        }
+        setExpertsSyncedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+        notify("Vista esperti aggiornata", remoteExperts.length > 0 ? `${remoteExperts.length} profili letti da Google Sheets.` : `${expertDirectory.length} profili locali disponibili.`);
+      })
+      .catch((error) => {
+        setExpertsSyncedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+        notify("Esperti locali verificati", error instanceof Error ? error.message : "Google Sheets non disponibile, uso rubrica locale.");
+      });
+  };
+  const refreshGoogleHealth = () => {
+    setGoogleHealthLoading(true);
+    setGoogleHealthError("");
+    void Promise.all([getGoogleHealth(), listWorkspaceSettings().catch(() => workspaceSettings)])
+      .then(([health, settings]) => {
+        setGoogleHealth(health);
+        setWorkspaceSettings(settings);
+        setGoogleHealthLoading(false);
+        notify("Google Health aggiornata", health ? `${health.spreadsheet.requests} richieste, ${health.spreadsheet.events} eventi, quota mail ${health.mail.remainingDailyQuota}.` : "Endpoint Google non configurato.");
+      })
+      .catch((error) => {
+        setGoogleHealth(null);
+        setGoogleHealthLoading(false);
+        setGoogleHealthError(error instanceof Error ? error.message : "Health Google non disponibile.");
+      });
+  };
+  const saveWorkspaceSetting = (setting: WorkspaceSetting) => {
+    void updateWorkspaceSetting(setting)
+      .then((savedSetting) => {
+        setWorkspaceSettings((current) => {
+          const exists = current.some((item) => item.key === savedSetting.key);
+          return exists ? current.map((item) => (item.key === savedSetting.key ? savedSetting : item)) : [...current, savedSetting];
+        });
+        setSensitiveSettingDrafts((current) => {
+          const next = { ...current };
+          delete next[savedSetting.key];
+          return next;
+        });
+        notify("Setting salvata su Google", `${savedSetting.label || savedSetting.key} aggiornata.`);
+      })
+      .catch((error) => {
+        notify("Setting non salvata", error instanceof Error ? error.message : "Google Sheets non disponibile.");
+      });
   };
   const refreshAdminWorkspacePanel = () => {
     if (adminWorkspacePanel === "calendar") {
@@ -3505,8 +3958,32 @@ function AdminView({
               }}
               onClose={() => setCatalogModalTopicId(null)}
               onSave={() => {
-                notify("Catalogo aggiornato", `${catalogEdits[catalogModalTopicId].title} salvato nella configurazione catalogo.`);
-                setCatalogModalTopicId(null);
+                const draft = catalogEdits[catalogModalTopicId];
+                void updateCatalogTopic({
+                  id: catalogModalTopicId,
+                  title: draft.title,
+                  description: draft.description,
+                  badge: draft.badge,
+                  active: draft.active,
+                })
+                  .then((topic) => {
+                    setCatalogEdits((current) => ({
+                      ...current,
+                      [topic.id]: {
+                        title: topic.title,
+                        description: topic.description,
+                        badge: topic.badge,
+                        active: topic.active,
+                      },
+                    }));
+                    setCatalogRefreshedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+                    notify("Catalogo salvato su Google", `${topic.title} aggiornato nella configurazione catalogo.`);
+                    setCatalogModalTopicId(null);
+                  })
+                  .catch((error) => {
+                    notify("Catalogo salvato solo in locale", error instanceof Error ? error.message : "Redeploy Apps Script necessario per salvare su Google Sheets.");
+                    setCatalogModalTopicId(null);
+                  });
               }}
             />
           )}
@@ -3683,12 +4160,134 @@ function AdminView({
               onClose={() => setSelectedExpertProfileId(null)}
               onDelete={() => deleteExpertProfile(selectedExpertProfile.id)}
               onChange={(patch) => updateExpertProfile(selectedExpertProfile.id, patch)}
-              onSave={() => {
-                notify("Profilo esperto salvato", `${expertFullName(selectedExpertProfile)} aggiornato nel pool esperti.`);
-                setSelectedExpertProfileId(null);
-              }}
+              onSave={() => saveExpertProfile(selectedExpertProfile)}
             />
           )}
+        </Panel>
+      )}
+
+      {adminTab === "Google" && (
+        <Panel
+          title="Google backend"
+          icon={<Settings2 size={20} />}
+          actions={
+            <ToolIconButton onClick={refreshGoogleHealth} label="Ricarica stato Google">
+              <RefreshCw size={18} />
+            </ToolIconButton>
+          }
+        >
+          <div className="pricing-console">
+            <div className="pricing-hero-card">
+              <div>
+                <span className="eyebrow">Workspace Google</span>
+                <strong>{googleHealthLoading ? "Controllo..." : googleHealth ? "Connesso" : "Da verificare"}</strong>
+                <em>{googleHealth?.checkedAt ?? googleHealthError ?? "Sheets, Calendar, Drive e MailApp"}</em>
+              </div>
+              <div className="pricing-hero-metrics" aria-label="Stato backend Google">
+                <Info label="Richieste" value={String(googleHealth?.spreadsheet.requests ?? adminProjects.length)} />
+                <Info label="Eventi log" value={String(googleHealth?.spreadsheet.events ?? 0)} />
+                <Info label="Catalogo" value={String(googleHealth?.spreadsheet.catalogTopics ?? Object.keys(catalogEdits).length)} />
+                <Info label="Prezzi" value={String(googleHealth?.spreadsheet.pricingRules ?? rules.length)} />
+                <Info label="Esperti" value={String(googleHealth?.spreadsheet.experts ?? expertDirectory.length)} />
+                <Info label="Mail quota" value={String(googleHealth?.mail.remainingDailyQuota ?? "-")} />
+              </div>
+            </div>
+
+            {googleHealth?.spreadsheet.url && (
+              <div className="inline-status-card">
+                <FolderKanban size={18} />
+                <span>DB Google Sheets collegato: {googleHealth.spreadsheet.id}</span>
+                <AppButton variant="outline" onClick={() => window.open(googleHealth.spreadsheet.url, "_blank", "noopener,noreferrer")}>
+                  <ExternalLink size={17} /> Apri Sheet
+                </AppButton>
+              </div>
+            )}
+
+            <div className="admin-settings-stack" aria-label="Settings operative Google">
+              {adminSettingGroups.map((group) => {
+                const groupSettings = effectiveAdminSettingDefinitions.filter((definition) => definition.group === group.id);
+                const GroupIcon = group.icon === "send" ? Send : group.icon === "users" ? UsersRound : Settings2;
+                return (
+                  <section className="admin-settings-section" key={group.id}>
+                    <div className="admin-settings-section-head">
+                      <GroupIcon size={19} />
+                      <div>
+                        <strong>{group.title}</strong>
+                        <span>{group.description}</span>
+                      </div>
+                    </div>
+                    <div className="admin-settings-grid">
+                      {groupSettings.map((definition) => {
+                        const setting = workspaceSettingMap.get(definition.key) ?? definition;
+                        const isSensitive = Boolean(definition.sensitive);
+                        const draftValue = sensitiveSettingDrafts[setting.key] ?? "";
+                        const hasStoredValue = Boolean(setting.value);
+                        return (
+                          <article className="admin-setting-card" key={setting.key}>
+                            <div className="pricing-rule-head">
+                              <div>
+                                <span className="pricing-rule-kicker">{definition.group}</span>
+                                <strong>{setting.label || definition.label}</strong>
+                                <em>{definition.helper}</em>
+                              </div>
+                              {!definition.readOnly && (
+                                <ActionIconButton
+                                  onClick={() => {
+                                    if (isSensitive && !draftValue.trim()) {
+                                      notify("Valore non modificato", hasStoredValue ? "Il valore esiste gia: scrivi un nuovo valore per sostituirlo." : "Scrivi un valore prima di salvarlo.");
+                                      return;
+                                    }
+                                    saveWorkspaceSetting({
+                                      ...definition,
+                                      ...setting,
+                                      group: definition.group,
+                                      label: definition.label,
+                                      value: isSensitive ? draftValue : setting.value,
+                                    });
+                                  }}
+                                  label={`Salva ${setting.label || definition.label}`}
+                                >
+                                  <Check size={17} />
+                                </ActionIconButton>
+                              )}
+                            </div>
+                            {isSensitive && (
+                              <div className={`admin-secret-state ${hasStoredValue ? "set" : ""}`}>
+                                <InfoIcon size={15} />
+                                <span>{hasStoredValue ? "Codice attivo: non viene mostrato. Scrivi qui sotto solo se vuoi sostituirlo." : "Accesso libero: nessun codice richiesto, i flussi restano operativi."}</span>
+                              </div>
+                            )}
+                            <label className="full-field">
+                              {isSensitive ? "Nuovo valore" : "Valore"}
+                              <input
+                                type={definition.inputType || "text"}
+                                value={isSensitive ? draftValue : setting.value}
+                                placeholder={isSensitive && hasStoredValue ? "Lascia vuoto per non modificare" : definition.placeholder}
+                                readOnly={definition.readOnly}
+                                autoComplete="off"
+                                onChange={(event) => {
+                                  if (isSensitive) {
+                                    setSensitiveSettingDrafts((current) => ({ ...current, [setting.key]: event.target.value }));
+                                    return;
+                                  }
+                                  const next = { ...definition, ...setting, group: definition.group, label: definition.label, value: event.target.value };
+                                  setWorkspaceSettings((current) => {
+                                    const exists = current.some((item) => item.key === next.key);
+                                    return exists ? current.map((item) => (item.key === next.key ? next : item)) : [...current, next];
+                                  });
+                                }}
+                              />
+                            </label>
+                            <small className="admin-setting-key">{setting.key}</small>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          </div>
         </Panel>
       )}
       {adminActionModal && (
@@ -3696,6 +4295,7 @@ function AdminView({
           modal={adminActionModal}
           rows={currentProjectSelections}
           project={selectedProject}
+          recipientEmails={workspaceRecipientEmails}
           eventPrechecks={eventPrechecks}
           eventRecord={currentProjectEvent}
           canConfirmEvent={canConfirmEvent}
@@ -3723,9 +4323,20 @@ function AdminView({
             void confirmRequestEdit(records, notification);
           }}
           onSaveRule={(ruleId, patch) => {
-            setRules(rules.map((rule) => (rule.id === ruleId ? { ...rule, ...patch } : rule)));
+            const nextRules = rules.map((rule) => (rule.id === ruleId ? { ...rule, ...patch } : rule));
+            const nextRule = nextRules.find((rule) => rule.id === ruleId);
+            setRules(nextRules);
             setPricingSavedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-            notify("Prezzi salvati", "Nome, range, sconto e logica preventivo sono ora usati dal preventivo dinamico.");
+            if (nextRule) {
+              void updatePricingRule(nextRule)
+                .then((savedRule) => {
+                  setRules(nextRules.map((rule) => (rule.id === savedRule.id ? { ...rule, ...savedRule } : rule)));
+                  notify("Prezzi salvati su Google", "Nome, range, sconto e logica preventivo sono ora usati dal preventivo dinamico.");
+                })
+                .catch((error) => {
+                  notify("Prezzi salvati solo in locale", error instanceof Error ? error.message : "Redeploy Apps Script necessario per salvare su Google Sheets.");
+                });
+            }
             setAdminActionModal(null);
           }}
         />
@@ -5214,6 +5825,7 @@ function AdminActionModal({
   modal,
   rows,
   project,
+  recipientEmails,
   eventPrechecks,
   eventRecord,
   canConfirmEvent,
@@ -5231,6 +5843,7 @@ function AdminActionModal({
   modal: AdminActionModalState;
   rows: AdminProjectWorkshopRow[];
   project: AdminProject;
+  recipientEmails: Partial<Record<WorkflowNotificationRecipientRole, string>>;
   eventPrechecks: Array<{ label: string; done: boolean }>;
   eventRecord?: CalendarEventRecord;
   canConfirmEvent: boolean;
@@ -5405,7 +6018,7 @@ function AdminActionModal({
   const pricePreviewCount = normalizedMax >= 99 ? Math.max(normalizedMin, 6) : normalizedMax;
   const pricePreviewGross = pricePreviewCount * 1000;
   const pricePreviewTotal = Math.round(pricePreviewGross * (1 - normalizedDiscount / 100));
-  const selectedRecipients = notification.recipients.map((role) => `${recipientLabels[role]} · ${role === "client" ? project.email : SECRET_SETTINGS.google.email.testRecipients[role]}`);
+  const selectedRecipients = notification.recipients.map((role) => `${recipientLabels[role]} · ${role === "client" ? project.email : recipientEmails[role] || SECRET_SETTINGS.google.email.testRecipients[role]}`);
   const emailImpact = notification.send && selectedRecipients.length > 0
     ? `Email: parte alla conferma verso ${selectedRecipients.join(" / ")}.`
     : "Email: non parte nessuna email alla conferma.";
