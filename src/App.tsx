@@ -1057,6 +1057,8 @@ function getDeckPreviewUrl(deck: BrandPresentation) {
 function App() {
   const [role, setRole] = useState<Role>("Cliente");
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+  const [systemRefreshToken, setSystemRefreshToken] = useState(0);
+  const [systemSettingsToken, setSystemSettingsToken] = useState(0);
   const [activeTopics, setActiveTopics] = useState<string[]>(["budget", "benessere"]);
   const [activeThemes, setActiveThemes] = useState<string[]>(["budget-mensile", "fondo-emergenza", "abitudini", "mutuo", "etf", "rischio", "welfare"]);
   const [brandFilter, setBrandFilter] = useState("Revisioni");
@@ -1213,6 +1215,12 @@ function App() {
     if (role === "Esperto") return "Esperto · candidature e incarichi";
     return "Brand · revisioni materiali";
   })();
+  const changeRole = (item: Role) => {
+    setRole(item);
+    setRoleMenuOpen(false);
+    if (item === "Brand") setBrandFilter("Revisioni");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <div className={`app-shell role-${role.toLowerCase()}`}>
@@ -1273,40 +1281,16 @@ function App() {
             </div>
           </div>
         </div>
-        <div className="topbar-controls">
-          <div className="role-menu">
-            <button
-              className="role-menu-trigger"
-              type="button"
-              aria-label="Cambia ruolo"
-              aria-expanded={roleMenuOpen}
-              onClick={() => setRoleMenuOpen((open) => !open)}
-            >
-              <span>{role}</span>
-              <Menu size={18} />
-            </button>
-            {roleMenuOpen && (
-              <div className="role-switch" aria-label="Seleziona ruolo">
-                {roleOptions.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    className={role === item ? "active" : ""}
-                    onClick={() => {
-                      setRole(item);
-                      setRoleMenuOpen(false);
-                      if (item === "Brand") setBrandFilter("Revisioni");
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
       </header>
+      <SystemBar
+        role={role}
+        context={topbarContext}
+        roleMenuOpen={roleMenuOpen}
+        onToggleRoleMenu={() => setRoleMenuOpen((open) => !open)}
+        onRole={changeRole}
+        onSettings={() => setSystemSettingsToken((value) => value + 1)}
+        onRefresh={() => setSystemRefreshToken((value) => value + 1)}
+      />
 
       <main className="main-content">
         {role === "Cliente" && (
@@ -1332,6 +1316,8 @@ function App() {
             setAssetFolder={setClientAssetFolder}
             uploadedAssets={clientUploadedAssets}
             setUploadedAssets={setClientUploadedAssets}
+            systemRefreshToken={systemRefreshToken}
+            systemSettingsToken={systemSettingsToken}
             onRequestCreated={(request) => {
               setCurrentRequest(request);
               setRequestRefreshToken((value) => value + 1);
@@ -1352,6 +1338,8 @@ function App() {
             clientUploadedAssets={clientUploadedAssets}
             currentRequest={currentRequest}
             requestRefreshToken={requestRefreshToken}
+            systemRefreshToken={systemRefreshToken}
+            systemSettingsToken={systemSettingsToken}
           />
         )}
         {role === "Esperto" && (
@@ -1360,6 +1348,8 @@ function App() {
             updateSelection={updateSelection}
             setProjectStatus={setStatusWithFeedback}
             notify={notify}
+            systemRefreshToken={systemRefreshToken}
+            systemSettingsToken={systemSettingsToken}
             project={{
               ...(currentRequest ? requestToAdminProject(currentRequest) : buildLocalAdminProject(selections, quote.total, projectStatus)),
               status: projectStatus,
@@ -1368,7 +1358,7 @@ function App() {
             }}
           />
         )}
-        {role === "Brand" && <BrandView brandFilter={brandFilter} setBrandFilter={setBrandFilter} setProjectStatus={setStatusWithFeedback} notify={notify} />}
+        {role === "Brand" && <BrandView brandFilter={brandFilter} setBrandFilter={setBrandFilter} setProjectStatus={setStatusWithFeedback} notify={notify} systemRefreshToken={systemRefreshToken} systemSettingsToken={systemSettingsToken} />}
       </main>
     </div>
   );
@@ -1396,6 +1386,8 @@ function ClientView({
   setAssetFolder,
   uploadedAssets,
   setUploadedAssets,
+  systemRefreshToken,
+  systemSettingsToken,
   onRequestCreated,
 }: {
   activeTopics: string[];
@@ -1419,6 +1411,8 @@ function ClientView({
   setAssetFolder: (folder: AssetDraftFolder | null) => void;
   uploadedAssets: UploadedAsset[];
   setUploadedAssets: (value: UploadedAsset[] | ((current: UploadedAsset[]) => UploadedAsset[])) => void;
+  systemRefreshToken: number;
+  systemSettingsToken: number;
   onRequestCreated: (request: WorkshopRequestRecord) => void;
 }) {
   const clientSteps = ["Interessi", "Consigliati", "Workshop", "Personalizza", "Date", "Materiali", "Invio"];
@@ -1725,6 +1719,14 @@ function ClientView({
   const refreshClientSection = (section: string) => {
     notify("Sezione aggiornata", `${section}: dati locali e selezioni riletti nella vista corrente.`);
   };
+  useEffect(() => {
+    if (systemRefreshToken === 0) return;
+    refreshClientSection(clientStep);
+  }, [systemRefreshToken]);
+  useEffect(() => {
+    if (systemSettingsToken === 0) return;
+    notify("Impostazioni cliente", "Le opzioni del percorso restano dentro step e card correnti; usa il selettore ruolo nella barra sistema per cambiare vista.");
+  }, [systemSettingsToken]);
 
   return (
     <section className="view-stack">
@@ -2410,6 +2412,8 @@ function AdminView({
   clientUploadedAssets,
   currentRequest,
   requestRefreshToken,
+  systemRefreshToken,
+  systemSettingsToken,
 }: {
   projectStatus: ProjectStatus;
   quote: ReturnType<typeof useQuotePlaceholder>;
@@ -2423,6 +2427,8 @@ function AdminView({
   clientUploadedAssets: UploadedAsset[];
   currentRequest: WorkshopRequestRecord | null;
   requestRefreshToken: number;
+  systemRefreshToken: number;
+  systemSettingsToken: number;
 }) {
   const [adminTab, setAdminTab] = useState("Operativo");
   const [catalogView, setCatalogView] = useState<"sheet" | "drive">("sheet");
@@ -3433,6 +3439,32 @@ function AdminView({
     }
     refreshRequestQueue();
   };
+  useEffect(() => {
+    if (systemRefreshToken === 0) return;
+    if (adminTab === "Catalogo") {
+      if (catalogView === "drive") syncDriveSlidesFromRoot();
+      else refreshCatalogSection();
+      return;
+    }
+    if (adminTab === "Prezzi") {
+      refreshPricingSection();
+      return;
+    }
+    if (adminTab === "Esperti") {
+      refreshExpertsSection();
+      return;
+    }
+    if (adminTab === "Google") {
+      refreshGoogleHealth();
+      return;
+    }
+    refreshAdminWorkspacePanel();
+  }, [systemRefreshToken]);
+  useEffect(() => {
+    if (systemSettingsToken === 0) return;
+    setAdminTab("Google");
+    notify("Impostazioni Google", "Aperto Google backend: qui gestisci invii, Sheet, Calendar, Drive e runtime.");
+  }, [systemSettingsToken]);
   const automaticPricingRules = rules.filter((rule) => !rule.specialQuote);
   const quoteOnlyRules = rules.filter((rule) => rule.specialQuote);
   const maxAutomaticDiscount = automaticPricingRules.reduce((max, rule) => Math.max(max, rule.discountPercent), 0);
@@ -4422,12 +4454,16 @@ function ExpertView({
   updateSelection,
   setProjectStatus,
   notify,
+  systemRefreshToken,
+  systemSettingsToken,
   project,
 }: {
   selections: Selection[];
   updateSelection: (id: string, patch: Partial<Selection>) => void;
   setProjectStatus: (status: ProjectStatus, title: string, body: string) => void;
   notify: (title: string, body: string) => void;
+  systemRefreshToken: number;
+  systemSettingsToken: number;
   project: AdminProject;
 }) {
   const expertSteps = ["Opportunita", "Assegnati", "Upload deck", "Storico"];
@@ -4611,6 +4647,15 @@ function ExpertView({
     }
     notify("Sezione aggiornata", `${section}: dati esperto riletti nella vista corrente.`);
   };
+  useEffect(() => {
+    if (systemRefreshToken === 0) return;
+    refreshExpertSection(expertStep);
+  }, [systemRefreshToken]);
+  useEffect(() => {
+    if (systemSettingsToken === 0) return;
+    setExpertStep("Upload deck");
+    notify("Impostazioni esperto", "Aperto Upload deck: qui gestisci file e collegamenti Drive dell'esperto.");
+  }, [systemSettingsToken]);
   const confirmExpertCandidacy = async () => {
     if (!candidateModalRow || candidateSending) return;
     const { selection, workshop } = candidateModalRow;
@@ -4938,11 +4983,15 @@ function BrandView({
   setBrandFilter,
   setProjectStatus,
   notify,
+  systemRefreshToken,
+  systemSettingsToken,
 }: {
   brandFilter: string;
   setBrandFilter: (filter: string) => void;
   setProjectStatus: (status: ProjectStatus, title: string, body: string) => void;
   notify: (title: string, body: string) => void;
+  systemRefreshToken: number;
+  systemSettingsToken: number;
 }) {
   const [brandDecks, setBrandDecks] = useState<BrandPresentation[]>([]);
   const [brandProjects, setBrandProjects] = useState<AdminProject[]>([]);
@@ -5077,6 +5126,16 @@ function BrandView({
     return () => {
     };
   }, []);
+  useEffect(() => {
+    if (systemRefreshToken === 0) return;
+    refreshBrandProjects(true);
+    refreshBrandDrive(true);
+  }, [systemRefreshToken]);
+  useEffect(() => {
+    if (systemSettingsToken === 0) return;
+    setBrandFilter("Revisioni");
+    notify("Impostazioni brand", "Vista revisioni attiva: qui gestisci stato deck, versioni e collegamenti Drive.");
+  }, [systemSettingsToken]);
 
   useEffect(() => {
     const currentQueue = brandItems[brandFilter as keyof typeof brandItems];
@@ -5724,6 +5783,66 @@ function Stepper({ steps, activeStep, onStep }: { steps: string[]; activeStep: s
         </button>
       ))}
     </div>
+  );
+}
+
+function SystemBar({
+  role,
+  context,
+  roleMenuOpen,
+  onToggleRoleMenu,
+  onRole,
+  onSettings,
+  onRefresh,
+}: {
+  role: Role;
+  context: string;
+  roleMenuOpen: boolean;
+  onToggleRoleMenu: () => void;
+  onRole: (role: Role) => void;
+  onSettings: () => void;
+  onRefresh: () => void;
+}) {
+  return (
+    <section className="system-bar" aria-label="Barra sistema">
+      <div className="system-role-area">
+        <div className="role-menu">
+          <button
+            className="role-menu-trigger"
+            type="button"
+            aria-label="Cambia ruolo"
+            aria-expanded={roleMenuOpen}
+            onClick={onToggleRoleMenu}
+          >
+            <span>{role}</span>
+            <Menu size={18} />
+          </button>
+          {roleMenuOpen && (
+            <div className="role-switch" aria-label="Seleziona ruolo">
+              {roleOptions.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  className={role === item ? "active" : ""}
+                  onClick={() => onRole(item)}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <span>{context}</span>
+      </div>
+      <div className="system-actions">
+        <ToolIconButton onClick={onSettings} label="Impostazioni sezione">
+          <Settings2 size={18} />
+        </ToolIconButton>
+        <ToolIconButton onClick={onRefresh} label="Ricarica sezione">
+          <RefreshCw size={18} />
+        </ToolIconButton>
+      </div>
+    </section>
   );
 }
 
@@ -6800,7 +6919,7 @@ function WizardPane({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Panel({ title, icon, actions, children }: { title: string; icon: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode }) {
+function Panel({ title, icon, children }: { title: string; icon: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="panel">
       <div className="panel-title">
@@ -6808,7 +6927,6 @@ function Panel({ title, icon, actions, children }: { title: string; icon: React.
           {icon}
           <h2>{title}</h2>
         </div>
-        {actions && <div className="panel-title-actions">{actions}</div>}
       </div>
       {children}
     </section>

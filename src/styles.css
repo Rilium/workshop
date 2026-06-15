@@ -209,6 +209,54 @@ button {
   pointer-events: none;
 }
 
+.system-bar {
+  grid-column: 1 / -1;
+  position: sticky;
+  top: 73px;
+  z-index: 9;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+  padding: 8px 20px 10px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+}
+
+.system-role-area {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.system-role-area > span {
+  min-width: 0;
+  color: var(--neutral-600);
+  font-weight: var(--fw-bold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.system-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+}
+
+.system-actions .tool-icon-btn {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  min-height: 38px;
+  box-shadow: none;
+}
+
 .brand-mark,
 .topbar-controls,
 .button-row,
@@ -6581,6 +6629,16 @@ label {
     align-items: flex-start;
     flex-direction: column;
     padding: 12px 14px;
+  }
+
+  .system-bar {
+    top: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 8px 12px;
+  }
+
+  .system-role-area {
+    gap: var(--sp-2);
   }
 
   .topbar-controls,
