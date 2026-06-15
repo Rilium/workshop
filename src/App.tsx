@@ -1289,6 +1289,7 @@ function App() {
         onToggleRoleMenu={() => setRoleMenuOpen((open) => !open)}
         onRole={changeRole}
         onSettings={() => setSystemSettingsToken((value) => value + 1)}
+        settingsLabel={role === "FunniFin" ? "Apri Google backend" : "Impostazioni sezione"}
         onRefresh={() => setSystemRefreshToken((value) => value + 1)}
       />
 
@@ -2464,6 +2465,7 @@ function AdminView({
   const [selectedExpertProfileId, setSelectedExpertProfileId] = useState<string | null>(null);
   const [workspaceSettings, setWorkspaceSettings] = useState<WorkspaceSetting[]>([]);
   const [sensitiveSettingDrafts, setSensitiveSettingDrafts] = useState<Record<string, string>>({});
+  const [dirtyWorkspaceSettingKeys, setDirtyWorkspaceSettingKeys] = useState<Record<string, boolean>>({});
   const [googleHealth, setGoogleHealth] = useState<GoogleHealth | null>(null);
   const [googleHealthError, setGoogleHealthError] = useState("");
   const [googleHealthLoading, setGoogleHealthLoading] = useState(false);
@@ -3414,6 +3416,11 @@ function AdminView({
           delete next[savedSetting.key];
           return next;
         });
+        setDirtyWorkspaceSettingKeys((current) => {
+          const next = { ...current };
+          delete next[savedSetting.key];
+          return next;
+        });
         notify("Setting salvata su Google", `${savedSetting.label || savedSetting.key} aggiornata.`);
       })
       .catch((error) => {
@@ -4305,8 +4312,9 @@ function AdminView({
                         const isSensitive = Boolean(definition.sensitive);
                         const draftValue = sensitiveSettingDrafts[setting.key] ?? "";
                         const hasStoredValue = Boolean(setting.value);
+                        const isDirty = isSensitive ? draftValue.trim().length > 0 : Boolean(dirtyWorkspaceSettingKeys[setting.key]);
                         return (
-                          <article className="admin-setting-card" key={setting.key}>
+                          <article className={`admin-setting-card ${isDirty ? "dirty" : ""}`} key={setting.key}>
                             <div className="pricing-rule-head">
                               <div>
                                 <span className="pricing-rule-kicker">{definition.group}</span>
@@ -4315,6 +4323,7 @@ function AdminView({
                               </div>
                               {!definition.readOnly && (
                                 <ActionIconButton
+                                  disabled={!isDirty}
                                   onClick={() => {
                                     if (isSensitive && !draftValue.trim()) {
                                       notify("Valore non modificato", hasStoredValue ? "Il valore esiste gia: scrivi un nuovo valore per sostituirlo." : "Scrivi un valore prima di salvarlo.");
@@ -4328,7 +4337,7 @@ function AdminView({
                                       value: isSensitive ? draftValue : setting.value,
                                     });
                                   }}
-                                  label={`Salva ${setting.label || definition.label}`}
+                                  label={isDirty ? `Salva ${setting.label || definition.label}` : `${setting.label || definition.label}: nessuna modifica da salvare`}
                                 >
                                   <Check size={17} />
                                 </ActionIconButton>
@@ -4354,6 +4363,7 @@ function AdminView({
                                     return;
                                   }
                                   const next = { ...definition, ...setting, group: definition.group, label: definition.label, value: event.target.value };
+                                  setDirtyWorkspaceSettingKeys((current) => ({ ...current, [next.key]: true }));
                                   setWorkspaceSettings((current) => {
                                     const exists = current.some((item) => item.key === next.key);
                                     return exists ? current.map((item) => (item.key === next.key ? next : item)) : [...current, next];
@@ -4361,6 +4371,7 @@ function AdminView({
                                 }}
                               />
                             </label>
+                            {isDirty && <small className="admin-setting-dirty">Da salvare</small>}
                             <small className="admin-setting-key">{setting.key}</small>
                           </article>
                         );
@@ -5793,6 +5804,7 @@ function SystemBar({
   onToggleRoleMenu,
   onRole,
   onSettings,
+  settingsLabel,
   onRefresh,
 }: {
   role: Role;
@@ -5801,6 +5813,7 @@ function SystemBar({
   onToggleRoleMenu: () => void;
   onRole: (role: Role) => void;
   onSettings: () => void;
+  settingsLabel: string;
   onRefresh: () => void;
 }) {
   return (
@@ -5835,7 +5848,7 @@ function SystemBar({
         <span>{context}</span>
       </div>
       <div className="system-actions">
-        <ToolIconButton onClick={onSettings} label="Impostazioni sezione">
+        <ToolIconButton onClick={onSettings} label={settingsLabel}>
           <Settings2 size={18} />
         </ToolIconButton>
         <ToolIconButton onClick={onRefresh} label="Ricarica sezione">
@@ -6898,14 +6911,16 @@ function ActionIconButton({
   onClick,
   label,
   children,
+  disabled = false,
 }: {
   variant?: "neutral" | "success" | "danger";
   onClick: () => void;
   label: string;
   children: React.ReactNode;
+  disabled?: boolean;
 }) {
   return (
-    <button className={`action-icon-btn ${variant}`} onClick={onClick} aria-label={label} title={label}>
+    <button className={`action-icon-btn ${variant}`} onClick={onClick} aria-label={label} title={label} disabled={disabled}>
       {children}
     </button>
   );
