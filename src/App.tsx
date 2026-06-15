@@ -38,6 +38,7 @@ import {
   deleteExpert,
   getGoogleHealth,
   listCatalogConfig,
+  listCatalogWorkshops,
   listExperts,
   listPricingRules,
   listWorkspaceSettings,
@@ -45,6 +46,7 @@ import {
   updateExpert,
   updatePricingRule,
   updateWorkspaceSetting,
+  type CatalogWorkshopConfig,
   type GoogleHealth,
   type WorkspaceSetting,
 } from "./googleAdminService";
@@ -938,7 +940,7 @@ const canvaCatalogSource = {
   workshopCards: 17,
   singleWorkshopCards: 16,
   specialOffers: 3,
-  label: "Catalogo workshop Canva",
+  label: "Catalogo visuale Canva",
 };
 
 const projectStatuses: ProjectStatus[] = [
@@ -2423,7 +2425,7 @@ function AdminView({
   requestRefreshToken: number;
 }) {
   const [adminTab, setAdminTab] = useState("Operativo");
-  const [catalogView, setCatalogView] = useState<"canva" | "drive">("canva");
+  const [catalogView, setCatalogView] = useState<"sheet" | "drive">("sheet");
   const [adminSearch, setAdminSearch] = useState("");
   const [adminQueueFilter, setAdminQueueFilter] = useState<"tutti" | "da-fare" | "esperti" | "brand">("tutti");
   const localProject = buildLocalAdminProject(selections, quote.total, projectStatus);
@@ -2448,6 +2450,7 @@ function AdminView({
   const [pricingSavedAt, setPricingSavedAt] = useState("");
   const [expertsSyncedAt, setExpertsSyncedAt] = useState("");
   const [catalogRefreshedAt, setCatalogRefreshedAt] = useState("");
+  const [sheetCatalogWorkshops, setSheetCatalogWorkshops] = useState<CatalogWorkshopConfig[]>([]);
   const [driveSlidesSyncedAt, setDriveSlidesSyncedAt] = useState("");
   const [driveSlidesRoot, setDriveSlidesRoot] = useState("Drive/FunniFin/Presentazioni operative");
   const [driveSlideLinks, setDriveSlideLinks] = useState<Partial<Record<string, DriveSlideLink>>>({});
@@ -2528,21 +2531,26 @@ function AdminView({
   }, []);
   useEffect(() => {
     let alive = true;
-    listCatalogConfig()
-      .then((remoteTopics) => {
-        if (!alive || remoteTopics.length === 0) return;
-        setCatalogEdits((current) => {
-          const next = { ...current };
-          remoteTopics.forEach((topic) => {
-            next[topic.id] = {
-              title: topic.title,
-              description: topic.description,
-              badge: topic.badge,
-              active: topic.active,
-            };
+    Promise.all([listCatalogConfig(), listCatalogWorkshops()])
+      .then(([remoteTopics, remoteWorkshops]) => {
+        if (!alive || (remoteTopics.length === 0 && remoteWorkshops.length === 0)) return;
+        if (remoteTopics.length > 0) {
+          setCatalogEdits((current) => {
+            const next = { ...current };
+            remoteTopics.forEach((topic) => {
+              next[topic.id] = {
+                title: topic.title,
+                description: topic.description,
+                badge: topic.badge,
+                active: topic.active,
+              };
+            });
+            return next;
           });
-          return next;
-        });
+        }
+        if (remoteWorkshops.length > 0) {
+          setSheetCatalogWorkshops(remoteWorkshops);
+        }
         setCatalogRefreshedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
       })
       .catch((error) => {
@@ -3129,12 +3137,14 @@ function AdminView({
     { id: "confirm", title: "Conferma", body: "Evento finale" },
   ] as const;
   const catalogThemeRows = topics.flatMap((topic) => topic.themes.map((theme) => ({ ...theme, topicId: topic.id, topicTitle: topic.title })));
-  const orphanWorkshops = workshops.filter((workshop) => {
+  const catalogWorkshopsForAdmin = sheetCatalogWorkshops.length > 0 ? sheetCatalogWorkshops : workshops;
+  const catalogSourceLabel = sheetCatalogWorkshops.length > 0 ? "Google Sheet" : "fallback locale";
+  const orphanWorkshops = catalogWorkshopsForAdmin.filter((workshop) => {
     const topic = topics.find((item) => item.id === workshop.topicId);
     return !topic || !topic.themes.some((theme) => theme.id === workshop.themeId);
   });
   const catalogAudit = topics.map((topic) => {
-    const topicWorkshops = workshops.filter((workshop) => workshop.topicId === topic.id);
+    const topicWorkshops = catalogWorkshopsForAdmin.filter((workshop) => workshop.topicId === topic.id);
     const themeIds = new Set(topic.themes.map((theme) => theme.id));
     return {
       topic,
@@ -3159,8 +3169,8 @@ function AdminView({
     {
       id: "Catalogo",
       title: "Catalogo vendibile",
-      meta: `${workshops.length} workshop`,
-      body: "Ambiti, temi, testi Canva e slide operative Drive.",
+      meta: `${catalogWorkshopsForAdmin.length} workshop`,
+      body: "Ambiti, categorie e tag da Sheet; presentazioni operative da Drive.",
     },
     {
       id: "Prezzi",
@@ -3195,12 +3205,9 @@ function AdminView({
           };
         }
         return {
-          label: "Sincronizza Canva",
+          label: "Ricarica catalogo Sheet",
           disabled: false,
-          action: () => {
-            setCatalogRefreshedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-            notify("Catalogo Canva verificato", `${topics.length} interessi, ${catalogThemeRows.length} temi e ${workshops.length} workshop vendibili allineati al PDF.`);
-          },
+          action: () => refreshCatalogSection(),
         };
       }
       if (adminTab === "Prezzi") {
@@ -3283,8 +3290,8 @@ function AdminView({
       notify("Slide Drive sincronizzate", `${driveLinkedCount}/${workshops.length} workshop hanno una slide operativa collegata.`);
       return;
     }
-    void listCatalogConfig()
-      .then((remoteTopics) => {
+    void Promise.all([listCatalogConfig(), listCatalogWorkshops()])
+      .then(([remoteTopics, remoteWorkshops]) => {
         if (remoteTopics.length > 0) {
           setCatalogEdits((current) => {
             const next = { ...current };
@@ -3299,8 +3306,16 @@ function AdminView({
             return next;
           });
         }
+        if (remoteWorkshops.length > 0) {
+          setSheetCatalogWorkshops(remoteWorkshops);
+        }
         setCatalogRefreshedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-        notify("Catalogo aggiornato", remoteTopics.length > 0 ? `${remoteTopics.length} topic letti da Google Sheets.` : `${topics.length} interessi, ${catalogThemeRows.length} temi e ${workshops.length} workshop vendibili allineati al PDF.`);
+        notify(
+          "Catalogo Sheet aggiornato",
+          remoteTopics.length + remoteWorkshops.length > 0
+            ? `${remoteTopics.length || topics.length} ambiti e ${remoteWorkshops.length || catalogWorkshopsForAdmin.length} workshop letti da Google Sheets. Canva resta solo reference visuale.`
+            : `${topics.length} interessi, ${catalogThemeRows.length} temi e ${catalogWorkshopsForAdmin.length} workshop disponibili in fallback locale.`,
+        );
       })
       .catch((error) => {
         setCatalogRefreshedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
@@ -3758,11 +3773,11 @@ function AdminView({
                 <RefreshCw size={18} />
               </ToolIconButton>
               <ToolIconButton
-                label="Come funziona Catalogo Canva e Slide Drive"
+                label="Come funziona Catalogo Sheet e Slide Drive"
                 onClick={() =>
                   notify(
-                    "Catalogo Canva e Slide Drive",
-                    "Canva domina dati, nomi, interessi, temi e correlazioni. Drive collega le slide operative: la sync legge la root e sostituisce il file se trova lo stesso nome.",
+                    "Catalogo Sheet e Slide Drive",
+                    "Lo Sheet governa ambiti, categorie, tag e workshop vendibili. Canva resta una reference visuale consultabile dal link. Drive collega le presentazioni operative ai workshop.",
                   )
                 }
               >
@@ -3772,10 +3787,10 @@ function AdminView({
           }
         >
           <div className="catalog-tabs" aria-label="Sezioni catalogo">
-            <button className={catalogView === "canva" ? "active" : ""} onClick={() => setCatalogView("canva")}>
+            <button className={catalogView === "sheet" ? "active" : ""} onClick={() => setCatalogView("sheet")}>
               <BookOpen size={17} />
-              <span>Catalogo Canva</span>
-              <em>{canvaCatalogSource.workshopCards}/{workshops.length}</em>
+              <span>Catalogo Sheet</span>
+              <em>{catalogWorkshopsForAdmin.length} workshop</em>
             </button>
             <button className={catalogView === "drive" ? "active" : ""} onClick={() => setCatalogView("drive")}>
               <Presentation size={17} />
@@ -3784,51 +3799,46 @@ function AdminView({
             </button>
           </div>
 
-          {catalogView === "canva" && (
+          {catalogView === "sheet" && (
             <div className="catalog-sync-view">
               <div className="catalog-source-card">
                 <div>
-                  <span className="eyebrow">Fonte dati catalogo</span>
-                  <strong>{canvaCatalogSource.label}</strong>
+                  <span className="eyebrow">Fonte dati vendibile</span>
+                  <strong>Google Sheet · {catalogSourceLabel}</strong>
                   <em>
                     {catalogRefreshedAt
-                      ? `Sincronizzato alle ${catalogRefreshedAt}`
-                      : `${canvaCatalogSource.fileName}: ${canvaCatalogSource.singleWorkshopCards} workshop singoli + Merenda e bundle`}
+                      ? `Riletto alle ${catalogRefreshedAt}`
+                      : "Ambiti, categorie/tag e workshop arrivano dallo Sheet quando Apps Script risponde."}
                   </em>
                 </div>
                 <div className="catalog-master-actions">
                   <AppButton variant="ghost" onClick={() => window.open(canvaCatalogSource.url, "_blank", "noopener,noreferrer")}>
-                    <ExternalLink size={17} /> Apri Canva
+                    <ExternalLink size={17} /> Apri reference Canva
                   </AppButton>
                   <AppButton
                     variant="secondary"
-                    onClick={() => {
-                      setCatalogRefreshedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-                      notify("Catalogo Canva verificato", `PDF Canva: ${canvaCatalogSource.singleWorkshopCards} workshop singoli + Merenda. Catalogo interno: ${workshops.length} workshop vendibili.`);
-                    }}
+                    onClick={refreshCatalogSection}
                   >
-                    <RefreshCw size={17} /> Sincronizza
+                    <RefreshCw size={17} /> Ricarica Sheet
                   </AppButton>
                 </div>
               </div>
 
               <div className="catalog-health-grid" aria-label="Controlli catalogo cliente">
-                <Info label="Workshop PDF" value={`${canvaCatalogSource.workshopCards}`} />
-                <Info label="Workshop interni" value={String(workshops.length)} />
-                <Info label="Interessi cliente" value={String(topics.length)} />
-                <Info label="Temi mappati" value={String(catalogThemeRows.length)} />
+                <Info label="Fonte" value={catalogSourceLabel} />
+                <Info label="Workshop vendibili" value={String(catalogWorkshopsForAdmin.length)} />
+                <Info label="Ambiti" value={String(topics.length)} />
+                <Info label="Categorie/tag" value={String(catalogThemeRows.length)} />
                 <Info label="Correlazioni rotte" value={String(orphanWorkshops.length)} />
               </div>
 
-              {canvaCatalogSource.workshopCards !== workshops.length && (
-                <div className="inline-status-card warning">
-                  <AlertCircle size={18} />
-                  <span>
-                    Canva/PDF mostra {canvaCatalogSource.singleWorkshopCards} workshop singoli piu Merenda; il catalogo interno ne contiene {workshops.length}.
-                    Le correlazioni cliente restano visibili, ma va riallineato il delta prima della sync operativa.
-                  </span>
-                </div>
-              )}
+              <div className="inline-status-card">
+                <ExternalLink size={18} />
+                <span>{canvaCatalogSource.label}: reference visuale, non sorgente dati. Lo Sheet resta la fonte operativa del catalogo vendibile.</span>
+                <AppButton variant="outline" onClick={() => window.open(canvaCatalogSource.url, "_blank", "noopener,noreferrer")}>
+                  <ExternalLink size={17} /> Apri Canva
+                </AppButton>
+              </div>
 
               <div className="catalog-map-list">
                 {catalogAudit.map(({ topic, workshops: topicWorkshops, mappedThemes, orphanThemeCount }) => (
@@ -4358,7 +4368,7 @@ function AdminView({
       <BottomActionBar
         context={
           adminTab === "Catalogo"
-            ? `Catalogo · ${catalogView === "drive" ? "Slide Drive" : "Canva"}`
+            ? `Catalogo · ${catalogView === "drive" ? "Slide Drive" : "Sheet"}`
             : adminTab === "Google"
               ? "Google backend"
             : `${adminTab}${adminTab === "Operativo" ? ` · ${adminFlowSteps[activeAdminFlowIndex]?.title}` : ""}`
