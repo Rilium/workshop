@@ -3210,6 +3210,13 @@ function AdminView({
           action: () => setAdminActionModal({ type: "price", ruleId: rules[0].id }),
         };
       }
+      if (adminTab === "Google") {
+        return {
+          label: googleHealthLoading ? "Controllo Google..." : "Ricarica stato Google",
+          disabled: googleHealthLoading,
+          action: () => refreshGoogleHealth(),
+        };
+      }
       return {
         label: "Aggiorna vista esperti",
         disabled: false,
@@ -3345,7 +3352,7 @@ function AdminView({
         notify("Esperti locali verificati", error instanceof Error ? error.message : "Google Sheets non disponibile, uso rubrica locale.");
       });
   };
-  const refreshGoogleHealth = () => {
+  const refreshGoogleHealth = (options?: { silent?: boolean }) => {
     setGoogleHealthLoading(true);
     setGoogleHealthError("");
     void Promise.all([getGoogleHealth(), listWorkspaceSettings().catch(() => workspaceSettings)])
@@ -3353,7 +3360,9 @@ function AdminView({
         setGoogleHealth(health);
         setWorkspaceSettings(settings);
         setGoogleHealthLoading(false);
-        notify("Google Health aggiornata", health ? `${health.spreadsheet.requests} richieste, ${health.spreadsheet.events} eventi, quota mail ${health.mail.remainingDailyQuota}.` : "Endpoint Google non configurato.");
+        if (!options?.silent) {
+          notify("Google Health aggiornata", health ? `${health.spreadsheet.requests} richieste, ${health.spreadsheet.events} eventi, quota mail ${health.mail.remainingDailyQuota}.` : "Endpoint Google non configurato.");
+        }
       })
       .catch((error) => {
         setGoogleHealth(null);
@@ -3361,6 +3370,10 @@ function AdminView({
         setGoogleHealthError(error instanceof Error ? error.message : "Health Google non disponibile.");
       });
   };
+  useEffect(() => {
+    if (adminTab !== "Google" || googleHealth || googleHealthLoading) return;
+    refreshGoogleHealth({ silent: true });
+  }, [adminTab]);
   const saveWorkspaceSetting = (setting: WorkspaceSetting) => {
     void updateWorkspaceSetting(setting)
       .then((savedSetting) => {
@@ -4180,13 +4193,14 @@ function AdminView({
             <div className="pricing-hero-card">
               <div>
                 <span className="eyebrow">Workspace Google</span>
-                <strong>{googleHealthLoading ? "Controllo..." : googleHealth ? "Connesso" : "Da verificare"}</strong>
+                <strong>{googleHealthLoading ? "Controllo..." : googleHealth ? "Connesso" : googleHealthError ? "Errore verifica" : "Verifica non eseguita"}</strong>
                 <em>{googleHealth?.checkedAt ?? googleHealthError ?? "Sheets, Calendar, Drive e MailApp"}</em>
               </div>
               <div className="pricing-hero-metrics" aria-label="Stato backend Google">
                 <Info label="Richieste" value={String(googleHealth?.spreadsheet.requests ?? adminProjects.length)} />
                 <Info label="Eventi log" value={String(googleHealth?.spreadsheet.events ?? 0)} />
-                <Info label="Catalogo" value={String(googleHealth?.spreadsheet.catalogTopics ?? Object.keys(catalogEdits).length)} />
+                <Info label="Interessi" value={String(googleHealth?.spreadsheet.catalogTopics ?? Object.keys(catalogEdits).length)} />
+                <Info label="Workshop" value={String(googleHealth?.spreadsheet.catalogWorkshops ?? workshops.length)} />
                 <Info label="Prezzi" value={String(googleHealth?.spreadsheet.pricingRules ?? rules.length)} />
                 <Info label="Esperti" value={String(googleHealth?.spreadsheet.experts ?? expertDirectory.length)} />
                 <Info label="Mail quota" value={String(googleHealth?.mail.remainingDailyQuota ?? "-")} />
@@ -4345,11 +4359,15 @@ function AdminView({
         context={
           adminTab === "Catalogo"
             ? `Catalogo · ${catalogView === "drive" ? "Slide Drive" : "Canva"}`
+            : adminTab === "Google"
+              ? "Google backend"
             : `${adminTab}${adminTab === "Operativo" ? ` · ${adminFlowSteps[activeAdminFlowIndex]?.title}` : ""}`
         }
         detail={
           adminTab === "Catalogo" && catalogView === "drive"
             ? `${driveLinkedCount}/${workshops.length} slide collegate`
+            : adminTab === "Google"
+              ? `Workspace Google · ${googleHealthLoading ? "controllo in corso" : googleHealth ? "connesso" : googleHealthError ? "errore verifica" : "pronto da verificare"}`
             : `${selectedProject.company} · ${statusLabel[activeAdminStatus]}`
         }
         primaryLabel={adminMainAction.label}
