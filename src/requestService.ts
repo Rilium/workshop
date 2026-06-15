@@ -64,6 +64,10 @@ export type WorkshopRequestRecord = {
     folderName?: string;
     folderUrl?: string;
     fileCount?: number;
+    finalDeckUrl?: string;
+    finalDeckTitle?: string;
+    calendarDeckEnabled?: boolean;
+    calendarDeckEnabledAt?: string;
   };
   calendarEvent?: {
     id?: string;

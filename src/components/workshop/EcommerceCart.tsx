@@ -1,0 +1,94 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Send } from "lucide-react";
+import type { Quote, Selection, Workshop } from "../../types/domain";
+import { money } from "../../utils/money";
+import { AppButton } from "../ui/AppButton";
+import { Line } from "../ui/Line";
+import { RemoveWorkshopButton } from "../ui/RemoveWorkshopButton";
+
+export function EcommerceCart({
+  rows,
+  quote,
+  onRemove,
+  onSubmit,
+}: {
+  rows: Array<{ selection: Selection; workshop: Workshop }>;
+  quote: Quote;
+  onRemove: (workshopId: string) => void;
+  onSubmit: () => void;
+}) {
+  const cartRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const updateCartHeight = () => {
+      const node = cartRef.current;
+      if (!node) return;
+      const top = Math.max(8, Math.round(node.getBoundingClientRect().top));
+      node.style.setProperty("--cart-visible-top", `${top}px`);
+    };
+    updateCartHeight();
+    window.addEventListener("resize", updateCartHeight);
+    window.addEventListener("scroll", updateCartHeight, { passive: true });
+    return () => {
+      window.removeEventListener("resize", updateCartHeight);
+      window.removeEventListener("scroll", updateCartHeight);
+    };
+  }, [rows.length]);
+
+  return (
+    <aside ref={cartRef} className="ecommerce-cart" aria-label="Carrello workshop">
+      <button className="cart-head" type="button">
+        <div>
+          <span>Carrello</span>
+          <strong>{rows.length} workshop</strong>
+        </div>
+        <div className="cart-head-total">
+          <strong>{money(quote.total)}</strong>
+        </div>
+      </button>
+
+      <>
+        <div className="cart-lines">
+            {rows.length === 0 && <p>Seleziona un workshop dal catalogo.</p>}
+            {rows.map(({ selection, workshop }) => {
+              const base = selection.duration === "2h" ? workshop.price2h : workshop.price1h;
+              return (
+                <div className="cart-line" key={workshop.id}>
+                  <div>
+                    <strong>{workshop.title}</strong>
+                    <span>
+                      {selection.duration} · {selection.format}
+                      {selection.custom ? ` · su misura +${money(workshop.customExtra)}` : ""}
+                      {selection.promo ? " · promo data" : ""}
+                    </span>
+                  </div>
+                  <div className="cart-line-price">
+                    <strong>{money(base + (selection.custom ? workshop.customExtra : 0))}</strong>
+                    <RemoveWorkshopButton onClick={() => onRemove(workshop.id)} label={workshop.title} compact />
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+
+        <div className="cart-totals">
+            <Line label="Subtotale workshop" value={money(quote.gross)} />
+            {quote.quantityDiscount > 0 && <Line label={quote.rule.name} value={`-${money(quote.quantityDiscount)}`} good />}
+            {quote.promoDiscount > 0 && <Line label="Date promo" value={`-${money(quote.promoDiscount)}`} good />}
+            {quote.customTotal > 0 && <Line label="Su misura" value={`+${money(quote.customTotal)}`} />}
+            <div className="total-line">
+              <span>Totale</span>
+              <strong>{money(quote.total)}</strong>
+            </div>
+            {quote.saved > 0 && <div className="saving">Risparmio: {money(quote.saved)}</div>}
+        </div>
+      </>
+
+      <div className="cart-submit-row">
+        <AppButton variant="secondary" onClick={onSubmit} disabled={rows.length === 0}>
+          <Send size={17} /> Invia
+        </AppButton>
+      </div>
+    </aside>
+  );
+}

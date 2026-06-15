@@ -153,11 +153,12 @@ function handlePost(event) {
 
 function parsePostBody(event) {
   const raw = event.postData && event.postData.contents ? event.postData.contents : "{}";
-  const candidates = [
-    raw,
-    raw.replace(/=+$/, ""),
-    decodeURIComponent(raw).replace(/=+$/, ""),
-  ];
+  const candidates = [raw, raw.replace(/=+$/, "")];
+  try {
+    candidates.push(decodeURIComponent(raw).replace(/=+$/, ""));
+  } catch (error) {
+    // Plain JSON bodies can legitimately contain percent signs in HTML/CSS.
+  }
 
   for (let index = 0; index < candidates.length; index += 1) {
     try {
@@ -231,10 +232,11 @@ function createCalendarEvent(payload) {
 }
 
 function insertCalendarEvent(event, calendarId, start, end, payload) {
+  const sendCalendarInvites = Boolean(payload.sendCalendarInvites);
   try {
     return Calendar.Events.insert(event, calendarId, {
       conferenceDataVersion: 1,
-      sendUpdates: "all",
+      sendUpdates: sendCalendarInvites ? "all" : "none",
     });
   } catch (error) {
     const calendar = CalendarApp.getCalendarById(calendarId);
@@ -244,7 +246,7 @@ function insertCalendarEvent(event, calendarId, start, end, payload) {
     const fallback = calendar.createEvent(event.summary, start, end, {
       description: event.description,
       guests: [payload.managerEmail, getRuntimeInternalRecipient()].filter(Boolean).join(","),
-      sendInvites: true,
+      sendInvites: sendCalendarInvites,
     });
     fallback.setTag("projectId", payload.projectId);
     fallback.setTag("company", payload.company);
@@ -264,6 +266,7 @@ function sendWorkshopRequestEmail(body) {
     to: body.to,
     cc: body.cc || getRuntimeInternalRecipient(),
     subject: body.subject,
+    body: body.text || stripHtml(body.html || ""),
     htmlBody: body.html,
     name: body.fromName || getSettingValue("mail.fromName", "FunniFin Workshop Planner"),
   });
@@ -281,10 +284,60 @@ function sendWorkflowNotification(payload) {
   MailApp.sendEmail({
     to: recipients.join(","),
     subject,
+    body: payload.text || buildWorkflowEmailText(payload),
     htmlBody: html,
     name: payload.fromName || getSettingValue("mail.fromName", "FunniFin Workshop Planner"),
   });
   return { sent: true, subject, recipients };
+}
+
+function stripHtml(html) {
+  return String(html || "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/tr>/gi, "\n")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+\n/g, "\n")
+    .replace(/\n\s+/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+function buildWorkflowEmailText(payload) {
+  const workshops = (payload.workshops || [])
+    .map(function (workshop) {
+      return [
+        "- " + (workshop.title || "Workshop"),
+        workshop.duration || "",
+        workshop.format || "",
+        [workshop.date || "data da confermare", workshop.time || ""].join(" ").trim(),
+        workshop.expertName || "",
+      ].filter(Boolean).join(" · ");
+    })
+    .join("\n");
+  return [
+    buildWorkflowSubject(payload),
+    "",
+    "Progetto: " + (payload.project && payload.project.company ? payload.project.company : ""),
+    "Referente: " + (payload.project && payload.project.manager ? payload.project.manager : ""),
+    "Email: " + (payload.project && payload.project.email ? payload.project.email : ""),
+    "Stato: " + (payload.project && payload.project.status ? payload.project.status : ""),
+    "Preventivo: " + (payload.project && payload.project.quoteTotal ? payload.project.quoteTotal : 0) + " EUR + IVA",
+    "",
+    "Workshop:",
+    workshops,
+    payload.note ? "\nNota: " + payload.note : "",
+    payload.actionUrl ? "\n" + (payload.actionLabel || "Apri") + ": " + payload.actionUrl : "",
+    payload.event && payload.event.htmlLink ? "\nEvento: " + payload.event.htmlLink : "",
+    payload.event && payload.event.meetLink ? "Meet: " + payload.event.meetLink : "",
+  ].filter(Boolean).join("\n");
 }
 
 function createWorkshopRequest(payload) {
@@ -1576,7 +1629,7 @@ function buildEventDescription(payload) {
     "Workshop:",
     workshops,
     payload.driveFolderUrl ? `\nDrive: ${payload.driveFolderUrl}` : "",
-    payload.finalDeckUrl ? `Deck finale: ${payload.finalDeckUrl}` : "",
+    payload.finalDeckUrl ? `Deck finale${payload.finalDeckTitle ? ` (${payload.finalDeckTitle})` : ""}: ${payload.finalDeckUrl}` : "",
   ].filter(Boolean).join("\n");
 }
 

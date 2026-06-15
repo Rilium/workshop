@@ -140,6 +140,50 @@ function buildEmailHtml(payload: WorkshopRequestEmailPayload) {
 	    </div>`;
 }
 
+function buildEmailText(payload: WorkshopRequestEmailPayload) {
+  const workshops = payload.workshops
+    .map((workshop) => `- ${workshop.title}: ${workshop.duration} · ${workshop.format} · ${workshop.date || "data da proporre"} ${workshop.time || ""} · ${euro(workshop.price)}`)
+    .join("\n");
+
+  return [
+    "Richiesta workshop FunniFin ricevuta",
+    "",
+    `Azienda: ${payload.contact.company}`,
+    `Referente: ${payload.contact.firstName} ${payload.contact.lastName}`,
+    `Email: ${payload.contact.email}`,
+    `Telefono: ${payload.contact.phone}`,
+    "",
+    "Workshop:",
+    workshops,
+    "",
+    `Totale: ${euro(payload.quote.total)} + IVA`,
+    `Pacchetto: ${payload.quote.packageName}`,
+  ].join("\n");
+}
+
+function buildWorkflowText(payload: WorkflowNotificationPayload, to: string[]) {
+  const workshops = payload.workshops
+    .map((workshop) => `- ${workshop.title}: ${workshop.duration} · ${workshop.format} · ${workshop.date || "data da confermare"} ${workshop.time || ""}${workshop.expertName ? ` · ${workshop.expertName}` : ""}`)
+    .join("\n");
+
+  return [
+    `FunniFin - ${payload.project.company} - ${payload.phase}`,
+    "",
+    `Destinatari: ${to.join(", ")}`,
+    `Progetto: ${payload.project.company}`,
+    `Referente: ${payload.project.manager} · ${payload.project.email} · ${payload.project.phone}`,
+    `Stato: ${payload.project.status}`,
+    `Preventivo: ${euro(payload.project.quoteTotal)} + IVA`,
+    "",
+    "Workshop:",
+    workshops,
+    payload.note ? `\nNota: ${payload.note}` : "",
+    payload.actionUrl ? `\n${payload.actionLabel || "Apri"}: ${payload.actionUrl}` : "",
+    payload.event?.htmlLink ? `\nEvento: ${payload.event.htmlLink}` : "",
+    payload.event?.meetLink ? `Meet: ${payload.event.meetLink}` : "",
+  ].filter(Boolean).join("\n");
+}
+
 async function postAppsScriptJson<T>(scriptUrl: string, body: unknown): Promise<T> {
   const serialized = JSON.stringify(body);
   const response = await fetch(scriptUrl, {
@@ -168,6 +212,7 @@ export async function sendWorkshopRequestEmail(payload: WorkshopRequestEmailPayl
   const scriptUrl = env[SECRET_SETTINGS.google.env.appScriptDeploymentUrl];
   const subject = `Richiesta workshop FunniFin - ${payload.contact.company}`;
   const html = buildEmailHtml(payload);
+  const text = buildEmailText(payload);
 
   if (scriptUrl) {
     const body = {
@@ -177,6 +222,7 @@ export async function sendWorkshopRequestEmail(payload: WorkshopRequestEmailPayl
       fromName: payload.mail?.fromName || SECRET_SETTINGS.google.email.fromName,
       subject,
       html,
+      text,
       payload,
     };
     try {
@@ -193,6 +239,7 @@ export async function sendWorkshopRequestEmail(payload: WorkshopRequestEmailPayl
     sent: false,
     html,
     subject,
+    text,
     recipients: [payload.contact.email, payload.mail?.cc || SECRET_SETTINGS.google.email.internalRecipient],
   };
 }
@@ -202,6 +249,7 @@ export async function sendWorkflowNotification(payload: WorkflowNotificationPayl
   const scriptUrl = env[SECRET_SETTINGS.google.env.appScriptDeploymentUrl];
   const recipientMap = SECRET_SETTINGS.google.email.testRecipients;
   const to = payload.recipients.map((role) => (role === "client" ? payload.project.email : payload.recipientEmails?.[role] || recipientMap[role]));
+  const text = buildWorkflowText(payload, to);
 
   if (scriptUrl) {
     const body = {
@@ -209,6 +257,7 @@ export async function sendWorkflowNotification(payload: WorkflowNotificationPayl
       payload: {
         ...payload,
         to,
+        text,
         fromName: payload.fromName || SECRET_SETTINGS.google.email.fromName,
         recipientLabels: payload.recipients,
       },

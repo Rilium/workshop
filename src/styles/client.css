@@ -1,0 +1,92 @@
+.client-commerce {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: var(--sp-5);
+  align-items: start;
+  overflow: visible;
+}
+
+.client-shop {
+  min-width: 0;
+  display: grid;
+  gap: var(--sp-4);
+}
+
+.ecommerce-cart {
+  position: sticky;
+  top: 88px;
+  align-self: start;
+  height: calc(100dvh - var(--cart-visible-top, 88px) - 24px);
+  max-height: calc(100dvh - var(--cart-visible-top, 88px) - 24px);
+  display: grid;
+  grid-template-rows: auto minmax(240px, 1fr) auto auto;
+  gap: var(--sp-4);
+  align-content: stretch;
+  overflow: hidden;
+  padding: var(--sp-4);
+  border: var(--card-border);
+  border-radius: var(--radius-2xl);
+  background: var(--white);
+  box-shadow: var(--brand-shadow-hover);
+}
+
+@media (min-width: 981px) {
+  .app-shell.role-cliente .ecommerce-cart {
+    position: sticky;
+    top: 88px;
+    z-index: 7;
+    width: 100%;
+    max-width: 360px;
+  }
+}
+
+@media (max-width: 1180px) {
+  :root {
+    --sticky-topbar-offset: 126px;
+  }
+
+  .topbar {
+    align-items: stretch;
+    flex-direction: row;
+    flex-wrap: nowrap;
+  }
+
+  .topbar-controls {
+    width: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+  }
+
+  .role-switch {
+    width: auto;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .client-commerce {
+    grid-template-columns: 1fr;
+  }
+
+  .ecommerce-cart {
+    display: none;
+  }
+
+  .bottom-action-bar.client-bottom-bar {
+    left: 50%;
+    width: min(1120px, calc(100vw - 28px));
+  }
+
+  .workshop-command-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .workshop-command-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .workshop-command-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}

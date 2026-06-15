@@ -28,6 +28,8 @@ export type CalendarEventPayload = {
   eventMode?: "tentative" | "confirmed";
   driveFolderUrl?: string;
   finalDeckUrl?: string;
+  finalDeckTitle?: string;
+  sendCalendarInvites?: boolean;
 };
 
 export type CalendarEventResult = {
@@ -123,5 +125,8 @@ export async function createWorkshopCalendarEvent(payload: CalendarEventPayload)
     }),
   });
   if (!response.ok) throw new Error("Calendar event request failed");
-  return (await response.json()) as CalendarEventResult;
+  const result = (await response.json().catch(() => null)) as (CalendarEventResult & { ok?: boolean; error?: string }) | null;
+  if (!result) throw new Error("Calendar event response non valida");
+  if (result.ok === false) throw new Error(result.error || "Creazione evento Calendar non riuscita");
+  return result;
 }
