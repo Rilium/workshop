@@ -1,0 +1,18 @@
+{
+  "calendar": {
+    "id": "c3ee95ee617eaacb9155f9c0deff2e226eb78f1c2ab2dca6a972523682928da1@group.calendar.google.com",
+    "appsScriptLookupUrl": "https://script.google.com/macros/s/DEPLOYMENT_ID/exec?action=calendarLookup&name=funnifin%20workshop"
+  },
+  "drive": {
+    "rootFolderId": "",
+    "slidesTemplateFolderId": "",
+    "brandReviewFolderId": "",
+    "expertWorkingFolderId": "",
+    "finalDecksFolderId": ""
+  },
+  "slides": {
+    "masterDecks": {},
+    "brandReviewDecks": {},
+    "expertWorkingDecks": {}
+  }
+}
