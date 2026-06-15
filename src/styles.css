@@ -3106,6 +3106,76 @@ label {
   font-weight: var(--fw-bold);
 }
 
+.sheet-preview-card {
+  min-width: 0;
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  box-shadow: var(--brand-shadow-card);
+}
+
+.sheet-preview-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-3);
+  align-items: center;
+}
+
+.sheet-preview-head > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.sheet-preview-head strong {
+  min-width: 0;
+  color: var(--neutral-900);
+  font-size: var(--text-lg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-preview-head em {
+  min-width: 0;
+  color: var(--neutral-600);
+  font-size: var(--text-sm);
+  font-style: normal;
+  font-weight: var(--fw-bold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-preview-card iframe,
+.sheet-preview-empty {
+  width: 100%;
+  min-height: 360px;
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  background: var(--neutral-50);
+}
+
+.sheet-preview-card iframe {
+  display: block;
+}
+
+.sheet-preview-empty {
+  display: grid;
+  place-items: center;
+  gap: var(--sp-2);
+  color: var(--neutral-600);
+  font-weight: var(--fw-bold);
+  text-align: center;
+}
+
+.sheet-preview-empty svg {
+  color: var(--brand);
+}
+
 .drive-root-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(240px, 0.5fr) auto;
@@ -6564,11 +6634,17 @@ label {
   }
 
   .catalog-source-card,
+  .sheet-preview-head,
   .drive-root-card,
   .expert-management-grid,
   .catalog-map-head,
   .catalog-workshop-mini-list > div {
     grid-template-columns: 1fr;
+  }
+
+  .sheet-preview-card iframe,
+  .sheet-preview-empty {
+    min-height: 280px;
   }
 
   .expert-editor-panel {

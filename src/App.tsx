@@ -3139,6 +3139,9 @@ function AdminView({
   const catalogThemeRows = topics.flatMap((topic) => topic.themes.map((theme) => ({ ...theme, topicId: topic.id, topicTitle: topic.title })));
   const catalogWorkshopsForAdmin = sheetCatalogWorkshops.length > 0 ? sheetCatalogWorkshops : workshops;
   const catalogSourceLabel = sheetCatalogWorkshops.length > 0 ? "Google Sheet" : "fallback locale";
+  const sheetPreviewUrl = googleHealth?.spreadsheet.id
+    ? `https://docs.google.com/spreadsheets/d/${encodeURIComponent(googleHealth.spreadsheet.id)}/preview`
+    : "";
   const orphanWorkshops = catalogWorkshopsForAdmin.filter((workshop) => {
     const topic = topics.find((item) => item.id === workshop.topicId);
     return !topic || !topic.themes.some((theme) => theme.id === workshop.themeId);
@@ -3389,6 +3392,10 @@ function AdminView({
     if (adminTab !== "Google" || googleHealth || googleHealthLoading) return;
     refreshGoogleHealth({ silent: true });
   }, [adminTab]);
+  useEffect(() => {
+    if (adminTab !== "Catalogo" || catalogView !== "sheet" || googleHealth || googleHealthLoading) return;
+    refreshGoogleHealth({ silent: true });
+  }, [adminTab, catalogView]);
   const saveWorkspaceSetting = (setting: WorkspaceSetting) => {
     void updateWorkspaceSetting(setting)
       .then((savedSetting) => {
@@ -3822,6 +3829,34 @@ function AdminView({
                     <RefreshCw size={17} /> Ricarica Sheet
                   </AppButton>
                 </div>
+              </div>
+
+              <div className="sheet-preview-card">
+                <div className="sheet-preview-head">
+                  <div>
+                    <span className="eyebrow">Preview Sheet</span>
+                    <strong>{googleHealth?.spreadsheet.id ? "FunniFin Workshop Requests" : googleHealthLoading ? "Carico Google Sheet..." : "Sheet non ancora verificato"}</strong>
+                    <em>{googleHealth?.spreadsheet.url ?? googleHealthError ?? "La preview appare appena Apps Script conferma lo Sheet collegato."}</em>
+                  </div>
+                  <div className="catalog-master-actions">
+                    {googleHealth?.spreadsheet.url && (
+                      <AppButton variant="ghost" onClick={() => window.open(googleHealth.spreadsheet.url, "_blank", "noopener,noreferrer")}>
+                        <ExternalLink size={17} /> Apri Sheet
+                      </AppButton>
+                    )}
+                    <AppButton variant="secondary" onClick={() => refreshGoogleHealth()}>
+                      <RefreshCw size={17} /> Verifica Sheet
+                    </AppButton>
+                  </div>
+                </div>
+                {sheetPreviewUrl ? (
+                  <iframe title="Preview Google Sheet catalogo FunniFin" src={sheetPreviewUrl} loading="lazy" />
+                ) : (
+                  <div className="sheet-preview-empty">
+                    <FolderKanban size={20} />
+                    <span>{googleHealthLoading ? "Sto leggendo lo Sheet collegato..." : "Premi Verifica Sheet per caricare la preview."}</span>
+                  </div>
+                )}
               </div>
 
               <div className="catalog-health-grid" aria-label="Controlli catalogo cliente">
