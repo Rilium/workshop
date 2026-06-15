@@ -1285,9 +1285,9 @@ button:disabled {
 }
 
 .panel-title {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: var(--sp-3);
   margin-bottom: 16px;
   padding: var(--sp-1);
@@ -1302,6 +1302,7 @@ button:disabled {
 }
 
 .panel-title-actions {
+  justify-self: end;
   flex: 0 0 auto;
   padding-right: var(--sp-1);
 }
@@ -3178,7 +3179,7 @@ label {
 
 .drive-root-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.5fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.5fr);
   gap: var(--sp-3);
   align-items: end;
   padding: var(--sp-4);

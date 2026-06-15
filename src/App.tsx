@@ -3451,6 +3451,15 @@ function AdminView({
       <AdminSectionNav sections={adminSections} activeSection={adminTab} onSection={setAdminTab} />
 
       {adminTab === "Operativo" && (
+        <Panel
+          title="Richieste cliente"
+          icon={<BriefcaseBusiness size={20} />}
+          actions={
+            <ToolIconButton active={requestSyncState.source === "sheet"} onClick={refreshAdminWorkspacePanel} label="Ricarica richieste cliente">
+              <RefreshCw size={18} />
+            </ToolIconButton>
+          }
+        >
         <div className="admin-workbench-v2">
           <aside className="admin-project-queue" aria-label="Coda progetti cliente">
             <div className="queue-control-panel">
@@ -3463,9 +3472,6 @@ function AdminView({
                     {!requestSyncState.loading && requestSyncState.source === "local" && "Vista locale temporanea"}
                   </span>
                 </div>
-                <ToolIconButton active={requestSyncState.source === "sheet"} onClick={refreshRequestQueue} label="Aggiorna registro richieste">
-                  <RefreshCw size={20} />
-                </ToolIconButton>
                 {adminSearch && (
                   <ToolIconButton active onClick={() => setAdminSearch("")} label="Reset ricerca progetti">
                     <X size={20} />
@@ -3568,9 +3574,6 @@ function AdminView({
                     </span>
                   </div>
                   <div className="section-card-actions">
-                    <ToolIconButton onClick={refreshAdminWorkspacePanel} label="Ricarica dati sezione">
-                      <RefreshCw size={18} />
-                    </ToolIconButton>
                     {adminWorkspacePanel === "workshops" && (
                       <ActionIconButton onClick={() => setAdminActionModal({ type: "edit_request" })} label="Modifica richiesta cliente">
                         <Settings2 size={18} />
@@ -3768,6 +3771,7 @@ function AdminView({
             </div>
           </section>
         </div>
+        </Panel>
       )}
 
       {adminTab === "Catalogo" && (
@@ -3776,7 +3780,7 @@ function AdminView({
           icon={<Settings2 size={20} />}
           actions={
             <>
-              <ToolIconButton onClick={refreshCatalogSection} label="Ricarica catalogo">
+              <ToolIconButton onClick={catalogView === "drive" ? syncDriveSlidesFromRoot : refreshCatalogSection} label={catalogView === "drive" ? "Ricarica slide Drive" : "Ricarica catalogo Sheet"}>
                 <RefreshCw size={18} />
               </ToolIconButton>
               <ToolIconButton
@@ -3822,12 +3826,6 @@ function AdminView({
                   <AppButton variant="ghost" onClick={() => window.open(canvaCatalogSource.url, "_blank", "noopener,noreferrer")}>
                     <ExternalLink size={17} /> Apri reference Canva
                   </AppButton>
-                  <AppButton
-                    variant="secondary"
-                    onClick={refreshCatalogSection}
-                  >
-                    <RefreshCw size={17} /> Ricarica Sheet
-                  </AppButton>
                 </div>
               </div>
 
@@ -3844,9 +3842,6 @@ function AdminView({
                         <ExternalLink size={17} /> Apri Sheet
                       </AppButton>
                     )}
-                    <AppButton variant="secondary" onClick={() => refreshGoogleHealth()}>
-                      <RefreshCw size={17} /> Verifica Sheet
-                    </AppButton>
                   </div>
                 </div>
                 {sheetPreviewUrl ? (
@@ -3934,9 +3929,6 @@ function AdminView({
                   Cartella root Drive
                   <input value={driveSlidesRoot} onChange={(event) => setDriveSlidesRoot(event.target.value)} />
                 </label>
-                <AppButton variant="secondary" onClick={syncDriveSlidesFromRoot}>
-                  <RefreshCw size={17} /> Sincronizza root
-                </AppButton>
               </div>
               <div className="catalog-master-head">
                 <div>
@@ -3969,7 +3961,7 @@ function AdminView({
                             notify("Slide verificata", `${workshop.title}: file Drive collegato al workflow operativo.`);
                           }}
                         >
-                          <RefreshCw size={17} /> Verifica
+                          <Check size={17} /> Verifica
                         </AppButton>
                       </div>
                     ) : (
