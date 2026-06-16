@@ -163,7 +163,7 @@ button svg {
   width: 100%;
   margin-top: calc(var(--sticky-pill-bleed) * -1);
   padding-top: var(--sticky-pill-bleed);
-  background: linear-gradient(180deg, rgba(255,255,255,0.97) 70%, rgba(255,255,255,0));
+  background: var(--white);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
 }
@@ -203,8 +203,8 @@ button svg {
   background: var(--white);
   color: var(--neutral-800);
   border: 1.5px solid var(--brand);
-  border-bottom: none;
-  margin-bottom: -1px;
+  border-bottom-color: var(--white);
+  margin-bottom: -1.5px;
   z-index: 2;
 }
 
@@ -271,8 +271,55 @@ button svg {
 
 /* Mobile */
 @media (max-width: 639px) {
+  .ff-stepper-tabs {
+    display: flex;
+    align-items: flex-end;
+    overflow-x: auto;
+    gap: 18px;
+    scrollbar-width: none;
+  }
+
+  .ff-stepper-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
   .ff-tab {
+    flex: 0 0 auto;
+    min-height: 38px;
+    height: 38px;
     padding: 0 8px;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    border: none;
+    border-radius: 10px 10px 0 0;
+    background: transparent;
+    white-space: normal;
+  }
+
+  .ff-tab--active {
+    flex: 0 0 auto;
+    min-width: min(220px, 56vw);
+    min-height: 52px;
+    height: 52px;
+    padding: 0 12px;
+    margin-bottom: 0;
+    border: 1.5px solid var(--brand);
+    border-bottom-color: transparent;
+    background: var(--white);
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .ff-tab--active .ff-tab-label {
+    display: block;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .ff-tab-label {
+    display: none;
   }
 
   .ff-tab--done .ff-tab-label,
@@ -281,7 +328,7 @@ button svg {
   }
 
   .ff-stepper-card {
-    padding: 18px;
+    padding: 22px 18px 18px;
   }
 }
 

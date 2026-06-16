@@ -142,6 +142,12 @@ export function ExpertView({
   useEffect(() => {
     void loadExpertOpportunities(false);
   }, []);
+  const expertActiveIndex = expertSteps.indexOf(expertStep);
+  const expertCompletedSteps = new Set<string>([
+    ...(candidateCount > 0 ? ["Opportunita"] : []),
+    ...(assignedRow ? ["Assegnati"] : []),
+    ...(expertDeckFile ? ["Upload deck"] : []),
+  ]);
   const expertMainAction = (() => {
     if (expertStep === "Opportunita") return { label: "Aggiorna disponibilita", disabled: false, action: () => {
       setAvailabilityUpdatedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
@@ -365,7 +371,7 @@ export function ExpertView({
         ]}
       />
 
-      <Stepper steps={expertSteps} activeStep={expertStep} onStep={setExpertStep}>
+      <Stepper steps={expertSteps} activeStep={expertStep} completedSteps={expertCompletedSteps} onStep={setExpertStep}>
 
       {expertStep === "Opportunita" && (
         <Panel
@@ -549,7 +555,7 @@ export function ExpertView({
       )}
       </Stepper>
       <BottomActionBar
-        context={`Esperto · ${expertStep}`}
+        context={`Step ${expertActiveIndex + 1} — ${expertStep}`}
         detail={`${expertRows.length} opportunita · ${candidateCount} candidature inviate`}
         primaryLabel={expertMainAction.label}
         primaryDisabled={expertMainAction.disabled}

@@ -87,7 +87,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .admin-section-nav,
   .catalog-editor {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -278,13 +277,16 @@
   .brand-review,
   .detail-grid,
   .dashboard-grid,
-  .admin-section-nav,
   .admin-context-panel,
   .admin-request-summary,
   .catalog-editor,
   .opportunity-meta,
   .readiness-panel {
     grid-template-columns: 1fr;
+  }
+
+  .admin-section-nav {
+    --admin-section-min: 220px;
   }
 
   .operational-strip {
@@ -637,6 +639,84 @@
     left: 14px;
     width: min(220px, calc(100vw - 28px));
     min-width: 0;
+  }
+
+  .admin-section-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bottom-action-bar {
+    width: calc(100vw - 16px);
+    padding: calc(var(--sp-3) + 10px) var(--sp-3) var(--sp-3);
+    gap: var(--sp-3);
+    align-items: stretch;
+  }
+
+  .bottom-action-bar.client-bottom-bar {
+    width: calc(100vw - 16px);
+    left: 50%;
+  }
+
+  .bottom-action-copy {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sp-2);
+  }
+
+  .bottom-action-copy > div {
+    gap: 4px;
+  }
+
+  .bottom-action-bar strong {
+    white-space: normal;
+  }
+
+  .bottom-action-copy em {
+    max-width: none;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .bottom-action-buttons {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: var(--sp-2);
+    align-items: stretch;
+  }
+
+  .bottom-action-buttons .app-btn {
+    width: auto;
+  }
+
+  .bottom-action-buttons .bottom-back-btn {
+    grid-column: 1;
+    grid-row: 1;
+    width: 44px;
+    min-width: 44px;
+  }
+
+  .bottom-action-buttons .app-btn:not(.bottom-back-btn):last-child {
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+  }
+
+  .bottom-action-buttons .app-btn:not(.bottom-back-btn):not(:last-child) {
+    grid-column: 1 / -1;
+  }
+
+  .ff-stepper-card,
+  .admin-detail-grid .admin-section-card {
+    border-color: var(--brand);
+    border-top-color: transparent;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-section-nav {
+    grid-template-columns: 1fr;
   }
 }
 

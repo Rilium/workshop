@@ -402,7 +402,9 @@ export function AdminActionModal({
                       key={item.workshop.id}
                       type="button"
                       className={selectedExpertWorkshopId === item.workshop.id ? "active" : ""}
-                      onClick={() => setSelectedExpertWorkshopId(item.workshop.id)}
+                      onClick={() => setSelectedExpertWorkshopId(
+                        selectedExpertWorkshopId === item.workshop.id ? "" : item.workshop.id
+                      )}
                     >
                       <span>{item.assignedExpert ? `assegnato a ${item.assignedExpert}` : "da assegnare"}</span>
                       <strong>{item.workshop.title}</strong>

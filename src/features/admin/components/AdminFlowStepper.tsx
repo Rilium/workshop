@@ -14,26 +14,27 @@ export function AdminFlowStepper({
   onStep: (step: AdminWorkspacePanel) => void;
 }) {
   return (
-    <nav className="admin-flow-stepper" aria-label="Flusso operativo FunniFin">
-      {steps.map((step, index) => {
-        const isDone = completed[step.id];
-        const isActive = activeStep === step.id;
-        return (
-          <button
-            key={step.id}
-            className={`afs-tab ${isDone ? "afs-tab--done" : isActive ? "afs-tab--active" : "afs-tab--future"}`}
-            onClick={() => onStep(step.id)}
-          >
-            <span className="afs-indicator">
-              {isDone ? <Check size={11} /> : index + 1}
-            </span>
-            <span className="afs-copy">
-              <strong>{step.title}</strong>
-              <em>{step.body}</em>
-            </span>
-          </button>
-        );
-      })}
+    <nav className="ff-stepper admin-flow-stepper" aria-label="Flusso operativo FunniFin">
+      <div className="ff-stepper-tabs">
+        {steps.map((step, index) => {
+          const isDone = completed[step.id];
+          const isActive = activeStep === step.id;
+          return (
+            <button
+              key={step.id}
+              className={`ff-tab ${isActive ? "ff-tab--active" : isDone ? "ff-tab--done" : "ff-tab--future"}`}
+              onClick={() => onStep(step.id)}
+              aria-current={isActive ? "step" : undefined}
+              title={step.body}
+            >
+              <span className="ff-tab-indicator">
+                {isDone ? <Check size={11} /> : index + 1}
+              </span>
+              <span className="ff-tab-label">{step.title}</span>
+            </button>
+          );
+        })}
+      </div>
     </nav>
   );
 }

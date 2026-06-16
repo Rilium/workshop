@@ -5,11 +5,14 @@ export function Stepper({
   steps,
   activeStep,
   onStep,
+  completedSteps,
   children,
 }: {
   steps: string[];
   activeStep: string;
   onStep: (step: string) => void;
+  /** If provided, a past step shows ✓ only if its name is in this set */
+  completedSteps?: Set<string>;
   children?: React.ReactNode;
 }) {
   const activeIndex = steps.indexOf(activeStep);
@@ -25,9 +28,9 @@ export function Stepper({
     <div className="ff-stepper">
       <div className="ff-stepper-tabs">
         {steps.map((step, index) => {
-          const isDone = index < activeIndex;
+          const pastActive = index < activeIndex;
+          const isDone = pastActive && (completedSteps ? completedSteps.has(step) : true);
           const isActive = index === activeIndex;
-          const isFuture = index > activeIndex;
           return (
             <button
               key={step}

@@ -10,6 +10,7 @@ export function BottomActionBar({
   priceAfter,
   discountLabel,
   caveat,
+  leftContent,
   primaryLabel,
   primaryDisabled,
   onPrimary,
@@ -19,12 +20,13 @@ export function BottomActionBar({
   onSecondary,
 }: {
   className?: string;
-  context: string;
-  detail: string;
+  context?: string;
+  detail?: string;
   priceBefore?: string;
   priceAfter?: string;
   discountLabel?: string;
   caveat?: string;
+  leftContent?: React.ReactNode;
   primaryLabel: string;
   primaryDisabled?: boolean;
   onPrimary: () => void;
@@ -35,20 +37,22 @@ export function BottomActionBar({
 }) {
   return (
     <aside className={`bottom-action-bar ${className ?? ""}`} aria-label="Azione principale">
-      <div className="bottom-action-copy">
-        <div>
-          <span>{context}</span>
-          <strong>{detail}</strong>
-        </div>
-        {priceAfter && (
-          <div className="bottom-price-stack">
-            {priceBefore && <del>{priceBefore}</del>}
-            <strong>{priceAfter}</strong>
-            {discountLabel && <small>{discountLabel}</small>}
+      {leftContent ?? (
+        <div className="bottom-action-copy">
+          <div>
+            <span>{context}</span>
+            <strong>{detail}</strong>
           </div>
-        )}
-        {caveat && <em>{caveat}</em>}
-      </div>
+          {priceAfter && (
+            <div className="bottom-price-stack">
+              {priceBefore && <del>{priceBefore}</del>}
+              <strong>{priceAfter}</strong>
+              {discountLabel && <small>{discountLabel}</small>}
+            </div>
+          )}
+          {caveat && <em>{caveat}</em>}
+        </div>
+      )}
       <div className="bottom-action-buttons">
         {backLabel && onBack && (
           <AppButton variant="ghost" className="bottom-back-btn" onClick={onBack} aria-label={backLabel} title={backLabel}>

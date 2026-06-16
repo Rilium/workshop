@@ -862,85 +862,74 @@ h3 {
   flex: 0 0 auto;
 }
 
-/* ─── Admin Project Bar ─── */
+/* ─── Bottom bar: project info (left slot, Operativo tab) ─── */
 
-.admin-project-bar {
-  position: fixed;
-  left: 50%;
-  bottom: var(--bottom-sheet-bottom);
-  z-index: var(--z-sheet);
-  width: min(1120px, calc(100vw - 28px));
-  min-height: var(--bottom-sheet-height);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+.bottom-action-copy--project {
   align-items: center;
-  gap: var(--sp-6);
-  padding: var(--sp-4) var(--sp-5);
-  border-radius: var(--radius-2xl);
-  background: linear-gradient(135deg, var(--brand-light), var(--color-amber-soft));
-  box-shadow: 0 14px 40px rgba(13, 39, 45, 0.1);
-  transform: translateX(-50%);
-  border: 1px solid rgba(28, 175, 185, 0.18);
+  gap: var(--sp-5);
 }
 
-.admin-project-bar-left {
+.bottom-project-info {
   min-width: 0;
   display: grid;
-  gap: 3px;
+  gap: 2px;
 }
 
-.admin-project-bar-eyebrow {
-  font-size: var(--text-xs);
+.bottom-project-eyebrow {
+  font-size: var(--text-xs) !important;
   font-weight: var(--fw-xbold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--brand-dark);
+  color: var(--brand-dark) !important;
 }
 
-.admin-project-bar-company {
-  font-size: var(--text-xl);
+.bottom-project-company {
+  font-size: var(--text-lg);
   font-weight: var(--fw-xbold);
-  color: var(--neutral-900);
+  color: var(--neutral-900) !important;
   line-height: 1.1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.admin-project-bar-contact {
+.bottom-project-contact {
   margin: 0;
   font-size: var(--text-sm);
   font-weight: var(--fw-bold);
-  color: var(--neutral-600);
+  color: var(--neutral-500) !important;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.admin-project-bar-right {
+.bottom-project-meta {
   flex: 0 0 auto;
   display: grid;
-  gap: 2px;
+  gap: 1px;
+  padding-left: var(--sp-4);
+  border-left: 1px solid var(--neutral-200);
   text-align: right;
 }
 
-.admin-project-bar-status {
-  font-size: var(--text-sm);
+.bottom-project-status {
+  font-size: var(--text-xs) !important;
   font-weight: var(--fw-xbold);
-  color: var(--brand-dark);
+  color: var(--brand-dark) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
-.admin-project-bar-price {
-  font-size: var(--text-3xl);
+.bottom-project-price {
+  font-size: var(--text-xl);
   font-weight: var(--fw-xbold);
-  color: var(--brand-dark);
+  color: var(--neutral-900) !important;
   line-height: 1;
 }
 
-.admin-project-bar-iva {
+.bottom-project-meta small {
   font-size: var(--text-xs);
-  font-weight: var(--fw-bold);
-  color: var(--neutral-600);
+  color: var(--neutral-500);
 }
 
 .fly-to-bar {

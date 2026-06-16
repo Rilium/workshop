@@ -114,7 +114,6 @@ export function ClientView({
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [emailDeliveryMode, setEmailDeliveryMode] = useState<"sent" | "demo" | "opaque" | "not_sent">("not_sent");
   const [flyToBar, setFlyToBar] = useState<{ id: number; title: string; x: number; y: number } | null>(null);
-  const [showTopicBadges, setShowTopicBadges] = useState(true);
   const [expandedTopicCards, setExpandedTopicCards] = useState<string[]>([]);
   const assetFolderRef = useRef<AssetDraftFolder | null>(null);
   const requestFinalizedRef = useRef(false);
@@ -179,6 +178,12 @@ export function ClientView({
   const activeStepIndex = clientSteps.indexOf(clientStep);
   const goNext = () => setClientStep(clientSteps[Math.min(activeStepIndex + 1, clientSteps.length - 1)]);
   const goBack = () => setClientStep(clientSteps[Math.max(activeStepIndex - 1, 0)]);
+  const clientCompletedSteps = new Set<string>([
+    ...(coveredTopics > 0 || coveredThemes > 0 || selections.length > 0 ? ["Interessi"] : []),
+    ...(selectedWorkshopRows.length > 0 ? ["Consigliati", "Workshop", "Personalizza"] : []),
+    ...(allDatesSelected ? ["Date"] : []),
+    ...(requestFinalized ? ["Materiali", "Invio"] : []),
+  ]);
   const contactReady =
     contact.firstName.trim() &&
     contact.lastName.trim() &&
@@ -418,6 +423,7 @@ export function ClientView({
       <Stepper
         steps={clientSteps}
         activeStep={clientStep}
+        completedSteps={clientCompletedSteps}
         onStep={(step) => {
           setClientStep(step);
           if (step === "Personalizza") {
@@ -440,14 +446,11 @@ export function ClientView({
           >
             <div className="catalog-display-toolbar">
               <span>{topics.length} interessi · {allThemes.length} temi · {workshops.length} workshop</span>
-              <button className={showTopicBadges ? "active" : ""} onClick={() => setShowTopicBadges(!showTopicBadges)}>
-                {showTopicBadges ? "Badge visibili" : "Badge nascosti"}
-              </button>
             </div>
             <div className="topic-grid">
               <button className="topic-card all-topics-card topic-color-all" onClick={selectAllTopics}>
                 <span className="topic-icon"><BookOpen size={22} /></span>
-                {showTopicBadges && <span className="topic-badge">vedi tutti</span>}
+                <span className="topic-badge">vedi tutti</span>
                 <strong>Tutto il catalogo</strong>
                 <small>Mostra tutti gli interessi, i temi e i workshop disponibili.</small>
                 <em>{allThemes.length} temi catalogo · {workshops.length} workshop</em>
@@ -471,7 +474,7 @@ export function ClientView({
                         {topicItem.themes.length} temi catalogo · {count} workshop
                       </em>
                     </button>
-                    {showTopicBadges && topicItem.badge !== "base" && <span className="topic-badge">{topicItem.badge}</span>}
+                    {topicItem.badge !== "base" && <span className="topic-badge">{topicItem.badge}</span>}
                     <div className="topic-theme-preview" aria-label={`Temi ${topicItem.title}`}>
                       {visibleThemes.map((theme) => (
                         <button
@@ -1007,8 +1010,8 @@ export function ClientView({
       </div>
       <BottomActionBar
         className="client-bottom-bar"
-        context={`Cliente · ${clientStep}`}
-        detail={`${selectedWorkshopRows.length} workshop`}
+        context={`Step ${activeStepIndex + 1} — ${clientStep}`}
+        detail={`${selectedWorkshopRows.length} workshop selezionati`}
         priceBefore={quote.saved > 0 ? money(quote.gross) : undefined}
         priceAfter={money(quote.total)}
         discountLabel={quote.saved > 0 ? `Sconto ${money(quote.saved)}` : undefined}

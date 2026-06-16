@@ -52,7 +52,6 @@ import { EventLink } from "../../components/ui/EventLink";
 import { Info } from "../../components/ui/Info";
 import { Panel } from "../../components/ui/Panel";
 import { BottomActionBar } from "../../components/layout/BottomActionBar";
-import { AdminProjectBar } from "../../components/layout/AdminProjectBar";
 import { OperationalStrip } from "../../components/layout/OperationalStrip";
 import { OperatorIdentityCard } from "../../components/layout/OperatorIdentityCard";
 import { RoleHero } from "../../components/layout/RoleHero";
@@ -870,38 +869,45 @@ export function AdminView({
       title: "Richieste cliente",
       meta: `${adminProjects.filter((project) => project.status !== "confermato").length} aperte`,
       body: "Coda, dettaglio progetto, date, assegnazioni e avanzamento stato.",
+      icon: <BriefcaseBusiness size={18} />,
     },
     {
       id: "Catalogo",
       title: "Catalogo vendibile",
       meta: `${catalogWorkshopsForAdmin.length} workshop`,
       body: "Ambiti, categorie e tag da Sheet; presentazioni operative da Drive.",
+      icon: <BookOpen size={18} />,
     },
     {
       id: "Prezzi",
       title: "Regole prezzo",
       meta: `${rules.length} regole`,
       body: "Bundle, sconti quantita, promo e preventivo dinamico.",
+      icon: <CircleDollarSign size={18} />,
     },
     {
       id: "Esperti",
       title: "Pool esperti",
       meta: `${expertDirectory.length} profili`,
       body: "Competenze, disponibilita e assegnazioni ai workshop.",
+      icon: <UsersRound size={18} />,
     },
     {
       id: "Google",
       title: "Google backend",
       meta: googleHealth ? `${googleHealth.spreadsheet.requests} richieste` : "health",
       body: "Sheets, Calendar, Drive, Mail quota e settings operative.",
+      icon: <Settings2 size={18} />,
     },
     {
       id: "Utenti",
       title: "Utenti e inviti",
       meta: `${authUsers.length} utenti`,
       body: "Account autorizzati, ruoli, inviti e richieste di accesso.",
+      icon: <BadgeCheck size={18} />,
     },
   ];
+  const activeAdminSection = adminSections.find((section) => section.id === adminTab) ?? adminSections[0];
   const adminMainAction = (() => {
     if (adminTab !== "Operativo") {
       if (adminTab === "Catalogo") {
@@ -977,6 +983,13 @@ export function AdminView({
       disabled: false,
       action: () => setAdminActionModal({ type: "confirm_event" }),
     };
+  })();
+  const adminBackAction = (() => {
+    if (adminTab !== "Operativo") return undefined;
+    const panels: AdminWorkspacePanel[] = ["workshops", "calendar", "experts", "folder", "confirm"];
+    const idx = panels.indexOf(adminWorkspacePanel);
+    if (idx <= 0) return undefined;
+    return () => setAdminWorkspacePanel(panels[idx - 1]);
   })();
   const refreshRequestQueue = () => {
     setRequestSyncState((current) => ({ ...current, loading: true, error: "" }));
@@ -1297,12 +1310,15 @@ export function AdminView({
               <section className="admin-section-card">
                 <div className="section-card-head">
                   <div>
-                    <strong>
-                      {adminWorkspacePanel === "calendar" && "Date proposte"}
-                      {adminWorkspacePanel === "experts" && "Esperti compatibili"}
-                      {adminWorkspacePanel === "folder" && "Cartella progetto"}
-                      {adminWorkspacePanel === "confirm" && "Conferma evento"}
-                      {adminWorkspacePanel === "workshops" && "Workshop del progetto"}
+                    <strong className="section-card-title">
+                      {activeAdminSection?.icon}
+                      <span>
+                        {adminWorkspacePanel === "calendar" && "Date proposte"}
+                        {adminWorkspacePanel === "experts" && "Esperti compatibili"}
+                        {adminWorkspacePanel === "folder" && "Cartella progetto"}
+                        {adminWorkspacePanel === "confirm" && "Conferma evento"}
+                        {adminWorkspacePanel === "workshops" && "Workshop del progetto"}
+                      </span>
                     </strong>
                     <span>
                       {adminWorkspacePanel === "calendar" && (allProjectDatesApproved ? "Tutte approvate" : "Da verificare")}
@@ -1322,11 +1338,6 @@ export function AdminView({
                 </div>
                 {adminWorkspacePanel === "workshops" && (
                   <div className="admin-workshop-flow-panel">
-                    <div className="admin-request-summary">
-                      <Info label="Cliente" value={selectedProject.company} />
-                      <Info label="Referente" value={selectedProject.manager} />
-                      <Info label="Preventivo" value={`${money(activeAdminQuote)} + IVA`} />
-                    </div>
                     <div className="admin-workshop-list">
                       {selectedProjectRows.map((workshop, index) => (
                         <article key={workshop.id}>
@@ -2206,36 +2217,41 @@ export function AdminView({
           }}
         />
       )}
-      {adminTab === "Operativo" ? (
-        <AdminProjectBar
-          company={selectedProject.company}
-          manager={selectedProject.manager}
-          email={selectedProject.email}
-          phone={selectedProject.phone}
-          status={activeAdminStatus}
-          total={activeAdminQuote}
-        />
-      ) : (
-        <BottomActionBar
-          context={
-            adminTab === "Catalogo"
-              ? `Catalogo · ${catalogView === "drive" ? "Slide Drive" : "Sheet"}`
-              : adminTab === "Google"
-                ? "Google backend"
-                : adminTab
-          }
-          detail={
-            adminTab === "Catalogo" && catalogView === "drive"
-              ? `${driveLinkedCount}/${workshops.length} slide collegate`
-              : adminTab === "Google"
-                ? `Workspace Google · ${googleHealthLoading ? "controllo in corso" : googleHealth ? "connesso" : googleHealthError ? "errore verifica" : "pronto da verificare"}`
-                : `${selectedProject.company} · ${statusLabel[activeAdminStatus]}`
-          }
-          primaryLabel={adminMainAction.label}
-          primaryDisabled={adminMainAction.disabled}
-          onPrimary={adminMainAction.action}
-        />
-      )}
+      <BottomActionBar
+        leftContent={adminTab === "Operativo" ? (
+          <div className="bottom-action-copy bottom-action-copy--project">
+            <div className="bottom-project-info">
+              <span className="bottom-project-eyebrow">
+                Step {activeAdminFlowIndex + 1} — {adminFlowSteps[activeAdminFlowIndex]?.title}
+              </span>
+              <strong className="bottom-project-company">{selectedProject.company}</strong>
+            </div>
+            <div className="bottom-project-meta">
+              <strong className="bottom-project-price">{money(activeAdminQuote)}</strong>
+              <small>+ IVA</small>
+            </div>
+          </div>
+        ) : undefined}
+        context={
+          adminTab === "Catalogo"
+            ? `Catalogo · ${catalogView === "drive" ? "Slide Drive" : "Sheet"}`
+            : adminTab === "Google"
+              ? "Google backend"
+              : adminTab
+        }
+        detail={
+          adminTab === "Catalogo" && catalogView === "drive"
+            ? `${driveLinkedCount}/${workshops.length} slide collegate`
+            : adminTab === "Google"
+              ? `Workspace Google · ${googleHealthLoading ? "controllo in corso" : googleHealth ? "connesso" : googleHealthError ? "errore verifica" : "pronto da verificare"}`
+              : `${selectedProject.company} · ${statusLabel[activeAdminStatus]}`
+        }
+        backLabel={adminBackAction ? "Indietro" : undefined}
+        onBack={adminBackAction ?? undefined}
+        primaryLabel={adminMainAction.label}
+        primaryDisabled={adminMainAction.disabled}
+        onPrimary={adminMainAction.action}
+      />
     </section>
   );
 }
