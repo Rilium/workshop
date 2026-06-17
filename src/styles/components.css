@@ -25,6 +25,30 @@
   animation: skeleton-shimmer 1.25s ease-in-out infinite;
 }
 
+.skeleton--large {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.skeleton-loading-label {
+  position: relative;
+  z-index: 1;
+  width: 15ch;
+  max-width: calc(100% - 32px);
+  overflow: hidden;
+  color: var(--neutral-600);
+  font-size: 0.92rem;
+  font-weight: var(--font-weight-xbold);
+  letter-spacing: 0;
+  line-height: 1.35;
+  text-align: center;
+  white-space: nowrap;
+  border-right: 2px solid currentColor;
+  animation: skeleton-typewriter 1.8s steps(15, end) infinite alternate, skeleton-caret 0.72s step-end infinite;
+}
+
 .skeleton-text {
   display: grid;
   gap: 7px;
@@ -162,9 +186,30 @@
   }
 }
 
+@keyframes skeleton-typewriter {
+  from {
+    width: 0;
+  }
+  to {
+    width: 15ch;
+  }
+}
+
+@keyframes skeleton-caret {
+  50% {
+    border-color: transparent;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .skeleton {
+  .skeleton,
+  .skeleton-loading-label {
     animation: none;
+  }
+
+  .skeleton-loading-label {
+    width: auto;
+    border-right: 0;
   }
 }
 

@@ -1,9 +1,16 @@
 type SkeletonProps = {
   className?: string;
+  label?: string;
+  large?: boolean;
 };
 
-export function Skeleton({ className = "" }: SkeletonProps) {
-  return <span className={`skeleton ${className}`.trim()} aria-hidden="true" />;
+export function Skeleton({ className = "", label = "Sto caricando...", large = false }: SkeletonProps) {
+  const showLabel = large || className.split(" ").includes("skeleton--large");
+  return (
+    <span className={`skeleton ${showLabel ? "skeleton--large" : ""} ${className}`.trim()} aria-hidden="true">
+      {showLabel && <span className="skeleton-loading-label">{label}</span>}
+    </span>
+  );
 }
 
 export function SkeletonText({ lines = 2, className = "" }: SkeletonProps & { lines?: number }) {

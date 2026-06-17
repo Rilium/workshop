@@ -1761,7 +1761,7 @@ export function AdminView({
                 {sheetPreviewUrl ? (
                   <iframe title="Preview Google Sheet catalogo FunniFin" src={sheetPreviewUrl} loading="lazy" />
                 ) : googleHealthLoading ? (
-                  <Skeleton className="sheet-preview-skeleton" />
+                  <Skeleton className="sheet-preview-skeleton" large />
                 ) : (
                   <div className="sheet-preview-empty">
                     <FolderKanban size={20} />

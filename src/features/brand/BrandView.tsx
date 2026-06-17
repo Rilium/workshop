@@ -425,7 +425,7 @@ export function BrandView({
             </div>
             {brandDriveLoading ? (
               <div className="brand-review">
-                <Skeleton className="deck-preview-skeleton" />
+                <Skeleton className="deck-preview-skeleton" large />
               </div>
             ) : !selectedBrandDeck ? (
               <div className="brand-empty-state">
