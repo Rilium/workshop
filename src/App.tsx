@@ -164,6 +164,9 @@ function AppInner() {
 
   const openWelcome = (token: string | null) => {
     if (!token || lastWelcomeTokenRef.current === token) return;
+    const seenKey = `funnifin_welcome_seen_${token}`;
+    if (sessionStorage.getItem(seenKey)) return;
+    sessionStorage.setItem(seenKey, "1");
     lastWelcomeTokenRef.current = token;
     setWelcomeOpen(true);
   };

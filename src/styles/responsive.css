@@ -191,6 +191,28 @@
     padding: 10px 12px;
   }
 
+  .welcome-modal {
+    padding: var(--sp-5);
+    border-radius: var(--radius-xl);
+  }
+
+  .welcome-copy {
+    padding-right: var(--sp-6);
+  }
+
+  .welcome-mini-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .welcome-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .welcome-actions .app-btn {
+    width: 100%;
+  }
+
   .client-commerce {
     grid-template-columns: 1fr;
   }

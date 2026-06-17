@@ -92,7 +92,7 @@ export const SEED_USERS: AuthUser[] = [
 
 const NOTIFICATION_ONLY_EMAILS = ["rinaldi.rilio+1@gmail.com", "rinaldi.rilio+2@gmail.com"];
 const SESSION_KEY = "funnifin_auth_session";
-const SESSION_DURATION_MS = 8 * 60 * 60 * 1000;
+const SESSION_DURATION_MS = 365 * 24 * 60 * 60 * 1000;
 const DEFAULT_CODE_TTL_MS = 10 * 60 * 1000;
 
 const pendingOtps = new Map<string, { otp: string; expiresAt: number }>();
