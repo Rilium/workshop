@@ -1068,8 +1068,24 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--color-muted);
+  min-height: 42px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  background: var(--neutral-50);
+  color: var(--brand-dark);
   font-weight: 800;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.switch-row:has(input[type="checkbox"]:checked),
+.check-row:has(input[type="checkbox"]:checked) {
+  border-color: var(--brand-mid);
+  background: var(--brand-light);
+  box-shadow: 0 8px 22px rgba(28, 175, 185, 0.1);
 }
 
 .custom-preview-toggle {

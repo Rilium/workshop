@@ -476,16 +476,28 @@
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+  width: fit-content;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  background: var(--neutral-50);
   font-size: var(--text-sm);
   font-weight: var(--fw-bold);
-  color: var(--neutral-700);
+  color: var(--brand-dark);
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .login-toggle input {
-  width: 1rem;
-  height: 1rem;
-  margin: 0;
-  accent-color: var(--brand);
+  width: 22px;
+  height: 22px;
+}
+
+.login-toggle:has(input[type="checkbox"]:checked) {
+  border-color: var(--brand-mid);
+  background: var(--brand-light);
+  box-shadow: 0 8px 22px rgba(28, 175, 185, 0.1);
 }
 
 .login-input {

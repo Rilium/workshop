@@ -1501,9 +1501,34 @@ button:disabled {
 }
 
 .toggle-line input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--brand);
+  width: 22px;
+  height: 22px;
+}
+
+.toggle-line:has(input[type="checkbox"]) {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.toggle-line:has(input[type="checkbox"]:disabled) {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.toggle-line:has(input[type="checkbox"]:hover),
+.toggle-line:has(input[type="checkbox"]:focus-visible) {
+  background: rgba(232, 248, 249, 0.72);
+  border-color: var(--brand-mid);
+}
+
+.toggle-line:has(input[type="checkbox"]:checked) {
+  background: var(--brand-light);
+  border-color: var(--brand-mid);
+  box-shadow: 0 8px 22px rgba(28, 175, 185, 0.1);
 }
 
 .event-mode-switch,
