@@ -1676,8 +1676,15 @@ function getSettingsSheet() {
 }
 
 function getOrCreateSheet(spreadsheet, name, headers) {
-  const existing = spreadsheet.getSheetByName(name);
-  const sheet = existing || spreadsheet.insertSheet(name);
+  let sheet = spreadsheet.getSheetByName(name);
+  if (!sheet) {
+    try {
+      sheet = spreadsheet.insertSheet(name);
+    } catch (error) {
+      sheet = spreadsheet.getSheetByName(name);
+      if (!sheet) throw error;
+    }
+  }
   if (sheet.getLastRow() === 0) sheet.appendRow(headers);
   return sheet;
 }
