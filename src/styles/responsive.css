@@ -710,7 +710,24 @@
   .ff-stepper-card,
   .admin-detail-grid .admin-section-card {
     border-color: var(--brand);
-    border-top-color: transparent;
+    border-left-color: var(--brand);
+    border-right-color: var(--brand);
+    border-bottom-color: var(--brand);
+    border-top-color: var(--brand);
+  }
+
+  .workshop-session-head,
+  .workshop-session-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .workshop-session-actions {
+    justify-content: flex-start;
+  }
+
+  .workshop-session-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

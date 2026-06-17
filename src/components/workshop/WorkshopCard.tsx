@@ -34,6 +34,7 @@ import {
 import { topics } from "../../data/catalog";
 import type { Duration, Format, Selection, Workshop } from "../../types/domain";
 import { money } from "../../utils/money";
+import { getWorkshopSelectionPrice } from "../../utils/workshop";
 import { AppButton } from "../ui/AppButton";
 
 export function WorkshopCard({
@@ -51,7 +52,7 @@ export function WorkshopCard({
   onCustomRequest: () => void;
   onCustomInfo: () => void;
 }) {
-  const selectedPrice = selection?.duration === "2h" ? workshop.price2h : workshop.price1h;
+  const selectedPrice = selection ? getWorkshopSelectionPrice(workshop, selection).total : workshop.price1h;
   const topic = topics.find((item) => item.id === workshop.topicId);
   const theme = topic?.themes.find((item) => item.id === workshop.themeId);
   return (

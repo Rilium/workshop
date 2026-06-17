@@ -9,12 +9,13 @@
 }
 
 .app-shell.role-cliente {
-  overflow: visible;
+  overflow-x: clip;
 }
 
 .main-content {
   width: min(1180px, 100%);
   margin: 0 auto;
+  overflow-x: clip;
 }
 
 .app-shell.role-cliente .quote-strip {
@@ -569,7 +570,7 @@
   min-width: 0;
   max-width: 100%;
   padding: 22px 22px 132px;
-  overflow: visible;
+  overflow: clip;
 }
 
 .view-stack {
@@ -582,7 +583,7 @@
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: var(--sp-5);
   align-items: start;
-  overflow: visible;
+  overflow: clip;
 }
 
 .client-shop {

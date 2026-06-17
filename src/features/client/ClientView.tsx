@@ -40,6 +40,7 @@ import { AppButton } from "../../components/ui/AppButton";
 import { EmptyWorkflowState } from "../../components/ui/EmptyWorkflowState";
 import { Panel } from "../../components/ui/Panel";
 import { RemoveWorkshopButton } from "../../components/ui/RemoveWorkshopButton";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { Stepper } from "../../components/ui/Stepper";
 import { ToolIconButton } from "../../components/ui/IconButton";
 import { BottomActionBar } from "../../components/layout/BottomActionBar";
@@ -49,7 +50,7 @@ import { QuoteStrip } from "../../components/workshop/QuoteStrip";
 import { ReadinessPanel } from "../../components/workshop/ReadinessPanel";
 import { SelectedInterestSummary } from "../../components/workshop/SelectedInterestSummary";
 import { WorkshopCard } from "../../components/workshop/WorkshopCard";
-import { topicColorClass } from "../../utils/workshop";
+import { getWorkshopSelectionPrice, topicColorClass } from "../../utils/workshop";
 
 export function ClientView({
   activeTopics,
@@ -152,21 +153,51 @@ export function ClientView({
       (workshopFilters.format === "all" || workshop.formatOptions.includes(workshopFilters.format as Format))
     );
   });
+  const selectedWorkshopIds = useMemo(() => new Set(selections.map((selection) => selection.workshopId)), [selections]);
+  const recommendedWorkshops = useMemo(() => {
+    const activeTopicOrder = new Map(activeTopics.map((id, index) => [id, index]));
+    const activeThemeOrder = new Map(activeThemes.map((id, index) => [id, index]));
+    const orderedCandidates = workshops
+      .filter((workshop) => !selectedWorkshopIds.has(workshop.id))
+      .map((workshop) => {
+        const topicIndex = activeTopicOrder.get(workshop.topicId);
+        const themeIndex = activeThemeOrder.get(workshop.themeId);
+        const matchesTopic = topicIndex !== undefined;
+        const matchesTheme = themeIndex !== undefined;
+        const score = (matchesTheme ? 2000 - themeIndex : 0) + (matchesTopic ? 1000 - topicIndex : 0);
+        return {
+          workshop,
+          score,
+          topicIndex: topicIndex ?? Number.POSITIVE_INFINITY,
+          themeIndex: themeIndex ?? Number.POSITIVE_INFINITY,
+        };
+      })
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score || a.topicIndex - b.topicIndex || a.themeIndex - b.themeIndex || a.workshop.title.localeCompare(b.workshop.title, "it"));
+
+    const picks: Workshop[] = [];
+    const seenTopics = new Set<string>();
+    for (const candidate of orderedCandidates) {
+      if (picks.length >= 3) break;
+      if (seenTopics.has(candidate.workshop.topicId)) continue;
+      picks.push(candidate.workshop);
+      seenTopics.add(candidate.workshop.topicId);
+    }
+
+    if (picks.length < 3) {
+      for (const candidate of orderedCandidates) {
+        if (picks.length >= 3) break;
+        if (picks.some((workshop) => workshop.id === candidate.workshop.id)) continue;
+        picks.push(candidate.workshop);
+      }
+    }
+
+    return picks;
+  }, [activeThemes, activeTopics, selectedWorkshopIds]);
   const selectedWorkshopRows = selections
     .map((selection) => ({ selection, workshop: workshops.find((item) => item.id === selection.workshopId)! }))
     .filter(({ workshop }) => Boolean(workshop));
   const allCatalogActive = activeTopics.length === topics.length && activeThemes.length === allThemes.length;
-  const recommendedWorkshops = workshops
-    .map((workshop) => {
-      const themeMatch = activeThemes.includes(workshop.themeId);
-      const topicMatch = activeTopics.includes(workshop.topicId);
-      const score = (themeMatch ? 4 : 0) + (topicMatch ? 2 : 0) + (workshop.packageAvailable ? 1 : 0);
-      return { workshop, score };
-    })
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score || b.workshop.price1h - a.workshop.price1h)
-    .slice(0, 3)
-    .map(({ workshop }) => workshop);
   const selectedRecommendationCount = recommendedWorkshops.filter((workshop) => selections.some((selection) => selection.workshopId === workshop.id)).length;
   const addRecommendedWorkshops = () => {
     addWorkshops(recommendedWorkshops.map((workshop) => workshop.id));
@@ -252,7 +283,7 @@ export function ClientView({
         format: selection.format,
         date: selection.date,
         time: selection.time,
-        price: (selection.duration === "2h" ? workshop.price2h : workshop.price1h) + (selection.custom ? workshop.customExtra : 0),
+        price: getWorkshopSelectionPrice(workshop, selection).total,
         custom: selection.custom,
         customNote: selection.customNote,
         status: selection.status,
@@ -893,7 +924,21 @@ export function ClientView({
                 Apri cartella Drive: {assetFolder.name}
               </a>
             )}
-            {uploadedAssets.length > 0 && (
+            {uploadingAssets && (
+              <div className="upload-skeleton-list" aria-hidden="true">
+                {Array.from({ length: 2 }).map((_, index) => (
+                  <span className="skeleton-row" key={index}>
+                    <Skeleton className="skeleton-dot" />
+                    <span className="skeleton-text">
+                      <Skeleton className="skeleton-line" />
+                      <Skeleton className="skeleton-line short" />
+                    </span>
+                    <Skeleton className="skeleton-button" />
+                  </span>
+                ))}
+              </div>
+            )}
+            {!uploadingAssets && uploadedAssets.length > 0 && (
               <div className="asset-file-list">
                 {uploadedAssets.map((asset, index) => (
                   <div key={`${asset.name}-${index}`} className="asset-file-row">

@@ -1,5 +1,7 @@
 import type { PricingRule } from "../types/domain";
 
+export const LIVE_FORMAT_EXTRA = 500;
+
 export const initialRules: PricingRule[] = [
   { id: "single", name: "Workshop singolo", min: 1, max: 1, discountPercent: 0 },
   { id: "duo", name: "2 workshop a catalogo", min: 2, max: 2, discountPercent: 0 },

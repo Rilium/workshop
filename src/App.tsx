@@ -18,6 +18,7 @@ import { ExpertView } from "./features/expert/ExpertView";
 import { BrandView } from "./features/brand/BrandView";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { LoginView } from "./features/auth/LoginView";
+import { Skeleton, SkeletonCard } from "./components/ui/Skeleton";
 
 // ─── Inner app (dentro AuthProvider) ──────────────────────────────────────────
 
@@ -65,8 +66,16 @@ function AppInner() {
   // Mostra login per ruoli non-Cliente quando non autenticato
   if (loading) {
     return (
-      <div className="app-shell role-cliente" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <span style={{ color: "var(--color-muted)" }}>Caricamento…</span>
+      <div className="app-shell role-cliente app-boot-skeleton" aria-busy="true">
+        <div className="app-boot-topbar">
+          <Skeleton className="skeleton-title" />
+          <Skeleton className="skeleton-button" />
+        </div>
+        <main className="app-boot-main">
+          <SkeletonCard lines={3} />
+          <SkeletonCard lines={2} />
+          <SkeletonCard lines={2} />
+        </main>
       </div>
     );
   }

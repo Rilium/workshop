@@ -578,6 +578,10 @@
   text-align: left;
 }
 
+.drive-picker-panel > .skeleton-row {
+  grid-template-columns: 24px minmax(0, 1fr) 70px;
+}
+
 .drive-picker-panel > button:hover {
   border-color: var(--brand);
   background: var(--brand-light);

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Send } from "lucide-react";
 import type { Quote, Selection, Workshop } from "../../types/domain";
 import { money } from "../../utils/money";
+import { getWorkshopSelectionPrice } from "../../utils/workshop";
 import { AppButton } from "../ui/AppButton";
 import { Line } from "../ui/Line";
 import { RemoveWorkshopButton } from "../ui/RemoveWorkshopButton";
@@ -51,19 +52,20 @@ export function EcommerceCart({
         <div className="cart-lines">
             {rows.length === 0 && <p>Seleziona un workshop dal catalogo.</p>}
             {rows.map(({ selection, workshop }) => {
-              const base = selection.duration === "2h" ? workshop.price2h : workshop.price1h;
+              const price = getWorkshopSelectionPrice(workshop, selection);
               return (
                 <div className="cart-line" key={workshop.id}>
                   <div>
                     <strong>{workshop.title}</strong>
                     <span>
                       {selection.duration} · {selection.format}
+                      {price.liveExtra > 0 ? ` · live +${money(price.liveExtra)}` : ""}
                       {selection.custom ? ` · su misura +${money(workshop.customExtra)}` : ""}
                       {selection.promo ? " · promo data" : ""}
                     </span>
                   </div>
                   <div className="cart-line-price">
-                    <strong>{money(base + (selection.custom ? workshop.customExtra : 0))}</strong>
+                    <strong>{money(price.total)}</strong>
                     <RemoveWorkshopButton onClick={() => onRemove(workshop.id)} label={workshop.title} compact />
                   </div>
                 </div>

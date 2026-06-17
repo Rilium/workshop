@@ -275,6 +275,10 @@
   border-color: var(--brand-mid);
 }
 
+.project-choice-skeleton {
+  min-height: 84px;
+}
+
 .project-choice-list .queue-status-dot {
   grid-row: 1 / span 3;
   align-self: stretch;
@@ -944,6 +948,7 @@
 }
 
 .admin-detail-grid .admin-section-card {
+  border-color: var(--brand);
   border-top-color: var(--brand);
   border-top-left-radius: 0;
 }
@@ -1037,6 +1042,10 @@
 .folder-preview-list {
   display: grid;
   gap: var(--sp-2);
+}
+
+.folder-preview-list .skeleton-row {
+  grid-template-columns: 24px minmax(0, 1fr) 80px;
 }
 
 .folder-preview-row {

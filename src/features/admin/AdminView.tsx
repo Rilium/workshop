@@ -51,16 +51,19 @@ import { ActionIconButton, ToolIconButton } from "../../components/ui/IconButton
 import { EventLink } from "../../components/ui/EventLink";
 import { Info } from "../../components/ui/Info";
 import { Panel } from "../../components/ui/Panel";
+import { Skeleton, SkeletonCard } from "../../components/ui/Skeleton";
 import { BottomActionBar } from "../../components/layout/BottomActionBar";
 import { OperationalStrip } from "../../components/layout/OperationalStrip";
 import { OperatorIdentityCard } from "../../components/layout/OperatorIdentityCard";
 import { RoleHero } from "../../components/layout/RoleHero";
+import { WorkshopSessionView } from "../../components/workshop/WorkshopSessionView";
 import { roleIdentities } from "../../data/mockData";
 import { AdminActionModal } from "./components/AdminActionModal";
 import { AdminFlowStepper } from "./components/AdminFlowStepper";
 import { AdminSectionNav } from "./components/AdminSectionNav";
 import { CatalogEditModal } from "./components/CatalogEditModal";
 import { ExpertProfileModal } from "./components/ExpertProfileModal";
+import { getWorkshopSelectionPrice } from "../../utils/workshop";
 
 export function AdminView({
   projectStatus,
@@ -317,11 +320,10 @@ export function AdminView({
       })
       .catch((error) => {
         if (!alive) return;
-        const message = error instanceof Error ? error.message : "Lettura richieste non riuscita";
         const fallbackProjects = currentRequest ? [requestToAdminProject(currentRequest)] : [buildLocalAdminProject(selections, quote.total, projectStatus)];
         setAdminProjects(fallbackProjects);
         setSelectedProjectId((current) => (fallbackProjects.some((project) => project.id === current) ? current : fallbackProjects[0].id));
-        setRequestSyncState({ loading: false, error: message, source: currentRequest ? "sheet" : "local" });
+        setRequestSyncState({ loading: false, error: "", source: currentRequest ? "sheet" : "local" });
       });
     return () => {
       alive = false;
@@ -392,7 +394,7 @@ export function AdminView({
         format: row.format,
         date: row.date,
         time: row.time,
-        price: existing?.price ?? (row.duration === "2h" ? row.workshop.price2h : row.workshop.price1h),
+        price: getWorkshopSelectionPrice(row.workshop, { duration: row.duration, format: row.format, custom: existing?.custom ?? false }).total,
         custom: existing?.custom ?? false,
         customNote: existing?.customNote,
         status: existing?.status ?? "selezionato",
@@ -420,7 +422,7 @@ export function AdminView({
     const quoteTotal = records.reduce((total, record) => {
       const workshop = workshops.find((item) => item.id === record.workshopId);
       if (!workshop) return total;
-      return total + (record.duration === "2h" ? workshop.price2h : workshop.price1h);
+      return total + getWorkshopSelectionPrice(workshop, { duration: record.duration, format: record.format, custom: record.custom }).total;
     }, 0);
     return {
       workshops: records,
@@ -740,6 +742,15 @@ export function AdminView({
   const calendarDeckEnabled = Boolean(selectedProject.request?.materials?.calendarDeckEnabled && selectedProject.request.materials.finalDeckUrl);
   const calendarDeckTitle = selectedProject.request?.materials?.finalDeckTitle || selectedProject.request?.materials?.folderName || "";
   const calendarDeckUrl = calendarDeckEnabled ? selectedProject.request?.materials?.finalDeckUrl : undefined;
+  const currentProjectSessionItems = currentProjectSelections.map((row) => ({
+    id: row.workshop.id,
+    title: row.workshop.title,
+    date: row.date,
+    time: row.time,
+    duration: row.duration,
+    format: row.format,
+    expertName: row.assignedExpert,
+  }));
   const eventPrechecks = [
     { label: "Date approvate", done: allProjectDatesApproved },
     { label: "Esperti assegnati", done: currentProjectSelections.length > 0 && currentProjectSelections.every((row) => row.assignedExpert) },
@@ -775,6 +786,7 @@ export function AdminView({
         finalDeckUrl: eventMode === "confirmed" ? calendarDeckUrl : undefined,
         finalDeckTitle: eventMode === "confirmed" ? calendarDeckTitle : undefined,
         sendCalendarInvites: eventMode === "confirmed" && Boolean(choice?.send),
+        existingEventId: eventMode === "confirmed" ? currentProjectEvent?.id : undefined,
         workshops: currentProjectSelections.map((row) => ({
           title: row.workshop.title,
           date: row.date,
@@ -1191,6 +1203,7 @@ export function AdminView({
   const currentRule = quote.rule;
   const currentRuleRange = `${currentRule.min}-${currentRule.max === 99 ? "6+" : currentRule.max}`;
   const currentRuleMode = currentRule.specialQuote ? "su preventivo" : `${currentRule.discountPercent}% sconto`;
+  const showRequestSkeleton = requestSyncState.loading && requestSyncState.source === "local";
   return (
     <section className="admin-console">
       <RoleHero
@@ -1260,8 +1273,10 @@ export function AdminView({
                 </div>
               </div>
             </div>
-            <div className="project-choice-list" aria-label="Progetti in coda">
-              {filteredAdminProjects.map((project) => {
+            <div className="project-choice-list" aria-label="Progetti in coda" aria-busy={requestSyncState.loading}>
+              {showRequestSkeleton ? (
+                Array.from({ length: 4 }).map((_, index) => <SkeletonCard key={index} className="project-choice-skeleton" lines={2} />)
+              ) : filteredAdminProjects.map((project) => {
                 const activeStatus = project.source === "local" ? projectStatus : project.status;
                 const selected = selectedProject.id === project.id;
                 return (
@@ -1364,7 +1379,20 @@ export function AdminView({
                         <CalendarCheck size={17} /> {calendarCheck.loading ? "Verifico..." : "Verifica FreeBusy"}
                       </AppButton>
                     </div>
-                    {currentProjectSelections.map((row) => (
+                    {calendarCheck.loading ? Array.from({ length: Math.max(currentProjectSelections.length, 2) }).map((_, index) => (
+                      <article className="date-review-skeleton" key={`calendar-skeleton-${index}`} aria-hidden="true">
+                        <div>
+                          <Skeleton className="skeleton-title" />
+                          <Skeleton className="skeleton-line" />
+                        </div>
+                        <Skeleton className="skeleton-button" />
+                        <div className="row-actions compact-actions">
+                          <Skeleton className="skeleton-dot" />
+                          <Skeleton className="skeleton-dot" />
+                          <Skeleton className="skeleton-dot" />
+                        </div>
+                      </article>
+                    )) : currentProjectSelections.map((row) => (
                       <article className={row.approval} key={row.workshop.id}>
                         <div>
                           <strong>{row.workshop.title}</strong>
@@ -1472,6 +1500,19 @@ export function AdminView({
                           </div>
                         )}
                       </div>
+                    ) : driveFolderStatus.loading ? (
+                      <div className="folder-preview-list" aria-hidden="true">
+                        {Array.from({ length: 3 }).map((_, index) => (
+                          <span className="skeleton-row" key={`drive-folder-skeleton-${index}`}>
+                            <Skeleton className="skeleton-dot" />
+                            <span className="skeleton-text">
+                              <Skeleton className="skeleton-line" />
+                              <Skeleton className="skeleton-line short" />
+                            </span>
+                            <Skeleton className="skeleton-button" />
+                          </span>
+                        ))}
+                      </div>
                     ) : driveFolderPreview && driveFolderPreview.folders.length + driveFolderPreview.files.length > 0 ? (
                       <div className="folder-preview-list">
                         {[...driveFolderPreview.folders, ...driveFolderPreview.files].map((item) => (
@@ -1500,21 +1541,16 @@ export function AdminView({
                     <Info label="Esperti" value={currentProjectSelections.every((row) => row.assignedExpert) ? "assegnati" : "mancanti"} />
                     <Info label="Deck Calendar" value={calendarDeckEnabled ? calendarDeckTitle || "abilitato da Brand" : "non abilitato da Brand"} />
                     <Info label="Evento" value={currentProjectEvent ? currentProjectEvent.id : "da creare"} />
-                    {currentProjectEvent && (
-                      <div className="inline-status-card">
-                        <Check size={18} />
-                        <div className="inline-status-copy">
-                          <span>
-                            Evento {currentProjectEvent.source === "google-calendar" ? "Google Calendar" : "demo"} creato alle {currentProjectEvent.createdAt}: {currentProjectEvent.workshops} workshop collegati
-                            {currentProjectEvent.fallback ? " · creato senza Meet automatico: controlla Advanced Calendar API" : ""}
-                          </span>
-                          <span className="event-link-row">
-                            <EventLink href={currentProjectEvent.meetLink} label="Apri Meet" />
-                            {currentProjectEvent.htmlLink && <EventLink href={currentProjectEvent.htmlLink} label="Apri Calendar" />}
-                          </span>
-                        </div>
-                      </div>
-                    )}
+                    <WorkshopSessionView
+                      title="Workshop live"
+                      subtitle="Meet, deck e materiali del progetto corrente."
+                      statusLabel={currentProjectEvent ? "Sessione attiva" : "In attesa di evento"}
+                      items={currentProjectSessionItems}
+                      event={currentProjectEvent}
+                      deckTitle={calendarDeckEnabled ? calendarDeckTitle || "abilitato da Brand" : ""}
+                      deckUrl={calendarDeckUrl}
+                      driveFolderUrl={selectedProject.request?.materials?.folderUrl}
+                    />
                   </div>
                 )}
               </section>
@@ -1597,6 +1633,8 @@ export function AdminView({
                 </div>
                 {sheetPreviewUrl ? (
                   <iframe title="Preview Google Sheet catalogo FunniFin" src={sheetPreviewUrl} loading="lazy" />
+                ) : googleHealthLoading ? (
+                  <Skeleton className="sheet-preview-skeleton" />
                 ) : (
                   <div className="sheet-preview-empty">
                     <FolderKanban size={20} />
@@ -1984,14 +2022,25 @@ export function AdminView({
                 <strong>{googleHealthLoading ? "Controllo..." : googleHealth ? "Connesso" : googleHealthError ? "Errore verifica" : "Verifica non eseguita"}</strong>
                 <em>{googleHealth?.checkedAt ?? googleHealthError ?? "Sheets, Calendar, Drive e MailApp"}</em>
               </div>
-              <div className="pricing-hero-metrics" aria-label="Stato backend Google">
-                <Info label="Richieste" value={String(googleHealth?.spreadsheet.requests ?? adminProjects.length)} />
-                <Info label="Eventi log" value={String(googleHealth?.spreadsheet.events ?? 0)} />
-                <Info label="Interessi" value={String(googleHealth?.spreadsheet.catalogTopics ?? Object.keys(catalogEdits).length)} />
-                <Info label="Workshop" value={String(googleHealth?.spreadsheet.catalogWorkshops ?? workshops.length)} />
-                <Info label="Prezzi" value={String(googleHealth?.spreadsheet.pricingRules ?? rules.length)} />
-                <Info label="Esperti" value={String(googleHealth?.spreadsheet.experts ?? expertDirectory.length)} />
-                <Info label="Mail quota" value={String(googleHealth?.mail.remainingDailyQuota ?? "-")} />
+              <div className="pricing-hero-metrics" aria-label="Stato backend Google" aria-busy={googleHealthLoading}>
+                {googleHealthLoading ? (
+                  Array.from({ length: 7 }).map((_, index) => (
+                    <span className="skeleton-metric" key={`google-metric-skeleton-${index}`} aria-hidden="true">
+                      <Skeleton />
+                      <Skeleton />
+                    </span>
+                  ))
+                ) : (
+                  <>
+                    <Info label="Richieste" value={String(googleHealth?.spreadsheet.requests ?? adminProjects.length)} />
+                    <Info label="Eventi log" value={String(googleHealth?.spreadsheet.events ?? 0)} />
+                    <Info label="Interessi" value={String(googleHealth?.spreadsheet.catalogTopics ?? Object.keys(catalogEdits).length)} />
+                    <Info label="Workshop" value={String(googleHealth?.spreadsheet.catalogWorkshops ?? workshops.length)} />
+                    <Info label="Prezzi" value={String(googleHealth?.spreadsheet.pricingRules ?? rules.length)} />
+                    <Info label="Esperti" value={String(googleHealth?.spreadsheet.experts ?? expertDirectory.length)} />
+                    <Info label="Mail quota" value={String(googleHealth?.mail.remainingDailyQuota ?? "-")} />
+                  </>
+                )}
               </div>
             </div>
 

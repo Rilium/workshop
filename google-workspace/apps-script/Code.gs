@@ -182,11 +182,30 @@ function handleFreeBusy(params) {
 function createCalendarEvent(payload) {
   const calendarId = resolveCalendarId();
   const eventMode = payload.eventMode === "tentative" ? "tentative" : "confirmed";
+  const existingEventId = payload.existingEventId || payload.eventId || "";
   const firstWorkshop = payload.workshops[0];
   const start = parseDateTime(firstWorkshop.date, firstWorkshop.time);
   const totalMinutes = payload.workshops.reduce((sum, workshop) => sum + (workshop.duration === "2h" ? 120 : 60), 0);
   const end = new Date(start.getTime() + Math.max(totalMinutes, 60) * 60 * 1000);
   const hasOnlineWorkshop = payload.workshops.some((workshop) => workshop.format === "webinar" || workshop.format === "ibrido");
+  const event = buildCalendarEvent(payload, eventMode, start, end, hasOnlineWorkshop, existingEventId);
+  const created = existingEventId ? updateCalendarEvent(existingEventId, event, calendarId, payload) : insertCalendarEvent(event, calendarId, start, end, payload);
+
+  return {
+    source: "google-calendar",
+    id: created.id,
+    mode: eventMode,
+    htmlLink: created.htmlLink,
+    meetLink: created.hangoutLink || extractMeetLink(created) || "",
+    calendarId,
+    fallback: Boolean(created.fallback),
+    fallbackReason: created.fallbackReason || "",
+    createdAt: Utilities.formatDate(new Date(), SETTINGS.timezone, "dd/MM/yyyy, HH:mm"),
+    workshops: payload.workshops.length,
+  };
+}
+
+function buildCalendarEvent(payload, eventMode, start, end, hasOnlineWorkshop, existingEventId) {
   const requestId = `funnifin-${payload.projectId}-${Date.now()}`;
   const event = {
     summary: `${eventMode === "tentative" ? "[PROVVISORIO]" : "[CONFERMATO]"} FunniFin Workshop - ${payload.company}`,
@@ -206,29 +225,16 @@ function createCalendarEvent(payload) {
     },
   };
 
-  if (hasOnlineWorkshop) {
+  if (eventMode === "confirmed" && hasOnlineWorkshop) {
     event.conferenceData = {
       createRequest: {
-        requestId,
+        requestId: existingEventId ? `${requestId}-confirm` : requestId,
         conferenceSolutionKey: { type: "hangoutsMeet" },
       },
     };
   }
 
-  const created = insertCalendarEvent(event, calendarId, start, end, payload);
-
-  return {
-    source: "google-calendar",
-    id: created.id,
-    mode: eventMode,
-    htmlLink: created.htmlLink,
-    meetLink: created.hangoutLink || extractMeetLink(created) || "",
-    calendarId,
-    fallback: Boolean(created.fallback),
-    fallbackReason: created.fallbackReason || "",
-    createdAt: Utilities.formatDate(new Date(), SETTINGS.timezone, "dd/MM/yyyy, HH:mm"),
-    workshops: payload.workshops.length,
-  };
+  return event;
 }
 
 function insertCalendarEvent(event, calendarId, start, end, payload) {
@@ -253,6 +259,44 @@ function insertCalendarEvent(event, calendarId, start, end, payload) {
     return {
       id: fallback.getId(),
       htmlLink: fallback.getHtmlLink(),
+      hangoutLink: "",
+      conferenceData: null,
+      fallback: true,
+      fallbackReason: String(error.message || error),
+    };
+  }
+}
+
+function updateCalendarEvent(eventId, event, calendarId, payload) {
+  const sendCalendarInvites = Boolean(payload.sendCalendarInvites);
+  const existing = Calendar.Events.get(calendarId, eventId);
+  const patch = {
+    summary: event.summary,
+    status: event.status,
+    description: event.description,
+    start: event.start,
+    end: event.end,
+    attendees: event.attendees,
+    extendedProperties: event.extendedProperties,
+  };
+  if (event.conferenceData) {
+    patch.conferenceData = event.conferenceData;
+  }
+  try {
+    return Calendar.Events.patch(patch, calendarId, eventId, {
+      conferenceDataVersion: 1,
+      sendUpdates: sendCalendarInvites ? "all" : "none",
+    });
+  } catch (error) {
+    if (!existing) {
+      throw new Error(`Evento non trovato: ${eventId}. Errore originale: ${error.message || error}`);
+    }
+    existing.setTitle(event.summary);
+    existing.setDescription(event.description);
+    existing.setTime(new Date(event.start.dateTime), new Date(event.end.dateTime));
+    return {
+      id: existing.getId(),
+      htmlLink: existing.getHtmlLink(),
       hangoutLink: "",
       conferenceData: null,
       fallback: true,

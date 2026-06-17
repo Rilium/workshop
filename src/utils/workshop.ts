@@ -1,4 +1,5 @@
-import type { AdminProject, ProjectStatus, Selection } from "../types/domain";
+import { LIVE_FORMAT_EXTRA } from "../data/pricing";
+import type { AdminProject, ProjectStatus, Selection, Workshop } from "../types/domain";
 import type { WorkshopRequestRecord } from "../requestService";
 
 export function requestToAdminProject(request: WorkshopRequestRecord): AdminProject {
@@ -35,4 +36,16 @@ export function buildLocalAdminProject(selections: Selection[], quoteTotal: numb
 
 export function topicColorClass(topicId: string) {
   return `topic-color-${topicId}`;
+}
+
+export function getWorkshopSelectionPrice(workshop: Workshop, selection: Pick<Selection, "duration" | "format" | "custom">) {
+  const base = selection.duration === "2h" ? workshop.price2h : workshop.price1h;
+  const liveExtra = selection.format === "live" ? LIVE_FORMAT_EXTRA : 0;
+  const customExtra = selection.custom ? workshop.customExtra : 0;
+  return {
+    base,
+    liveExtra,
+    customExtra,
+    total: base + liveExtra + customExtra,
+  };
 }
