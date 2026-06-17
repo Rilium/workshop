@@ -951,7 +951,7 @@ export function AdminView({
         return {
           label: googleHealthLoading ? "Controllo Google..." : "Ricarica stato Google",
           disabled: googleHealthLoading,
-          action: () => refreshGoogleHealth(),
+          action: () => refreshGoogleHealth({ refresh: true }),
         };
       }
       if (adminTab === "Utenti") {
@@ -1201,10 +1201,10 @@ export function AdminView({
         notify("Esperti locali verificati", error instanceof Error ? error.message : "Google Sheets non disponibile, uso rubrica locale.");
       });
   };
-  const refreshGoogleHealth = (options?: { silent?: boolean }) => {
+  const refreshGoogleHealth = (options?: { silent?: boolean; refresh?: boolean }) => {
     setGoogleHealthLoading(true);
     setGoogleHealthError("");
-    void Promise.all([getGoogleHealth(), listWorkspaceSettings().catch(() => workspaceSettings)])
+    void Promise.all([getGoogleHealth({ refresh: options?.refresh }), listWorkspaceSettings().catch(() => workspaceSettings)])
       .then(([health, settings]) => {
         setGoogleHealth(health);
         setWorkspaceSettings(settings);
@@ -1285,7 +1285,7 @@ export function AdminView({
       return;
     }
     if (adminTab === "Google") {
-      refreshGoogleHealth();
+      refreshGoogleHealth({ refresh: true });
       return;
     }
     refreshAdminWorkspacePanel();
@@ -2105,7 +2105,7 @@ export function AdminView({
           title="Google backend"
           icon={<Settings2 size={20} />}
           actions={
-            <ToolIconButton onClick={refreshGoogleHealth} label="Ricarica stato Google">
+            <ToolIconButton onClick={() => refreshGoogleHealth({ refresh: true })} label="Ricarica stato Google">
               <RefreshCw size={18} />
             </ToolIconButton>
           }

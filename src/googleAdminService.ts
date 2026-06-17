@@ -92,6 +92,7 @@ export type GoogleHealth = {
     remainingDailyQuota: number;
   };
   checkedAt: string;
+  cached?: boolean;
 };
 
 function getScriptUrl() {
@@ -107,12 +108,15 @@ function friendlyGoogleError(error: unknown, fallback: string) {
   return message;
 }
 
-async function getAppsScript<T>(action: string): Promise<T | null> {
+async function getAppsScript<T>(action: string, params?: Record<string, string>): Promise<T | null> {
   const scriptUrl = getScriptUrl();
   if (!scriptUrl) return null;
 
   const url = new URL(scriptUrl);
   url.searchParams.set("action", action);
+  Object.entries(params ?? {}).forEach(([key, value]) => {
+    url.searchParams.set(key, value);
+  });
 
   try {
     const response = await fetch(url.toString());
@@ -200,8 +204,8 @@ export async function updateWorkspaceSetting(setting: WorkspaceSetting): Promise
   return result.setting;
 }
 
-export async function getGoogleHealth(): Promise<GoogleHealth | null> {
-  return getAppsScript<GoogleHealth>("googleHealth");
+export async function getGoogleHealth(options?: { refresh?: boolean }): Promise<GoogleHealth | null> {
+  return getAppsScript<GoogleHealth>("googleHealth", options?.refresh ? { refresh: "1" } : undefined);
 }
 
 export async function seedAdminConfig(payload: {

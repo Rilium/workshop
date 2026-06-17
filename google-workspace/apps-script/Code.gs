@@ -78,7 +78,7 @@ function handleGet(event) {
     return jsonResponse(listWorkspaceSettings());
   }
   if (action === "googleHealth") {
-    return jsonResponse(getGoogleHealth());
+    return jsonResponse(getGoogleHealth(event.parameter));
   }
   if (action === "listAdminConfig") {
     return jsonResponse(listAdminConfig());
@@ -904,13 +904,28 @@ function rowToSetting(row) {
   }
 }
 
-function getGoogleHealth() {
+function getGoogleHealth(params) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = "funnifin_google_health_v1";
+  const forceRefresh = params && String(params.refresh || "") === "1";
+  if (!forceRefresh) {
+    const cachedHealth = cache.get(cacheKey);
+    if (cachedHealth) {
+      try {
+        const health = JSON.parse(cachedHealth);
+        health.cached = true;
+        return health;
+      } catch (error) {
+        cache.remove(cacheKey);
+      }
+    }
+  }
   const spreadsheet = getRequestsSpreadsheet();
   const calendarId = getRuntimeCalendarId();
   const calendarName = getRuntimeCalendarName();
   const driveRootFolderId = getRuntimeDriveRootFolderId();
   const slidesRootFolderId = getRuntimeSlidesRootFolderId();
-  return {
+  const health = {
     ok: true,
     source: "google-workspace",
     spreadsheet: {
@@ -938,7 +953,10 @@ function getGoogleHealth() {
       remainingDailyQuota: MailApp.getRemainingDailyQuota(),
     },
     checkedAt: formatTimestamp(new Date()),
+    cached: false,
   };
+  cache.put(cacheKey, JSON.stringify(health), 60);
+  return health;
 }
 
 function listAdminConfig() {
