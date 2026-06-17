@@ -953,6 +953,13 @@ export function AdminView({
           action: () => refreshGoogleHealth(),
         };
       }
+      if (adminTab === "Utenti") {
+        return {
+          label: accessRequests.length > 0 ? "Rivedi richieste accesso" : "Utenti aggiornati",
+          disabled: accessRequests.length === 0,
+          action: () => notify("Richieste accesso", `${accessRequests.length} richieste in attesa nella vista utenti.`),
+        };
+      }
       return {
         label: "Aggiorna vista esperti",
         disabled: false,
@@ -1002,6 +1009,96 @@ export function AdminView({
     const idx = panels.indexOf(adminWorkspacePanel);
     if (idx <= 0) return undefined;
     return () => setAdminWorkspacePanel(panels[idx - 1]);
+  })();
+  const currentRule = quote.rule;
+  const currentRuleRange = `${currentRule.min}-${currentRule.max === 99 ? "6+" : currentRule.max}`;
+  const currentRuleMode = currentRule.specialQuote ? "su preventivo" : `${currentRule.discountPercent}% sconto`;
+  const adminBottomState = (() => {
+    if (adminTab === "Operativo") {
+      if (adminWorkspacePanel === "workshops") {
+        return {
+          eyebrow: `Step ${activeAdminFlowIndex + 1} - Richiesta`,
+          title: selectedProject.company,
+          detail: `${selectedProjectRows.length} workshop · ${requestSyncState.source === "sheet" ? "registro Google" : "vista locale"}`,
+          meta: money(activeAdminQuote),
+        };
+      }
+      if (adminWorkspacePanel === "calendar") {
+        const approved = currentProjectSelections.filter((row) => row.approval === "approved").length;
+        return {
+          eyebrow: `Step ${activeAdminFlowIndex + 1} - Date`,
+          title: selectedProject.company,
+          detail: calendarCheck.loading
+            ? "Verifica Calendar FreeBusy in corso"
+            : `${approved}/${currentProjectSelections.length} date approvate`,
+          meta: allProjectDatesApproved ? "date ok" : "da verificare",
+        };
+      }
+      if (adminWorkspacePanel === "experts") {
+        const assigned = currentProjectSelections.filter((row) => row.assignedExpert).length;
+        return {
+          eyebrow: `Step ${activeAdminFlowIndex + 1} - Esperti`,
+          title: selectedProject.company,
+          detail: `${assigned}/${currentProjectSelections.length} workshop assegnati`,
+          meta: assigned === currentProjectSelections.length ? "pool ok" : "assegna esperti",
+        };
+      }
+      if (adminWorkspacePanel === "folder") {
+        const driveCount = clientAssetFolder ? clientUploadedAssets.length : (driveFolderPreview?.folders.length ?? 0) + (driveFolderPreview?.files.length ?? 0);
+        return {
+          eyebrow: `Step ${activeAdminFlowIndex + 1} - Materiali`,
+          title: clientAssetFolder?.name ?? driveFolderPreview?.folder.name ?? selectedProject.company,
+          detail: driveFolderStatus.loading ? "Lettura Drive in corso" : `${driveCount} elementi materiali`,
+          meta: activeAdminStatus === "in_revisione_brand" ? "brand" : "Drive",
+        };
+      }
+      return {
+        eyebrow: `Step ${activeAdminFlowIndex + 1} - Conferma`,
+        title: selectedProject.company,
+        detail: currentProjectEvent ? `Evento ${currentProjectEvent.id}` : "Evento Calendar da creare",
+        meta: currentProjectEvent ? "live" : "precheck",
+      };
+    }
+    if (adminTab === "Catalogo") {
+      return {
+        eyebrow: catalogView === "drive" ? "Catalogo - Slide Drive" : "Catalogo - Sheet",
+        title: catalogView === "drive" ? `${driveLinkedCount}/${workshops.length} slide collegate` : `${catalogWorkshopsForAdmin.length} workshop vendibili`,
+        detail: catalogView === "drive"
+          ? driveSlidesSyncedAt ? `Sincronizzato alle ${driveSlidesSyncedAt}` : "Collega presentazioni operative ai workshop"
+          : catalogRefreshedAt ? `Riletto alle ${catalogRefreshedAt}` : `${catalogSourceLabel} attivo`,
+        meta: catalogView === "drive" ? "Drive" : "Sheet",
+      };
+    }
+    if (adminTab === "Prezzi") {
+      return {
+        eyebrow: "Prezzi - Regole",
+        title: `${rules.length} regole prezzo`,
+        detail: pricingSavedAt ? `Ultimo salvataggio ${pricingSavedAt}` : `${currentRule.name} · ${currentRuleMode}`,
+        meta: currentRuleRange,
+      };
+    }
+    if (adminTab === "Esperti") {
+      return {
+        eyebrow: "Esperti - Pool",
+        title: `${expertDirectory.length} profili`,
+        detail: expertsSyncedAt ? `Aggiornati alle ${expertsSyncedAt}` : `${currentProjectSelections.length} workshop nel progetto attivo`,
+        meta: `${currentProjectSelections.filter((row) => row.assignedExpert).length} assegnati`,
+      };
+    }
+    if (adminTab === "Google") {
+      return {
+        eyebrow: "Google backend",
+        title: googleHealthLoading ? "Controllo in corso" : googleHealth ? "Workspace connesso" : googleHealthError ? "Errore verifica" : "Verifica non eseguita",
+        detail: googleHealth?.checkedAt ?? googleHealthError ?? "Sheets, Calendar, Drive e MailApp",
+        meta: googleHealth ? `${googleHealth.spreadsheet.requests} richieste` : "health",
+      };
+    }
+    return {
+      eyebrow: "Utenti - Accessi",
+      title: `${authUsers.length} account attivi`,
+      detail: accessRequests.length > 0 ? `${accessRequests.length} richieste in attesa` : "Nessuna richiesta di accesso in attesa",
+      meta: `${authUsers.filter((user) => !user.disabled).length} attivi`,
+    };
   })();
   const refreshRequestQueue = () => {
     setRequestSyncState((current) => ({ ...current, loading: true, error: "" }));
@@ -1200,9 +1297,6 @@ export function AdminView({
   const automaticPricingRules = rules.filter((rule) => !rule.specialQuote);
   const quoteOnlyRules = rules.filter((rule) => rule.specialQuote);
   const maxAutomaticDiscount = automaticPricingRules.reduce((max, rule) => Math.max(max, rule.discountPercent), 0);
-  const currentRule = quote.rule;
-  const currentRuleRange = `${currentRule.min}-${currentRule.max === 99 ? "6+" : currentRule.max}`;
-  const currentRuleMode = currentRule.specialQuote ? "su preventivo" : `${currentRule.discountPercent}% sconto`;
   const showRequestSkeleton = requestSyncState.loading && requestSyncState.source === "local";
   return (
     <section className="admin-console">
@@ -2267,20 +2361,20 @@ export function AdminView({
         />
       )}
       <BottomActionBar
-        leftContent={adminTab === "Operativo" ? (
-          <div className="bottom-action-copy bottom-action-copy--project">
+        leftContent={
+          <div className="bottom-action-copy bottom-action-copy--project bottom-action-copy--admin">
             <div className="bottom-project-info">
               <span className="bottom-project-eyebrow">
-                Step {activeAdminFlowIndex + 1} — {adminFlowSteps[activeAdminFlowIndex]?.title}
+                {adminBottomState.eyebrow}
               </span>
-              <strong className="bottom-project-company">{selectedProject.company}</strong>
+              <strong className="bottom-project-company">{adminBottomState.title}</strong>
+              <small className="bottom-project-detail">{adminBottomState.detail}</small>
             </div>
             <div className="bottom-project-meta">
-              <strong className="bottom-project-price">{money(activeAdminQuote)}</strong>
-              <small>+ IVA</small>
+              <strong className="bottom-project-price">{adminBottomState.meta}</strong>
             </div>
           </div>
-        ) : undefined}
+        }
         context={
           adminTab === "Catalogo"
             ? `Catalogo · ${catalogView === "drive" ? "Slide Drive" : "Sheet"}`

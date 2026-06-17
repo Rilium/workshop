@@ -904,6 +904,18 @@ h3 {
   white-space: nowrap;
 }
 
+.bottom-project-detail {
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  color: var(--neutral-600);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .bottom-project-meta {
   flex: 0 0 auto;
   display: grid;
@@ -925,7 +937,8 @@ h3 {
   font-size: var(--text-xl);
   font-weight: var(--fw-xbold);
   color: var(--neutral-900) !important;
-  line-height: 1;
+  line-height: 1.05;
+  white-space: nowrap;
 }
 
 .bottom-project-meta small {
