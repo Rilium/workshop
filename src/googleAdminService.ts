@@ -100,6 +100,13 @@ function getScriptUrl() {
   ];
 }
 
+function friendlyGoogleError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : "";
+  if (!message) return fallback;
+  if (/failed to fetch/i.test(message) || /networkerror/i.test(message)) return fallback;
+  return message;
+}
+
 async function getAppsScript<T>(action: string): Promise<T | null> {
   const scriptUrl = getScriptUrl();
   if (!scriptUrl) return null;
@@ -107,28 +114,36 @@ async function getAppsScript<T>(action: string): Promise<T | null> {
   const url = new URL(scriptUrl);
   url.searchParams.set("action", action);
 
-  const response = await fetch(url.toString());
-  if (!response.ok) throw new Error(`Lettura ${action} non riuscita`);
-  const result = (await response.json().catch(() => null)) as (T & { ok?: boolean; error?: string }) | null;
-  if (!result) throw new Error("Apps Script ha risposto con un formato non valido");
-  if (result.ok === false) throw new Error(result.error || `Lettura ${action} non riuscita`);
-  return result;
+  try {
+    const response = await fetch(url.toString());
+    if (!response.ok) throw new Error(`Lettura ${action} non riuscita`);
+    const result = (await response.json().catch(() => null)) as (T & { ok?: boolean; error?: string }) | null;
+    if (!result) throw new Error("Apps Script ha risposto con un formato non valido");
+    if (result.ok === false) throw new Error(result.error || `Lettura ${action} non riuscita`);
+    return result;
+  } catch (error) {
+    throw new Error(friendlyGoogleError(error, `Connessione Google non disponibile per ${action}.`));
+  }
 }
 
 async function postAppsScript<T>(action: string, payload: unknown): Promise<T> {
   const scriptUrl = getScriptUrl();
   if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
-  const response = await fetch(scriptUrl, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action, payload }),
-  });
-  if (!response.ok) throw new Error(`Salvataggio ${action} non riuscito`);
-  const result = (await response.json().catch(() => null)) as (T & { ok?: boolean; error?: string }) | null;
-  if (!result) throw new Error("Apps Script ha risposto con un formato non valido");
-  if (result.ok === false) throw new Error(result.error || `Salvataggio ${action} non riuscito`);
-  return result;
+  try {
+    const response = await fetch(scriptUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action, payload }),
+    });
+    if (!response.ok) throw new Error(`Salvataggio ${action} non riuscito`);
+    const result = (await response.json().catch(() => null)) as (T & { ok?: boolean; error?: string }) | null;
+    if (!result) throw new Error("Apps Script ha risposto con un formato non valido");
+    if (result.ok === false) throw new Error(result.error || `Salvataggio ${action} non riuscito`);
+    return result;
+  } catch (error) {
+    throw new Error(friendlyGoogleError(error, `Connessione Google non disponibile per ${action}.`));
+  }
 }
 
 export async function listCatalogConfig(): Promise<CatalogTopicConfig[]> {

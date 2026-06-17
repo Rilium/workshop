@@ -90,6 +90,13 @@ function getScriptUrl() {
   ];
 }
 
+function friendlyRequestError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : "";
+  if (!message) return fallback;
+  if (/failed to fetch/i.test(message) || /networkerror/i.test(message)) return fallback;
+  return message;
+}
+
 async function postAppsScript<T>(body: unknown): Promise<T> {
   const scriptUrl = getScriptUrl();
   if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
@@ -171,7 +178,7 @@ export async function createWorkshopRequest(payload: CreateWorkshopRequestPayloa
     const result = await postAppsScript<{ request: WorkshopRequestRecord }>(body);
     return result.request;
   } catch (error) {
-    await postAppsScriptOpaque(body);
+    await postAppsScriptOpaque(body).catch(() => {});
     return buildRequestRecord(id, payload);
   }
 }
@@ -183,12 +190,16 @@ export async function listWorkshopRequests(): Promise<WorkshopRequestRecord[]> {
   const url = new URL(scriptUrl);
   url.searchParams.set("action", "listWorkshopRequests");
 
-  const response = await fetch(url.toString());
-  if (!response.ok) throw new Error("Lettura richieste non riuscita");
-  const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; requests?: WorkshopRequestRecord[] } | null;
-  if (!result) throw new Error("Apps Script ha risposto con un formato non valido");
-  if (result.ok === false) throw new Error(result.error || "Lettura richieste non riuscita");
-  return result.requests ?? [];
+  try {
+    const response = await fetch(url.toString());
+    if (!response.ok) throw new Error("Lettura richieste non riuscita");
+    const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; requests?: WorkshopRequestRecord[] } | null;
+    if (!result) throw new Error("Apps Script ha risposto con un formato non valido");
+    if (result.ok === false) throw new Error(result.error || "Lettura richieste non riuscita");
+    return result.requests ?? [];
+  } catch (error) {
+    throw new Error(friendlyRequestError(error, "Connessione al registro richieste non disponibile. Uso la vista locale."));
+  }
 }
 
 export async function updateWorkshopRequest(

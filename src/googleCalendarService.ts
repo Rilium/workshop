@@ -65,6 +65,13 @@ const DEFAULT_SLOTS = [
   "23:00",
 ];
 
+function friendlyCalendarError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : "";
+  if (!message) return fallback;
+  if (/failed to fetch/i.test(message) || /networkerror/i.test(message)) return fallback;
+  return message;
+}
+
 export async function getWorkshopAvailability(params: {
   date: string;
   duration: "1h" | "2h";
@@ -96,9 +103,13 @@ export async function getWorkshopAvailability(params: {
   url.searchParams.set("format", params.format);
   if (params.expertIds?.length) url.searchParams.set("expertIds", params.expertIds.join(","));
 
-  const response = await fetch(url.toString());
-  if (!response.ok) throw new Error("Calendar FreeBusy request failed");
-  return (await response.json()) as CalendarAvailability;
+  try {
+    const response = await fetch(url.toString());
+    if (!response.ok) throw new Error("Calendar FreeBusy request failed");
+    return (await response.json()) as CalendarAvailability;
+  } catch (error) {
+    throw new Error(friendlyCalendarError(error, "Connessione Calendar non disponibile."));
+  }
 }
 
 export async function createWorkshopCalendarEvent(payload: CalendarEventPayload): Promise<CalendarEventResult> {
@@ -117,17 +128,21 @@ export async function createWorkshopCalendarEvent(payload: CalendarEventPayload)
     };
   }
 
-  const response = await fetch(scriptUrl, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({
-      action: "createCalendarEvent",
-      payload,
-    }),
-  });
-  if (!response.ok) throw new Error("Calendar event request failed");
-  const result = (await response.json().catch(() => null)) as (CalendarEventResult & { ok?: boolean; error?: string }) | null;
-  if (!result) throw new Error("Calendar event response non valida");
-  if (result.ok === false) throw new Error(result.error || "Creazione evento Calendar non riuscita");
-  return result;
+  try {
+    const response = await fetch(scriptUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        action: "createCalendarEvent",
+        payload,
+      }),
+    });
+    if (!response.ok) throw new Error("Calendar event request failed");
+    const result = (await response.json().catch(() => null)) as (CalendarEventResult & { ok?: boolean; error?: string }) | null;
+    if (!result) throw new Error("Calendar event response non valida");
+    if (result.ok === false) throw new Error(result.error || "Creazione evento Calendar non riuscita");
+    return result;
+  } catch (error) {
+    throw new Error(friendlyCalendarError(error, "Connessione Calendar non disponibile."));
+  }
 }

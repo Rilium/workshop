@@ -46,6 +46,7 @@ import type { AdminProject, AdminProjectWorkshopRow, AdminWorkspacePanel, Calend
 import type { AdminActionModalState, NotificationChoice } from "../../types/ui";
 import { money } from "../../utils/money";
 import { buildLocalAdminProject, requestToAdminProject, topicColorClass } from "../../utils/workshop";
+import { getFriendlyErrorMessage } from "../../utils/status";
 import { AppButton } from "../../components/ui/AppButton";
 import { ActionIconButton, ToolIconButton } from "../../components/ui/IconButton";
 import { EventLink } from "../../components/ui/EventLink";
@@ -323,7 +324,7 @@ export function AdminView({
         const fallbackProjects = currentRequest ? [requestToAdminProject(currentRequest)] : [buildLocalAdminProject(selections, quote.total, projectStatus)];
         setAdminProjects(fallbackProjects);
         setSelectedProjectId((current) => (fallbackProjects.some((project) => project.id === current) ? current : fallbackProjects[0].id));
-        setRequestSyncState({ loading: false, error: "", source: currentRequest ? "sheet" : "local" });
+        setRequestSyncState({ loading: false, error: "", source: "local" });
       });
     return () => {
       alive = false;
@@ -342,7 +343,7 @@ export function AdminView({
       .catch((error) => {
         if (!alive) return;
         setDriveFolderPreview(null);
-        setDriveFolderStatus({ loading: false, error: error instanceof Error ? error.message : "Lettura Drive non riuscita." });
+        setDriveFolderStatus({ loading: false, error: getFriendlyErrorMessage(error, "Lettura Drive non riuscita.") });
       });
     return () => {
       alive = false;
@@ -1112,7 +1113,7 @@ export function AdminView({
         notify(projects.length ? "Coda aggiornata" : "Nessuna richiesta salvata", projects.length ? `${projects.length} richieste lette dal registro.` : "Mostro solo la richiesta locale.");
       })
       .catch((error) => {
-        const message = error instanceof Error ? error.message : "Lettura richieste non riuscita";
+        const message = getFriendlyErrorMessage(error, "Lettura richieste non riuscita");
         setRequestSyncState({ loading: false, error: message, source: "local" });
         notify("Coda non aggiornata", message);
       });
@@ -1337,7 +1338,7 @@ export function AdminView({
                   </ToolIconButton>
                 )}
               </div>
-              {requestSyncState.error && (
+              {requestSyncState.error && requestSyncState.source === "sheet" && (
                 <div className="inline-status-card warning">
                   <AlertCircle size={18} />
                   <span>{requestSyncState.error}</span>

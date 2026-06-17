@@ -63,6 +63,13 @@ function getConfiguredFolderId() {
   );
 }
 
+function friendlyDriveError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : "";
+  if (!message) return fallback;
+  if (/failed to fetch/i.test(message) || /networkerror/i.test(message)) return fallback;
+  return message;
+}
+
 export async function getBrandPresentations(): Promise<BrandPresentationResponse | null> {
   const env = (import.meta as unknown as { env: Record<string, string | undefined> }).env;
   const scriptUrl = getScriptUrl();
@@ -87,9 +94,9 @@ export async function getBrandPresentations(): Promise<BrandPresentationResponse
     return (await response.json()) as BrandPresentationResponse;
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-            throw new Error("Timeout lettura presentazioni Drive: lo script sta rispondendo troppo lentamente. Riprova o riduci la cartella sorgente.");
+      throw new Error("Timeout lettura presentazioni Drive: lo script sta rispondendo troppo lentamente. Riprova o riduci la cartella sorgente.");
     }
-    throw error;
+    throw new Error(friendlyDriveError(error, "Connessione Drive non disponibile."));
   } finally {
     window.clearTimeout(timeout);
   }
@@ -114,7 +121,7 @@ export async function getDriveFolderPreview(folderId = getConfiguredFolderId()):
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new Error("Timeout lettura cartella Drive.");
     }
-    throw error;
+    throw new Error(friendlyDriveError(error, "Connessione Drive non disponibile."));
   } finally {
     window.clearTimeout(timeout);
   }
