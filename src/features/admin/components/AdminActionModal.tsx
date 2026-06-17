@@ -38,6 +38,7 @@ import { SECRET_SETTINGS } from "../../../secretSettings";
 import type { AdminProject, AdminProjectWorkshopRow, CalendarEventRecord, DateDecision, Duration, Format, PricingRule, Workshop } from "../../../types/domain";
 import type { AdminActionModalState, NotificationChoice } from "../../../types/ui";
 import { money } from "../../../utils/money";
+import { getWorkshopSelectionPrice } from "../../../utils/workshop";
 import { AppButton } from "../../../components/ui/AppButton";
 import { EventLink } from "../../../components/ui/EventLink";
 import { Info } from "../../../components/ui/Info";
@@ -104,7 +105,7 @@ export function AdminActionModal({
           format: row.format,
           date: row.date,
           time: row.time,
-          price: row.duration === "2h" ? row.workshop.price2h : row.workshop.price1h,
+          price: getWorkshopSelectionPrice(row.workshop, { duration: row.duration, format: row.format, custom: false }).total,
           custom: false,
           status: "selezionato",
           approval: row.approval,
@@ -142,7 +143,7 @@ export function AdminActionModal({
             format: row.format,
             date: row.date,
             time: row.time,
-            price: row.duration === "2h" ? row.workshop.price2h : row.workshop.price1h,
+            price: getWorkshopSelectionPrice(row.workshop, { duration: row.duration, format: row.format, custom: false }).total,
             custom: false,
             status: "selezionato",
             approval: row.approval,
@@ -163,7 +164,7 @@ export function AdminActionModal({
   const editedQuoteTotal = editedRecords.reduce((total, record) => {
     const workshop = workshops.find((item) => item.id === record.workshopId);
     if (!workshop) return total;
-    return total + (record.duration === "2h" ? workshop.price2h : workshop.price1h);
+    return total + getWorkshopSelectionPrice(workshop, { duration: record.duration, format: record.format, custom: record.custom }).total;
   }, 0);
   const toggleDraftWorkshop = (workshop: Workshop) => {
     setRequestDraft((current) => {
@@ -181,7 +182,7 @@ export function AdminActionModal({
           format: workshop.formatOptions[0],
           date: "",
           time: "10:00",
-          price: workshop.price1h,
+          price: getWorkshopSelectionPrice(workshop, { duration: workshop.durationOptions[0], format: workshop.formatOptions[0], custom: false }).total,
           custom: false,
           status: "selezionato",
           approval: "pending",

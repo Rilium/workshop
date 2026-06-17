@@ -55,12 +55,14 @@ import { BottomActionBar } from "../../components/layout/BottomActionBar";
 import { OperationalStrip } from "../../components/layout/OperationalStrip";
 import { OperatorIdentityCard } from "../../components/layout/OperatorIdentityCard";
 import { RoleHero } from "../../components/layout/RoleHero";
+import { WorkshopSessionView } from "../../components/workshop/WorkshopSessionView";
 import { roleIdentities } from "../../data/mockData";
 import { AdminActionModal } from "./components/AdminActionModal";
 import { AdminFlowStepper } from "./components/AdminFlowStepper";
 import { AdminSectionNav } from "./components/AdminSectionNav";
 import { CatalogEditModal } from "./components/CatalogEditModal";
 import { ExpertProfileModal } from "./components/ExpertProfileModal";
+import { getWorkshopSelectionPrice } from "../../utils/workshop";
 
 export function AdminView({
   projectStatus,
@@ -317,11 +319,10 @@ export function AdminView({
       })
       .catch((error) => {
         if (!alive) return;
-        const message = error instanceof Error ? error.message : "Lettura richieste non riuscita";
         const fallbackProjects = currentRequest ? [requestToAdminProject(currentRequest)] : [buildLocalAdminProject(selections, quote.total, projectStatus)];
         setAdminProjects(fallbackProjects);
         setSelectedProjectId((current) => (fallbackProjects.some((project) => project.id === current) ? current : fallbackProjects[0].id));
-        setRequestSyncState({ loading: false, error: message, source: currentRequest ? "sheet" : "local" });
+        setRequestSyncState({ loading: false, error: "", source: currentRequest ? "sheet" : "local" });
       });
     return () => {
       alive = false;
@@ -392,7 +393,7 @@ export function AdminView({
         format: row.format,
         date: row.date,
         time: row.time,
-        price: existing?.price ?? (row.duration === "2h" ? row.workshop.price2h : row.workshop.price1h),
+        price: getWorkshopSelectionPrice(row.workshop, { duration: row.duration, format: row.format, custom: existing?.custom ?? false }).total,
         custom: existing?.custom ?? false,
         customNote: existing?.customNote,
         status: existing?.status ?? "selezionato",
@@ -420,7 +421,7 @@ export function AdminView({
     const quoteTotal = records.reduce((total, record) => {
       const workshop = workshops.find((item) => item.id === record.workshopId);
       if (!workshop) return total;
-      return total + (record.duration === "2h" ? workshop.price2h : workshop.price1h);
+      return total + getWorkshopSelectionPrice(workshop, { duration: record.duration, format: record.format, custom: record.custom }).total;
     }, 0);
     return {
       workshops: records,
@@ -740,6 +741,15 @@ export function AdminView({
   const calendarDeckEnabled = Boolean(selectedProject.request?.materials?.calendarDeckEnabled && selectedProject.request.materials.finalDeckUrl);
   const calendarDeckTitle = selectedProject.request?.materials?.finalDeckTitle || selectedProject.request?.materials?.folderName || "";
   const calendarDeckUrl = calendarDeckEnabled ? selectedProject.request?.materials?.finalDeckUrl : undefined;
+  const currentProjectSessionItems = currentProjectSelections.map((row) => ({
+    id: row.workshop.id,
+    title: row.workshop.title,
+    date: row.date,
+    time: row.time,
+    duration: row.duration,
+    format: row.format,
+    expertName: row.assignedExpert,
+  }));
   const eventPrechecks = [
     { label: "Date approvate", done: allProjectDatesApproved },
     { label: "Esperti assegnati", done: currentProjectSelections.length > 0 && currentProjectSelections.every((row) => row.assignedExpert) },
@@ -775,6 +785,7 @@ export function AdminView({
         finalDeckUrl: eventMode === "confirmed" ? calendarDeckUrl : undefined,
         finalDeckTitle: eventMode === "confirmed" ? calendarDeckTitle : undefined,
         sendCalendarInvites: eventMode === "confirmed" && Boolean(choice?.send),
+        existingEventId: eventMode === "confirmed" ? currentProjectEvent?.id : undefined,
         workshops: currentProjectSelections.map((row) => ({
           title: row.workshop.title,
           date: row.date,
@@ -1500,21 +1511,16 @@ export function AdminView({
                     <Info label="Esperti" value={currentProjectSelections.every((row) => row.assignedExpert) ? "assegnati" : "mancanti"} />
                     <Info label="Deck Calendar" value={calendarDeckEnabled ? calendarDeckTitle || "abilitato da Brand" : "non abilitato da Brand"} />
                     <Info label="Evento" value={currentProjectEvent ? currentProjectEvent.id : "da creare"} />
-                    {currentProjectEvent && (
-                      <div className="inline-status-card">
-                        <Check size={18} />
-                        <div className="inline-status-copy">
-                          <span>
-                            Evento {currentProjectEvent.source === "google-calendar" ? "Google Calendar" : "demo"} creato alle {currentProjectEvent.createdAt}: {currentProjectEvent.workshops} workshop collegati
-                            {currentProjectEvent.fallback ? " · creato senza Meet automatico: controlla Advanced Calendar API" : ""}
-                          </span>
-                          <span className="event-link-row">
-                            <EventLink href={currentProjectEvent.meetLink} label="Apri Meet" />
-                            {currentProjectEvent.htmlLink && <EventLink href={currentProjectEvent.htmlLink} label="Apri Calendar" />}
-                          </span>
-                        </div>
-                      </div>
-                    )}
+                    <WorkshopSessionView
+                      title="Workshop live"
+                      subtitle="Meet, deck e materiali del progetto corrente."
+                      statusLabel={currentProjectEvent ? "Sessione attiva" : "In attesa di evento"}
+                      items={currentProjectSessionItems}
+                      event={currentProjectEvent}
+                      deckTitle={calendarDeckEnabled ? calendarDeckTitle || "abilitato da Brand" : ""}
+                      deckUrl={calendarDeckUrl}
+                      driveFolderUrl={selectedProject.request?.materials?.folderUrl}
+                    />
                   </div>
                 )}
               </section>

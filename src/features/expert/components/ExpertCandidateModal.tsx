@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import type { Selection, Workshop } from "../../../types/domain";
 import { money } from "../../../utils/money";
+import { getWorkshopSelectionPrice } from "../../../utils/workshop";
 import { AppButton } from "../../../components/ui/AppButton";
 import { Info } from "../../../components/ui/Info";
 
@@ -48,9 +49,9 @@ export function ExpertCandidateModal({
   sending: boolean;
   onClose: () => void;
   onConfirm: () => void;
-}) {
+  }) {
   const { selection, workshop } = row;
-  const price = selection.duration === "2h" ? workshop.price2h : workshop.price1h;
+  const price = getWorkshopSelectionPrice(workshop, selection).total;
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="expert-candidate-title">
       <section className="custom-modal expert-candidate-modal">

@@ -45,6 +45,7 @@ import { Panel } from "../../components/ui/Panel";
 import { BottomActionBar } from "../../components/layout/BottomActionBar";
 import { OperatorIdentityCard } from "../../components/layout/OperatorIdentityCard";
 import { RoleHero } from "../../components/layout/RoleHero";
+import { WorkshopSessionView } from "../../components/workshop/WorkshopSessionView";
 
 export function BrandView({
   brandFilter,
@@ -103,6 +104,16 @@ export function BrandView({
     if (!selectedBrandDeck) return;
     setBrandDecks((current) => current.map((deck) => (deck.id === selectedBrandDeck.id ? { ...deck, status } : deck)));
   };
+  const brandSessionItems =
+    selectedBrandProject?.request?.workshops.map((workshop) => ({
+      id: workshop.workshopId,
+      title: workshop.title,
+      date: workshop.date,
+      time: workshop.time,
+      duration: workshop.duration,
+      format: workshop.format,
+      expertName: workshop.expertName,
+    })) ?? [];
   const refreshBrandProjects = (showFeedback = true) => {
     setBrandProjectLoading(true);
     setBrandProjectError("");
@@ -437,7 +448,19 @@ export function BrandView({
                     </AppButton>
                   </div>
                 </div>
-                <div className="review-fields">
+              </div>
+            )}
+            <WorkshopSessionView
+              title="Workshop live"
+              subtitle="La sessione continua qui con deck, Meet e materiali collegati."
+              statusLabel={selectedBrandProject?.request?.materials?.calendarDeckEnabled ? "Deck pronto" : "Deck in attesa"}
+              items={brandSessionItems}
+              deckTitle={selectedBrandProject?.request?.materials?.finalDeckTitle || selectedBrandProject?.request?.materials?.folderName || ""}
+              deckUrl={selectedBrandProject?.request?.materials?.calendarDeckEnabled ? selectedBrandProject?.request?.materials?.finalDeckUrl : undefined}
+              driveFolderUrl={selectedBrandProject?.request?.materials?.folderUrl}
+            />
+            {selectedBrandDeck && (
+              <div className="review-fields">
                   <div className="brand-review-info">
                     <Info label="Progetto" value={selectedBrandProject?.company ?? "Nessun progetto collegato"} />
                     <Info label="Cliente" value={selectedBrandDeck.client} />
@@ -492,7 +515,6 @@ export function BrandView({
                     </ActionIconButton>
                   </div>
                 </div>
-              </div>
             )}
           </div>
         </div>

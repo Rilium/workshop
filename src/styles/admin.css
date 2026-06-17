@@ -944,6 +944,7 @@
 }
 
 .admin-detail-grid .admin-section-card {
+  border-color: var(--brand);
   border-top-color: var(--brand);
   border-top-left-radius: 0;
 }
