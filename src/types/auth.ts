@@ -24,6 +24,8 @@ export type AuthSession = {
   expiresAt: string;
   /** effectiveRole: può essere qualsiasi Role, incluso Cliente (solo FunniFin può cambiarlo) */
   effectiveRole: import("./domain").Role;
+  /** Snapshot dell'utente al momento del login */
+  user?: AuthUser;
 };
 
 /** Richiesta di accesso in attesa di approvazione FunniFin */
@@ -32,9 +34,15 @@ export type AccessRequest = {
   email: string;
   refCode?: string;
   status: "pending" | "approved" | "rejected";
+  requestedRole?: AuthRole;
+  sendMail?: boolean;
+  code?: string;
+  codeStatus?: "pending" | "queued" | "sent" | "verified" | "expired";
+  codeExpiresAt?: string;
   createdAt: string;
   reviewedAt?: string;
   reviewedBy?: string;
+  verifiedAt?: string;
 };
 
 /** Stato esposto dal contesto auth */

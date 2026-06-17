@@ -7,8 +7,9 @@ import {
   setSessionEffectiveRole,
   verifyLoginCode,
 } from "./authService";
-import type { AuthRole, AuthSession, AuthUser } from "./types/auth";
+import type { AuthSession, AuthUser } from "./types/auth";
 import type { Role } from "./types/domain";
+import type { RequestLoginCodeOptions, RequestLoginCodeResult } from "./authService";
 
 // ─── Context shape ─────────────────────────────────────────────────────────────
 
@@ -22,7 +23,7 @@ type AuthContextValue = {
   loading: boolean;
 
   // Auth actions
-  requestCode: (email: string) => Promise<{ sent: boolean }>;
+  requestCode: (email: string, options?: RequestLoginCodeOptions) => Promise<RequestLoginCodeResult>;
   verifyCode: (email: string, code: string) => Promise<void>;
   logout: () => void;
 
@@ -55,8 +56,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-  const requestCode = async (email: string) => {
-    return requestLoginCode(email);
+  const requestCode = async (email: string, options?: RequestLoginCodeOptions) => {
+    return requestLoginCode(email, options);
   };
 
   const verifyCode = async (email: string, code: string) => {

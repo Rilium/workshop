@@ -9,6 +9,7 @@ export function LoginView({ onClose }: { onClose?: () => void }) {
   const [step, setStep] = useState<LoginStep>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
+  const [sendMail, setSendMail] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
@@ -19,11 +20,17 @@ export function LoginView({ onClose }: { onClose?: () => void }) {
     setLoading(true);
     setError("");
     try {
-      await requestCode(email.trim());
-      setInfo("Se questa email è abilitata, riceverai un codice di accesso.");
+      const result = await requestCode(email.trim(), { sendMail });
+      if (result.pending) {
+        setInfo("FunniFin ha preso in carico la richiesta. Riceverai il codice dopo l'approvazione.");
+      } else if (sendMail) {
+        setInfo("Se l'account è abilitato, riceverai un codice di accesso via email.");
+      } else {
+        setInfo("Codice generato da FunniFin. L'invio mail è stato lasciato disattivato.");
+      }
       setStep("code");
     } catch {
-      setInfo("Se questa email è abilitata, riceverai un codice di accesso.");
+      setInfo("FunniFin ha preso in carico la richiesta. Riceverai il codice dopo l'approvazione.");
       setStep("code");
     } finally {
       setLoading(false);
@@ -82,6 +89,16 @@ export function LoginView({ onClose }: { onClose?: () => void }) {
               required
               disabled={loading}
             />
+            <label className="login-toggle" htmlFor="login-send-mail">
+              <input
+                id="login-send-mail"
+                type="checkbox"
+                checked={sendMail}
+                onChange={(event) => setSendMail(event.target.checked)}
+                disabled={loading}
+              />
+              <span>Manda mail con il codice</span>
+            </label>
             <button
               type="submit"
               className="login-submit"

@@ -339,9 +339,18 @@
   .request-edit-controls,
   .price-preview-card,
   .pricing-hero-card,
+  .auth-invite-grid,
   .pricing-hero-metrics,
   .pricing-rule-body {
     grid-template-columns: 1fr;
+  }
+
+  .auth-invite-actions {
+    justify-content: stretch;
+  }
+
+  .auth-invite-actions .app-button {
+    width: 100%;
   }
 
   .catalog-master-actions {

@@ -12,15 +12,46 @@ const SETTINGS = {
   internalRecipient: PropertiesService.getScriptProperties().getProperty("INTERNAL_RECIPIENT") || "rinaldi.rilio@gmail.com",
 };
 
+const AUTH_SEED_USERS = [
+  {
+    id: "user-funnifin",
+    email: "rinaldi.rilio@gmail.com",
+    actualRole: "FunniFin",
+    displayName: "Team FunniFin",
+    createdAt: "2024-01-01T00:00:00",
+    disabled: false,
+  },
+  {
+    id: "user-esperto-laura",
+    email: "rinaldi.rilio+3@gmail.com",
+    actualRole: "Esperto",
+    expertId: "laura-bianchi",
+    displayName: "Laura Bianchi",
+    createdAt: "2024-01-01T00:00:00",
+    disabled: false,
+  },
+  {
+    id: "user-brand",
+    email: "rinaldi.rilio+4@gmail.com",
+    actualRole: "Brand",
+    displayName: "Brand Review",
+    createdAt: "2024-01-01T00:00:00",
+    disabled: false,
+  },
+];
+
 function authorizeFunniFinSetup() {
   const spreadsheet = getRequestsSpreadsheet();
   getRequestsSheet();
   getRequestEventsSheet();
+  getAuthUsersSheet();
+  getAccessRequestsSheet();
   getCatalogTopicsSheet();
   getCatalogWorkshopsSheet();
   getPricingRulesSheet();
   getExpertsSheet();
   getSettingsSheet();
+  seedAuthUsersIfNeeded();
 
   DriveApp.getFileById(spreadsheet.getId()).getName();
   const runtimeCalendarId = getRuntimeCalendarId();
@@ -77,6 +108,12 @@ function handleGet(event) {
   if (action === "listWorkspaceSettings") {
     return jsonResponse(listWorkspaceSettings());
   }
+  if (action === "listAuthUsers") {
+    return jsonResponse(listAuthUsers());
+  }
+  if (action === "listAccessRequests") {
+    return jsonResponse(listAccessRequests());
+  }
   if (action === "googleHealth") {
     return jsonResponse(getGoogleHealth(event.parameter));
   }
@@ -92,7 +129,7 @@ function handleGet(event) {
   return jsonResponse({
     ok: true,
     service: "FunniFin Workshop Planner",
-    actions: ["freeBusy", "calendarLookup", "driveFolder", "brandPresentations", "listWorkshopRequests", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification"],
+    actions: ["freeBusy", "calendarLookup", "driveFolder", "brandPresentations", "listWorkshopRequests", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "listAuthUsers", "listAccessRequests", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification", "requestLoginCode", "verifyLoginCode", "reviewAccessRequest"],
   });
 }
 
@@ -141,6 +178,15 @@ function handlePost(event) {
   }
   if (body.action === "sendWorkflowNotification") {
     return jsonResponse(sendWorkflowNotification(body.payload));
+  }
+  if (body.action === "requestLoginCode") {
+    return jsonResponse(requestLoginCode(body.payload || {}));
+  }
+  if (body.action === "verifyLoginCode") {
+    return jsonResponse(verifyLoginCode(body.payload || {}));
+  }
+  if (body.action === "reviewAccessRequest") {
+    return jsonResponse(reviewAccessRequest(body.payload || {}));
   }
   if (body.action === "ensurePresentationStructure") {
     return jsonResponse(ensurePresentationStructure(body.payload || {}));
@@ -933,6 +979,8 @@ function getGoogleHealth(params) {
       url: spreadsheet.getUrl(),
       requests: Math.max(0, getRequestsSheet().getLastRow() - 1),
       events: Math.max(0, getRequestEventsSheet().getLastRow() - 1),
+      authUsers: Math.max(0, getAuthUsersSheet().getLastRow() - 1),
+      accessRequests: Math.max(0, getAccessRequestsSheet().getLastRow() - 1),
       catalogTopics: Math.max(0, getCatalogTopicsSheet().getLastRow() - 1),
       catalogWorkshops: Math.max(0, getCatalogWorkshopsSheet().getLastRow() - 1),
       pricingRules: Math.max(0, getPricingRulesSheet().getLastRow() - 1),
@@ -1108,6 +1156,463 @@ const SETTING_HEADERS = [
   "updatedAt",
   "payloadJson",
 ];
+
+const AUTH_USER_HEADERS = [
+  "id",
+  "email",
+  "actualRole",
+  "expertId",
+  "displayName",
+  "invitedBy",
+  "createdAt",
+  "disabled",
+  "updatedAt",
+  "payloadJson",
+];
+
+const ACCESS_REQUEST_HEADERS = [
+  "id",
+  "email",
+  "requestedRole",
+  "status",
+  "sendMail",
+  "code",
+  "codeStatus",
+  "codeExpiresAt",
+  "createdAt",
+  "updatedAt",
+  "reviewedAt",
+  "reviewedBy",
+  "verifiedAt",
+  "refCode",
+  "payloadJson",
+];
+
+const AUTH_CODE_TTL_MINUTES = 10;
+
+function getAuthUsersSheet() {
+  const spreadsheet = getRequestsSpreadsheet();
+  const sheet = getOrCreateSheet(spreadsheet, "AuthUsers", AUTH_USER_HEADERS);
+  ensureHeaderRow(sheet, AUTH_USER_HEADERS);
+  return sheet;
+}
+
+function getAccessRequestsSheet() {
+  const spreadsheet = getRequestsSpreadsheet();
+  const sheet = getOrCreateSheet(spreadsheet, "AccessRequests", ACCESS_REQUEST_HEADERS);
+  ensureHeaderRow(sheet, ACCESS_REQUEST_HEADERS);
+  return sheet;
+}
+
+function seedAuthUsersIfNeeded() {
+  const sheet = getAuthUsersSheet();
+  const rows = sheet.getDataRange().getValues();
+  if (rows.length > 1) return;
+  AUTH_SEED_USERS.forEach((user) => {
+    upsertSheetRow(sheet, AUTH_USER_HEADERS, user.id, authUserToRow(user));
+  });
+}
+
+function listAuthUsers() {
+  seedAuthUsersIfNeeded();
+  const sheet = getAuthUsersSheet();
+  const rows = sheet.getDataRange().getValues();
+  const users = rows.length <= 1 ? [] : rows.slice(1).map(rowToAuthUser).filter(Boolean);
+  return {
+    ok: true,
+    source: "google-sheet",
+    users,
+  };
+}
+
+function listAccessRequests() {
+  const sheet = getAccessRequestsSheet();
+  const rows = sheet.getDataRange().getValues();
+  const requests = rows.length <= 1 ? [] : rows.slice(1).map(rowToAccessRequest).filter(Boolean).sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")));
+  return {
+    ok: true,
+    source: "google-sheet",
+    requests,
+  };
+}
+
+function requestLoginCode(payload) {
+  const email = String(payload.email || "").trim().toLowerCase();
+  if (!email) throw new Error("Missing email");
+
+  seedAuthUsersIfNeeded();
+  const usersSheet = getAuthUsersSheet();
+  const requestsSheet = getAccessRequestsSheet();
+  const rows = usersSheet.getDataRange().getValues();
+  const users = rows.length <= 1 ? [] : rows.slice(1).map(rowToAuthUser).filter(Boolean);
+  const user = users.find((item) => String(item.email || "").toLowerCase() === email) || null;
+  const sendMail = payload.sendMail !== false;
+  const now = new Date();
+
+  if (payload.requestedRole) {
+    const invitedUser = {
+      id: (user && user.id) || payload.id || buildAuthUserId(email),
+      email,
+      actualRole: String(payload.requestedRole || "Brand"),
+      expertId: String(payload.expertId || (user && user.expertId) || ""),
+      displayName: String(payload.displayName || (user && user.displayName) || email),
+      invitedBy: String(payload.invitedBy || (user && user.invitedBy) || "FunniFin"),
+      createdAt: String((user && user.createdAt) || formatTimestamp(now)),
+      disabled: false,
+    };
+    upsertSheetRow(usersSheet, AUTH_USER_HEADERS, invitedUser.id, authUserToRow(invitedUser));
+  }
+
+  const issuingUser = rowToAuthUser(findAuthUserRowByEmail(email, usersSheet)) || user || null;
+  if (issuingUser && issuingUser.disabled) {
+    const request = appendAccessRequest({
+      email,
+      requestedRole: String(payload.requestedRole || issuingUser.actualRole || ""),
+      status: "pending",
+      sendMail,
+      code: "",
+      codeStatus: "pending",
+      codeExpiresAt: "",
+      reviewedBy: String(payload.invitedBy || "FunniFin"),
+      refCode: String(payload.refCode || ""),
+      createdAt: formatTimestamp(now),
+      updatedAt: formatTimestamp(now),
+    });
+    return {
+      ok: true,
+      source: "google-sheet",
+      sent: true,
+      pending: true,
+      request,
+    };
+  }
+
+  const code = buildAuthCode();
+  const expiresAt = new Date(now.getTime() + AUTH_CODE_TTL_MINUTES * 60 * 1000);
+  const request = appendAccessRequest({
+    email,
+    requestedRole: String(payload.requestedRole || issuingUser?.actualRole || ""),
+    status: "approved",
+    sendMail,
+    code,
+    codeStatus: sendMail ? "sent" : "queued",
+    codeExpiresAt: expiresAt.toISOString(),
+    reviewedAt: formatTimestamp(now),
+    reviewedBy: String(payload.invitedBy || "FunniFin"),
+    verifiedAt: "",
+    refCode: String(payload.refCode || ""),
+    createdAt: formatTimestamp(now),
+    updatedAt: formatTimestamp(now),
+  });
+
+  if (sendMail) {
+    MailApp.sendEmail({
+      to: email,
+      cc: payload.cc || SETTINGS.internalRecipient,
+      subject: `Invito FunniFin - codice accesso`,
+      name: String(payload.fromName || "FunniFin Workshop Planner"),
+      htmlBody: buildAuthInviteHtml({ email, code, requestedRole: String(payload.requestedRole || issuingUser?.actualRole || ""), displayName: String(payload.displayName || email) }),
+      body: buildAuthInviteText({ email, code, requestedRole: String(payload.requestedRole || issuingUser?.actualRole || ""), displayName: String(payload.displayName || email) }),
+    });
+  }
+
+  return {
+    ok: true,
+    source: "google-sheet",
+    sent: true,
+    pending: false,
+    request,
+    user: issuingUser || rowToAuthUser(findAuthUserRowByEmail(email, usersSheet)) || null,
+  };
+}
+
+function verifyLoginCode(payload) {
+  const email = String(payload.email || "").trim().toLowerCase();
+  const code = String(payload.code || "").trim();
+  if (!email) throw new Error("Missing email");
+  if (!code) throw new Error("Missing code");
+
+  seedAuthUsersIfNeeded();
+  const usersSheet = getAuthUsersSheet();
+  const request = findLatestAccessRequestByEmail(email, getAccessRequestsSheet());
+  const user = rowToAuthUser(findAuthUserRowByEmail(email, usersSheet));
+
+  if (!user || user.disabled) {
+    throw new Error("Codice non valido o scaduto.");
+  }
+
+  if (!request || String(request.code || "") !== code || new Date(request.codeExpiresAt || "") < new Date()) {
+    throw new Error("Codice non valido o scaduto.");
+  }
+
+  const verified = Object.assign({}, request, {
+    codeStatus: "verified",
+    verifiedAt: formatTimestamp(new Date()),
+    updatedAt: formatTimestamp(new Date()),
+  });
+  saveAccessRequest(verified);
+
+  const session = {
+    userId: user.id,
+    token: Utilities.getUuid(),
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+    effectiveRole: user.actualRole,
+    user: user,
+  };
+
+  return {
+    ok: true,
+    source: "google-sheet",
+    session: session,
+    user: user,
+  };
+}
+
+function reviewAccessRequest(payload) {
+  const requestId = String(payload.requestId || payload.id || "");
+  if (!requestId) throw new Error("Missing requestId");
+
+  const sheet = getAccessRequestsSheet();
+  const rows = sheet.getDataRange().getValues();
+  const rowIndex = rows.findIndex((row, index) => index > 0 && row[0] === requestId);
+  if (rowIndex < 1) throw new Error(`Access request not found: ${requestId}`);
+
+  const current = rowToAccessRequest(rows[rowIndex]);
+  const now = new Date();
+  const next = Object.assign({}, current, {
+    status: String(payload.status || current.status || "pending"),
+    sendMail: payload.sendMail == null ? current.sendMail : payload.sendMail !== false,
+    reviewedAt: formatTimestamp(now),
+    reviewedBy: String(payload.reviewedBy || "FunniFin"),
+    updatedAt: formatTimestamp(now),
+  });
+
+  if (next.status === "approved") {
+    const usersSheet = getAuthUsersSheet();
+    const existingUserRow = findAuthUserRowByEmail(next.email, usersSheet);
+    if (!existingUserRow && String(next.requestedRole || "").trim()) {
+      const invitedUser = {
+        id: buildAuthUserId(next.email),
+        email: next.email,
+        actualRole: String(next.requestedRole || "Brand"),
+        expertId: "",
+        displayName: String(next.email),
+        invitedBy: String(next.reviewedBy || "FunniFin"),
+        createdAt: next.createdAt || formatTimestamp(now),
+        disabled: false,
+        updatedAt: formatTimestamp(now),
+      };
+      upsertSheetRow(usersSheet, AUTH_USER_HEADERS, invitedUser.id, authUserToRow(invitedUser));
+    }
+    const code = buildAuthCode();
+    next.code = code;
+    next.codeStatus = next.sendMail === false ? "queued" : "sent";
+    next.codeExpiresAt = new Date(now.getTime() + AUTH_CODE_TTL_MINUTES * 60 * 1000).toISOString();
+    if (next.sendMail !== false) {
+      MailApp.sendEmail({
+        to: next.email,
+        cc: payload.cc || SETTINGS.internalRecipient,
+        subject: `Invito FunniFin - codice accesso`,
+        name: String(payload.fromName || "FunniFin Workshop Planner"),
+        htmlBody: buildAuthInviteHtml({ email: next.email, code, requestedRole: String(next.requestedRole || ""), displayName: String(payload.displayName || next.email) }),
+        body: buildAuthInviteText({ email: next.email, code, requestedRole: String(next.requestedRole || ""), displayName: String(payload.displayName || next.email) }),
+      });
+    }
+  } else {
+    next.code = "";
+    next.codeStatus = "pending";
+    next.codeExpiresAt = "";
+  }
+
+  sheet.getRange(rowIndex + 1, 1, 1, ACCESS_REQUEST_HEADERS.length).setValues([accessRequestToRow(next)]);
+
+  const user = rowToAuthUser(findAuthUserRowByEmail(next.email, getAuthUsersSheet()));
+  return {
+    ok: true,
+    source: "google-sheet",
+    request: next,
+    user: user,
+    codeSent: next.status === "approved" && next.sendMail !== false,
+  };
+}
+
+function appendAccessRequest(request) {
+  const sheet = getAccessRequestsSheet();
+  const normalized = Object.assign({}, request, {
+    id: request.id || buildAccessRequestId(request.email || "user", new Date()),
+    createdAt: request.createdAt || formatTimestamp(new Date()),
+    updatedAt: request.updatedAt || formatTimestamp(new Date()),
+  });
+  sheet.appendRow(accessRequestToRow(normalized));
+  appendRequestEvent("auth", "access_request_updated", `Accesso aggiornato per ${normalized.email}`, normalized);
+  return normalized;
+}
+
+function saveAccessRequest(request) {
+  const sheet = getAccessRequestsSheet();
+  const rows = sheet.getDataRange().getValues();
+  const rowIndex = rows.findIndex((row, index) => index > 0 && row[0] === request.id);
+  if (rowIndex < 1) {
+    sheet.appendRow(accessRequestToRow(request));
+    return request;
+  }
+  sheet.getRange(rowIndex + 1, 1, 1, ACCESS_REQUEST_HEADERS.length).setValues([accessRequestToRow(request)]);
+  return request;
+}
+
+function findLatestAccessRequestByEmail(email, sheet) {
+  const rows = sheet.getDataRange().getValues();
+  const requests = rows.length <= 1 ? [] : rows.slice(1).map(rowToAccessRequest).filter(Boolean).filter((request) => String(request.email || "").toLowerCase() === email);
+  if (!requests.length) return null;
+  return requests.sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))[0];
+}
+
+function findAuthUserRowByEmail(email, sheet) {
+  const rows = sheet.getDataRange().getValues();
+  const target = String(email || "").toLowerCase();
+  for (let index = 1; index < rows.length; index += 1) {
+    const user = rowToAuthUser(rows[index]);
+    if (user && String(user.email || "").toLowerCase() === target) {
+      return rows[index];
+    }
+  }
+  return null;
+}
+
+function buildAuthUserId(email) {
+  const normalized = String(email || "user")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40) || "user";
+  return `user-${normalized}`;
+}
+
+function buildAuthRequestId(email, date) {
+  const normalized = String(email || "user")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40) || "user";
+  return `auth-${normalized}-${Utilities.formatDate(date, SETTINGS.timezone, "yyyyMMdd-HHmmss")}`;
+}
+
+function buildAuthCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function authUserToRow(user) {
+  return [
+    sheetText(user.id),
+    sheetText(user.email),
+    sheetText(user.actualRole),
+    sheetText(user.expertId || ""),
+    sheetText(user.displayName || ""),
+    sheetText(user.invitedBy || ""),
+    sheetText(user.createdAt || formatTimestamp(new Date())),
+    user.disabled === false ? "FALSE" : "TRUE",
+    sheetText(user.updatedAt || ""),
+    sheetText(JSON.stringify(user)),
+  ];
+}
+
+function rowToAuthUser(row) {
+  try {
+    if (!row) return null;
+    const payload = row[9] ? JSON.parse(row[9]) : {};
+    return {
+      id: String(row[0] || payload.id || ""),
+      email: String(row[1] || payload.email || ""),
+      actualRole: String(row[2] || payload.actualRole || "Brand"),
+      expertId: String(row[3] || payload.expertId || ""),
+      displayName: String(row[4] || payload.displayName || row[1] || ""),
+      invitedBy: String(row[5] || payload.invitedBy || ""),
+      createdAt: String(row[6] || payload.createdAt || ""),
+      disabled: String(row[7] || payload.disabled).toUpperCase() === "TRUE",
+      updatedAt: String(row[8] || payload.updatedAt || ""),
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+function accessRequestToRow(request) {
+  return [
+    sheetText(request.id),
+    sheetText(request.email),
+    sheetText(request.requestedRole || ""),
+    sheetText(request.status || "pending"),
+    request.sendMail === false ? "FALSE" : "TRUE",
+    sheetText(request.code || ""),
+    sheetText(request.codeStatus || "pending"),
+    sheetText(request.codeExpiresAt || ""),
+    sheetText(request.createdAt || formatTimestamp(new Date())),
+    sheetText(request.updatedAt || formatTimestamp(new Date())),
+    sheetText(request.reviewedAt || ""),
+    sheetText(request.reviewedBy || ""),
+    sheetText(request.verifiedAt || ""),
+    sheetText(request.refCode || ""),
+    sheetText(JSON.stringify(request)),
+  ];
+}
+
+function rowToAccessRequest(row) {
+  try {
+    if (!row) return null;
+    const payload = row[14] ? JSON.parse(row[14]) : {};
+    return {
+      id: String(row[0] || payload.id || ""),
+      email: String(row[1] || payload.email || ""),
+      requestedRole: String(row[2] || payload.requestedRole || ""),
+      status: String(row[3] || payload.status || "pending"),
+      sendMail: String(row[4] || payload.sendMail).toUpperCase() !== "FALSE",
+      code: String(row[5] || payload.code || ""),
+      codeStatus: String(row[6] || payload.codeStatus || "pending"),
+      codeExpiresAt: String(row[7] || payload.codeExpiresAt || ""),
+      createdAt: String(row[8] || payload.createdAt || ""),
+      updatedAt: String(row[9] || payload.updatedAt || ""),
+      reviewedAt: String(row[10] || payload.reviewedAt || ""),
+      reviewedBy: String(row[11] || payload.reviewedBy || ""),
+      verifiedAt: String(row[12] || payload.verifiedAt || ""),
+      refCode: String(row[13] || payload.refCode || ""),
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+function buildAuthInviteText(payload) {
+  return [
+    "Invito FunniFin",
+    "",
+    `Ciao ${payload.displayName || payload.email},`,
+    `il tuo accesso è stato preparato per il ruolo ${payload.requestedRole || "utente"}.`,
+    "",
+    `Email: ${payload.email}`,
+    `Codice: ${payload.code}`,
+    "",
+    "Inserisci questo codice nella schermata di accesso FunniFin.",
+  ].join("\n");
+}
+
+function buildAuthInviteHtml(payload) {
+  return [
+    '<div style="margin:0;padding:24px;background:#f5fafb;font-family:Nunito,Arial,sans-serif;color:#171d1d;">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #d4edf2;border-radius:24px;overflow:hidden;">',
+    '<tr><td style="padding:28px;background:#e8f8f9;">',
+    '<h1 style="margin:0;font-size:28px;line-height:1.1;color:#004f54;">Invito FunniFin</h1>',
+    `<p style="margin:12px 0 0;color:#444748;">Ciao ${payload.displayName || payload.email}, il tuo accesso per ${payload.requestedRole || "utente"} è pronto.</p>`,
+    '</td></tr>',
+    '<tr><td style="padding:24px;">',
+    `<p style="margin:0 0 12px;color:#444748;">Email: <strong>${payload.email}</strong></p>`,
+    `<div style="padding:18px;border-radius:18px;background:#fff8dd;font-size:22px;color:#004f54;font-weight:800;letter-spacing:0.15em;text-align:center;">${payload.code}</div>`,
+    '<p style="margin:12px 0 0;color:#444748;">Inserisci questo codice nella schermata di accesso FunniFin.</p>',
+    '</td></tr>',
+    '</table>',
+    '</div>',
+  ].join("");
+}
 
 function getRequestsSpreadsheet() {
   const properties = PropertiesService.getScriptProperties();

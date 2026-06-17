@@ -1615,6 +1615,68 @@
   gap: var(--sp-2);
 }
 
+.auth-invite-card {
+  align-items: start;
+}
+
+.auth-invite-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3);
+  align-items: end;
+}
+
+.auth-invite-field {
+  display: grid;
+  gap: var(--sp-2);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
+  color: var(--neutral-800);
+}
+
+.auth-invite-field input,
+.auth-invite-field select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1.5px solid var(--neutral-300);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  color: var(--neutral-900);
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.auth-invite-field input:focus,
+.auth-invite-field select:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-mid);
+}
+
+.auth-invite-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
+  color: var(--neutral-700);
+  align-self: center;
+}
+
+.auth-invite-toggle input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--brand);
+}
+
+.auth-invite-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: end;
+}
+
 .pricing-rule-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));

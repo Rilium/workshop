@@ -37,8 +37,8 @@ import type { AssetDraftFolder, UploadedAsset } from "../../driveAssetService";
 import { deleteExpert, getGoogleHealth, listCatalogConfig, listCatalogWorkshops, listExperts, listPricingRules, listWorkspaceSettings, updateCatalogTopic, updateExpert, updatePricingRule, updateWorkspaceSetting, type CatalogWorkshopConfig, type GoogleHealth, type WorkspaceSetting } from "../../googleAdminService";
 import { getDriveFolderPreview, type DriveFolderResponse } from "../../googleDriveService";
 import { listWorkshopRequests, updateWorkshopRequest, type RequestWorkshopRecord, type WorkshopRequestRecord } from "../../requestService";
-import { listAuthUsers, listAccessRequests } from "../../authService";
-import type { AuthUser, AccessRequest } from "../../types/auth";
+import { listAuthUsers, listAccessRequests, requestLoginCode, reviewAccessRequest } from "../../authService";
+import type { AuthRole, AuthUser, AccessRequest } from "../../types/auth";
 import { SECRET_SETTINGS } from "../../secretSettings";
 import { adminSettingDefinitions, adminSettingGroups, appEnv, projectStatuses, statusLabel } from "../../data/workflow";
 import { canvaCatalogSource, experts, initialExpertProfiles, topics, workshops } from "../../data/catalog";
@@ -177,8 +177,91 @@ export function AdminView({
   );
   const [dateApprovals, setDateApprovals] = useState<Record<string, DateApproval>>({});
   const [workshopExperts, setWorkshopExperts] = useState<Record<string, string>>({});
-  const [authUsers] = useState<AuthUser[]>(() => listAuthUsers());
-  const [accessRequests] = useState<AccessRequest[]>(() => listAccessRequests());
+  const [authUsers, setAuthUsers] = useState<AuthUser[]>([]);
+  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteDisplayName, setInviteDisplayName] = useState("");
+  const [inviteRole, setInviteRole] = useState<AuthRole>("Brand");
+  const [inviteSendMail, setInviteSendMail] = useState(true);
+  const [inviteBusy, setInviteBusy] = useState(false);
+  useEffect(() => {
+    let alive = true;
+
+    const loadAuth = async () => {
+      setAuthLoading(true);
+      try {
+        const [users, requests] = await Promise.all([listAuthUsers(), listAccessRequests()]);
+        if (!alive) return;
+        setAuthUsers(users);
+        setAccessRequests(requests);
+      } catch {
+        if (!alive) return;
+        setAuthUsers([]);
+        setAccessRequests([]);
+      } finally {
+        if (alive) setAuthLoading(false);
+      }
+    };
+
+    void loadAuth();
+
+    return () => {
+      alive = false;
+    };
+  }, [requestRefreshToken, systemRefreshToken]);
+
+  const refreshAuthData = async () => {
+    try {
+      const [users, requests] = await Promise.all([listAuthUsers(), listAccessRequests()]);
+      setAuthUsers(users);
+      setAccessRequests(requests);
+    } catch (error) {
+      notify("Auth", error instanceof Error ? error.message : "Aggiornamento utenti non riuscito.");
+    }
+  };
+
+  const handleInviteUser = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!inviteEmail.trim()) return;
+    setInviteBusy(true);
+    try {
+      await requestLoginCode(inviteEmail.trim(), {
+        sendMail: inviteSendMail,
+        requestedRole: inviteRole,
+        displayName: inviteDisplayName.trim() || inviteEmail.trim(),
+        invitedBy: "FunniFin",
+      });
+      notify("Invito inviato", `Invito ${inviteSendMail ? "con mail" : "senza mail"} preparato per ${inviteEmail.trim()}.`);
+      setInviteEmail("");
+      setInviteDisplayName("");
+      setInviteRole("Brand");
+      setInviteSendMail(true);
+      await refreshAuthData();
+    } catch (error) {
+      notify("Invito non riuscito", error instanceof Error ? error.message : "Non sono riuscito a creare l'invito.");
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
+  const handleReviewAccessRequest = async (req: AccessRequest, status: "approved" | "rejected") => {
+    setInviteBusy(true);
+    try {
+      await reviewAccessRequest(req.id, {
+        status,
+        sendMail: req.sendMail,
+        reviewedBy: "FunniFin",
+      });
+      notify(status === "approved" ? "Richiesta approvata" : "Richiesta rifiutata", req.email);
+      await refreshAuthData();
+    } catch (error) {
+      notify("Aggiornamento accesso non riuscito", error instanceof Error ? error.message : "Controlla il backend auth.");
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
   const workspaceSettingMap = useMemo(
     () => new Map(workspaceSettings.map((setting) => [setting.key, setting])),
     [workspaceSettings],
@@ -2279,7 +2362,7 @@ export function AdminView({
               <div>
                 <span className="eyebrow">Accessi autorizzati</span>
                 <strong>{authUsers.length} account attivi</strong>
-                <em>Phase 1 · dati seed locali. Phase 2 leggerà da Google Sheets.</em>
+                <em>Inviti e codici gestiti da FunniFin con Google Sheets.</em>
               </div>
               <div className="pricing-hero-metrics">
                 <Info label="FunniFin" value={String(authUsers.filter((u) => u.actualRole === "FunniFin").length)} />
@@ -2288,6 +2371,60 @@ export function AdminView({
                 <Info label="In attesa" value={String(accessRequests.filter((r) => r.status === "pending").length)} />
               </div>
             </div>
+            <form className="pricing-hero-card auth-invite-card" onSubmit={handleInviteUser}>
+              <div>
+                <span className="eyebrow">Nuovo invito</span>
+                <strong>Invia accesso con codice</strong>
+                <em>FunniFin crea il record su Sheet e, se attivo, invia la mail con il codice.</em>
+              </div>
+              <div className="auth-invite-grid">
+                <label className="auth-invite-field">
+                  Email
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(event) => setInviteEmail(event.target.value)}
+                    placeholder="nome@azienda.it"
+                    autoComplete="email"
+                    required
+                    disabled={inviteBusy}
+                  />
+                </label>
+                <label className="auth-invite-field">
+                  Nome visualizzato
+                  <input
+                    type="text"
+                    value={inviteDisplayName}
+                    onChange={(event) => setInviteDisplayName(event.target.value)}
+                    placeholder="Nome Cognome o team"
+                    disabled={inviteBusy}
+                  />
+                </label>
+                <label className="auth-invite-field">
+                  Ruolo
+                  <select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as AuthRole)} disabled={inviteBusy}>
+                    <option value="FunniFin">FunniFin</option>
+                    <option value="Esperto">Esperto</option>
+                    <option value="Brand">Brand</option>
+                  </select>
+                </label>
+                <label className="auth-invite-toggle">
+                  <input
+                    type="checkbox"
+                    checked={inviteSendMail}
+                    onChange={(event) => setInviteSendMail(event.target.checked)}
+                    disabled={inviteBusy}
+                  />
+                  <span>Manda mail con codice</span>
+                </label>
+                <div className="auth-invite-actions">
+                  <AppButton type="submit" variant="primary" disabled={inviteBusy || !inviteEmail.trim()}>
+                    {inviteBusy ? "Invio..." : "Invia invito"}
+                  </AppButton>
+                </div>
+              </div>
+            </form>
+            {authLoading && <p style={{ color: "var(--color-muted)", marginTop: "0.5rem" }}>Carico utenti da Google Sheets...</p>}
             <table className="auth-users-table" style={{ width: "100%", borderCollapse: "collapse", marginTop: "1rem" }}>
               <thead>
                 <tr style={{ textAlign: "left", borderBottom: "1px solid var(--color-border)" }}>
@@ -2328,11 +2465,34 @@ export function AdminView({
                     <div>
                       <span className="eyebrow">{req.status}</span>
                       <strong>{req.email}</strong>
-                      <em>{req.refCode ? `ref: ${req.refCode}` : "accesso diretto"}</em>
+                      <em>
+                        {req.requestedRole ? `${req.requestedRole} · ` : ""}
+                        {req.refCode ? `ref: ${req.refCode}` : "accesso diretto"}
+                      </em>
+                      <small style={{ display: "block", color: "var(--color-muted)", marginTop: "0.35rem" }}>
+                        {req.codeStatus ? `Codice: ${req.codeStatus}` : "Codice non ancora assegnato"}
+                        {req.sendMail === false ? " · mail disattivata" : " · mail attiva"}
+                      </small>
                     </div>
                     <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <button type="button" className="app-button app-button-primary" style={{ fontSize: "0.8rem", padding: "0.3rem 0.75rem" }}>Approva</button>
-                      <button type="button" className="app-button" style={{ fontSize: "0.8rem", padding: "0.3rem 0.75rem" }}>Rifiuta</button>
+                      <button
+                        type="button"
+                        className="app-button app-button-primary"
+                        style={{ fontSize: "0.8rem", padding: "0.3rem 0.75rem" }}
+                        onClick={() => void handleReviewAccessRequest(req, "approved")}
+                        disabled={inviteBusy}
+                      >
+                        Approva
+                      </button>
+                      <button
+                        type="button"
+                        className="app-button"
+                        style={{ fontSize: "0.8rem", padding: "0.3rem 0.75rem" }}
+                        onClick={() => void handleReviewAccessRequest(req, "rejected")}
+                        disabled={inviteBusy}
+                      >
+                        Rifiuta
+                      </button>
                     </div>
                   </div>
                 ))}
