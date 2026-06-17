@@ -17,4 +17,5 @@ export type NotificationChoice = {
   recipients: WorkflowNotificationRecipientRole[];
   note: string;
   eventMode?: "tentative" | "confirmed";
+  addClientToCalendar?: boolean;
 };

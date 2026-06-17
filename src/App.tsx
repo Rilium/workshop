@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ArrowRight, BadgeCheck, BriefcaseBusiness, Sparkles, X } from "lucide-react";
 import { initialRules } from "./data/pricing";
 import { workshops } from "./data/catalog";
 import type { ProjectStatus, Role, Selection, Workshop } from "./types/domain";
@@ -9,6 +10,7 @@ import { buildLocalAdminProject, requestToAdminProject } from "./utils/workshop"
 import type { AssetDraftFolder, UploadedAsset } from "./driveAssetService";
 import type { WorkshopRequestRecord } from "./requestService";
 import { FeedbackToastStack } from "./components/ui/Toast";
+import { AppButton } from "./components/ui/AppButton";
 import { Topbar, SystemBar } from "./components/layout/Topbar";
 import { ConfettiBurst } from "./components/ui/ConfettiBurst";
 import { ClientView } from "./features/client/ClientView";
@@ -20,6 +22,105 @@ import { BrandView } from "./features/brand/BrandView";
 import { AuthProvider, AUTH_ENTRY_CONFETTI_EVENT, useAuth } from "./AuthContext";
 import { LoginView } from "./features/auth/LoginView";
 import { Skeleton, SkeletonCard } from "./components/ui/Skeleton";
+
+function getWelcomeCopy(role: Role) {
+  if (role === "FunniFin") {
+    return {
+      eyebrow: "Bentornato, operations",
+      title: "La console FunniFin e pronta.",
+      body: "Coda, calendario, esperti e materiali sono allineati nello stesso flusso operativo.",
+      primary: "Vai alla coda",
+      secondary: "Resta qui",
+      metric: "Progetti sotto controllo",
+    };
+  }
+  if (role === "Esperto") {
+    return {
+      eyebrow: "Bentornato, esperto",
+      title: "Nuove opportunita, senza rumore.",
+      body: "Trovi candidature, incarichi e materiali collegati nel punto giusto del percorso.",
+      primary: "Vedi candidature",
+      secondary: "Resta qui",
+      metric: "Workshop da valutare",
+    };
+  }
+  if (role === "Brand") {
+    return {
+      eyebrow: "Bentornato, brand",
+      title: "Revisioni pronte da rifinire.",
+      body: "Deck, asset e approvazioni finali sono raccolti nella vista dedicata al controllo qualita.",
+      primary: "Apri revisioni",
+      secondary: "Resta qui",
+      metric: "Materiali da chiudere",
+    };
+  }
+  return {
+    eyebrow: "Bentornato",
+    title: "Il tuo spazio e pronto.",
+    body: "Riprendi il percorso e completa i passaggi rimasti quando vuoi.",
+    primary: "Continua",
+    secondary: "Resta qui",
+    metric: "Percorso attivo",
+  };
+}
+
+function WelcomeModal({
+  role,
+  name,
+  onPrimary,
+  onClose,
+}: {
+  role: Role;
+  name: string;
+  onPrimary: () => void;
+  onClose: () => void;
+}) {
+  const copy = getWelcomeCopy(role);
+
+  return (
+    <div className="modal-backdrop welcome-backdrop" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+      <section className="welcome-modal">
+        <button className="welcome-close" type="button" onClick={onClose} aria-label="Chiudi benvenuto">
+          <X size={18} />
+        </button>
+        <div className="welcome-orbit" aria-hidden="true">
+          <Sparkles size={28} />
+        </div>
+        <div className="welcome-copy">
+          <span className="welcome-eyebrow">{copy.eyebrow}</span>
+          <h2 id="welcome-title">{copy.title}</h2>
+          <p>{copy.body}</p>
+        </div>
+        <div className="welcome-user-card">
+          <span>
+            <BadgeCheck size={18} />
+            Accesso confermato
+          </span>
+          <strong>{name}</strong>
+          <em>{role}</em>
+        </div>
+        <div className="welcome-mini-grid" aria-label="Contesto ingresso">
+          <span>
+            <BriefcaseBusiness size={17} />
+            {copy.metric}
+          </span>
+          <span>
+            <Sparkles size={17} />
+            Sessione avviata
+          </span>
+        </div>
+        <footer className="welcome-actions">
+          <AppButton variant="ghost" onClick={onClose}>
+            {copy.secondary}
+          </AppButton>
+          <AppButton variant="primary" onClick={onPrimary}>
+            {copy.primary} <ArrowRight size={17} />
+          </AppButton>
+        </footer>
+      </section>
+    </div>
+  );
+}
 
 // ─── Inner app (dentro AuthProvider) ──────────────────────────────────────────
 
@@ -47,11 +148,25 @@ function AppInner() {
   const [clientUploadedAssets, setClientUploadedAssets] = useState<UploadedAsset[]>([]);
   const [currentRequest, setCurrentRequest] = useState<WorkshopRequestRecord | null>(null);
   const [requestRefreshToken, setRequestRefreshToken] = useState(0);
-  const [showEntryConfetti, setShowEntryConfetti] = useState(false);
+  const [showCelebrationConfetti, setShowCelebrationConfetti] = useState(false);
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
   const { toasts, notify, closeToast } = useToasts();
   const { selections, toggleWorkshop, addWorkshops, updateSelection } = useWorkshopSelection(workshops, notify);
   const quote = useQuote(selections, workshops, rules);
   const lastConfettiTokenRef = useRef<string | null>(null);
+  const lastWelcomeTokenRef = useRef<string | null>(null);
+
+  const fireConfetti = (duration = 2800) => {
+    setShowCelebrationConfetti(false);
+    window.setTimeout(() => setShowCelebrationConfetti(true), 0);
+    window.setTimeout(() => setShowCelebrationConfetti(false), duration);
+  };
+
+  const openWelcome = (token: string | null) => {
+    if (!token || lastWelcomeTokenRef.current === token) return;
+    lastWelcomeTokenRef.current = token;
+    setWelcomeOpen(true);
+  };
 
   useEffect(() => {
     if (window.location.hash === "#esperto-candidature") {
@@ -71,9 +186,8 @@ function AppInner() {
     if (loading || !session || !currentUser) return;
     if (lastConfettiTokenRef.current === session.token) return;
     lastConfettiTokenRef.current = session.token;
-    setShowEntryConfetti(true);
-    const timer = window.setTimeout(() => setShowEntryConfetti(false), 2800);
-    return () => window.clearTimeout(timer);
+    fireConfetti();
+    openWelcome(session.token);
   }, [currentUser, loading, session?.token]);
 
   useEffect(() => {
@@ -81,8 +195,8 @@ function AppInner() {
       const token = (event as CustomEvent<{ token?: string }>).detail?.token ?? session?.token ?? null;
       if (!token || lastConfettiTokenRef.current === token) return;
       lastConfettiTokenRef.current = token;
-      setShowEntryConfetti(true);
-      window.setTimeout(() => setShowEntryConfetti(false), 2800);
+      fireConfetti();
+      openWelcome(token);
     };
     window.addEventListener(AUTH_ENTRY_CONFETTI_EVENT, handleEntryConfetti as EventListener);
     return () => window.removeEventListener(AUTH_ENTRY_CONFETTI_EVENT, handleEntryConfetti as EventListener);
@@ -144,9 +258,25 @@ function AppInner() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const closeWelcome = () => setWelcomeOpen(false);
+  const runWelcomePrimary = () => {
+    setWelcomeOpen(false);
+    if (role === "Brand") setBrandFilter("Revisioni");
+    if (role === "Esperto") window.history.replaceState(null, "", "#esperto-candidature");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <div className={"app-shell role-" + role.toLowerCase()}>
-      <ConfettiBurst active={showEntryConfetti} />
+      <ConfettiBurst active={showCelebrationConfetti} />
+      {welcomeOpen && currentUser && (
+        <WelcomeModal
+          role={role}
+          name={currentUser.displayName || currentUser.email}
+          onPrimary={runWelcomePrimary}
+          onClose={closeWelcome}
+        />
+      )}
       {toasts.length > 0 && <FeedbackToastStack toasts={toasts} onClose={closeToast} />}
       {customModalWorkshop && <CustomModal workshop={customModalWorkshop} onClose={() => setCustomModalWorkshop(null)} />}
       {customRequestWorkshop && (
@@ -235,6 +365,7 @@ function AppInner() {
             onRequestCreated={(request) => {
               setCurrentRequest(request);
               setRequestRefreshToken((value) => value + 1);
+              fireConfetti(3200);
             }}
           />
         )}

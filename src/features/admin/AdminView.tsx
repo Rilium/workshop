@@ -990,6 +990,7 @@ export function AdminView({
         finalDeckUrl: eventMode === "confirmed" ? calendarDeckUrl : undefined,
         finalDeckTitle: eventMode === "confirmed" ? calendarDeckTitle : undefined,
         sendCalendarInvites: eventMode === "confirmed" && Boolean(choice?.send),
+        includeClientInCalendar: Boolean(choice?.addClientToCalendar),
         existingEventId: eventMode === "confirmed" ? currentProjectEvent?.id : undefined,
         workshops: currentProjectSelections.map((row) => ({
           title: row.workshop.title,

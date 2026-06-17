@@ -263,7 +263,7 @@ function buildCalendarEvent(payload, eventMode, start, end, hasOnlineWorkshop, e
     start: { dateTime: start.toISOString(), timeZone: SETTINGS.timezone },
     end: { dateTime: end.toISOString(), timeZone: SETTINGS.timezone },
     attendees: [
-      { email: payload.managerEmail, displayName: payload.manager },
+      ...(payload.includeClientInCalendar === false ? [] : [{ email: payload.managerEmail, displayName: payload.manager }]),
       { email: getRuntimeInternalRecipient(), displayName: "FunniFin" },
     ],
     extendedProperties: {
@@ -300,7 +300,7 @@ function insertCalendarEvent(event, calendarId, start, end, payload) {
     }
     const fallback = calendar.createEvent(event.summary, start, end, {
       description: event.description,
-      guests: [payload.managerEmail, getRuntimeInternalRecipient()].filter(Boolean).join(","),
+      guests: [payload.includeClientInCalendar === false ? "" : payload.managerEmail, getRuntimeInternalRecipient()].filter(Boolean).join(","),
       sendInvites: sendCalendarInvites,
     });
     fallback.setTag("projectId", payload.projectId);

@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { createAssetDraftFolder, deleteAssetDraftFolder, uploadAssetFiles, type AssetDraftFolder, type UploadedAsset } from "../../driveAssetService";
 import { createWorkshopRequest, type RequestWorkshopRecord, type WorkshopRequestRecord } from "../../requestService";
+import { sendWorkshopRequestEmail } from "../../emailService";
 import { topics, workshops } from "../../data/catalog";
 import type { ClientContact, Format, ProjectStatus, Quote, Selection, Topic, Workshop } from "../../types/domain";
 import { money } from "../../utils/money";
@@ -113,7 +114,7 @@ export function ClientView({
   const [assetUploadError, setAssetUploadError] = useState("");
   const [requestFinalized, setRequestFinalized] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
-  const [emailDeliveryMode, setEmailDeliveryMode] = useState<"sent" | "demo" | "opaque" | "not_sent">("not_sent");
+  const [emailDeliveryMode, setEmailDeliveryMode] = useState<"sent" | "opaque" | "not_sent">("not_sent");
   const [flyToBar, setFlyToBar] = useState<{ id: number; title: string; x: number; y: number } | null>(null);
   const [expandedTopicCards, setExpandedTopicCards] = useState<string[]>([]);
   const assetFolderRef = useRef<AssetDraftFolder | null>(null);
@@ -289,6 +290,27 @@ export function ClientView({
         status: selection.status,
         approval: selection.dateConfirmed ? "pending" : undefined,
       }));
+      const emailPayload = {
+        contact,
+        workshops: requestWorkshops.map((workshop) => ({
+          title: workshop.title,
+          duration: workshop.duration,
+          format: workshop.format,
+          date: workshop.date,
+          time: workshop.time,
+          price: workshop.price,
+          custom: workshop.custom,
+        })),
+        quote: {
+          gross: quote.gross,
+          discount: quote.quantityDiscount,
+          promoDiscount: quote.promoDiscount,
+          customTotal: quote.customTotal,
+          total: quote.total,
+          saved: quote.saved,
+          packageName: quote.rule.name,
+        },
+      };
       const request = await createWorkshopRequest({
         contact,
         workshops: requestWorkshops,
@@ -310,14 +332,19 @@ export function ClientView({
             }
           : undefined,
       });
+      const emailResult = await sendWorkshopRequestEmail({
+        ...emailPayload,
+      });
       onRequestCreated(request);
       setProjectStatus(
         "richiesta_inviata",
-        "Richiesta presa in carico",
-        `Richiesta ${request.id} salvata sul registro reale. Nessuna email automatica inviata: il recap parte solo dalla conferma finale esplicita.`,
+        emailResult.sent ? "Richiesta presa in carico" : "Richiesta presa in carico",
+        emailResult.sent
+          ? `Richiesta ${request.id} salvata sul registro reale e recap inviato a ${contact.email.trim()}.`
+          : `Richiesta ${request.id} salvata sul registro reale, ma l'email non è partita.`,
       );
       setSubmittedEmail(contact.email.trim());
-      setEmailDeliveryMode("not_sent");
+      setEmailDeliveryMode(emailResult.sent ? (emailResult.opaque ? "opaque" : "sent") : "not_sent");
       setRequestFinalized(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Salvataggio richiesta o invio email non riuscito.";
@@ -974,13 +1001,11 @@ export function ClientView({
                 <div>
                   <strong>Richiesta inviata</strong>
                   <p>
-                    {emailDeliveryMode === "demo"
-                      ? "Richiesta salvata in demo. Configura Apps Script per inviare davvero l'email."
-                      : emailDeliveryMode === "opaque"
+                    {emailDeliveryMode === "opaque"
                         ? "Richiesta presa in carico. FunniFin la trova nella coda e ti ricontattera con il recap."
                         : emailDeliveryMode === "not_sent"
-                          ? "Richiesta presa in carico. Nessuna email automatica: il recap parte solo alla conferma finale."
-                        : "Email inviata al cliente e a FunniFin."}
+                          ? "Richiesta presa in carico. Email non inviata."
+                          : "Email inviata al cliente e a FunniFin."}
                   </p>
                 </div>
                 <div className="submitted-email-box">

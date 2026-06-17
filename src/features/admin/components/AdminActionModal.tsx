@@ -267,6 +267,9 @@ export function AdminActionModal({
   const emailImpact = notification.send && selectedRecipients.length > 0
     ? `Email: parte alla conferma verso ${selectedRecipients.join(" / ")}.`
     : "Email: non parte nessuna email alla conferma.";
+  const calendarGuestImpact = notification.addClientToCalendar
+    ? `Calendar: il cliente ${project.email} viene aggiunto come ospite del meeting.`
+    : "Calendar: il cliente non viene aggiunto come ospite del meeting.";
   const workflowImpact = (() => {
     if (modal.type === "edit_request") {
       return [
@@ -316,6 +319,7 @@ export function AdminActionModal({
       return [
         `Stato: crea un evento ${notification.eventMode === "tentative" ? "provvisorio" : "definitivo"} e aggiorna il progetto.`,
         emailImpact,
+        calendarGuestImpact,
         `Calendario: crea evento Google Calendar ${notification.eventMode === "tentative" ? "provvisorio" : "confermato"} con Meet e workshop collegati.`,
         "Catalogo/Drive: collega materiali e presentazioni operative gia mappate, senza rinominare il catalogo.",
       ];
@@ -734,6 +738,7 @@ export function getDefaultNotificationChoice(modal: AdminActionModalState, rows:
       recipients: ["client", "funnifin"],
       note: "Evento creato a calendario con materiali collegati.",
       eventMode: "tentative",
+      addClientToCalendar: true,
     };
   }
   return { send: false, recipients: [], note: "" };
@@ -780,6 +785,16 @@ export function NotificationController({
           </div>
         )}
       </div>
+      {modalType === "confirm_event" && (
+        <label className="toggle-line calendar-guest-toggle">
+          <input
+            type="checkbox"
+            checked={Boolean(choice.addClientToCalendar)}
+            onChange={(event) => onChange({ ...choice, addClientToCalendar: event.target.checked })}
+          />
+          <span>Aggiungi cliente al Calendar</span>
+        </label>
+      )}
       <div className="recipient-grid" aria-disabled={!choice.send}>
         {(Object.keys(recipientLabels) as WorkflowNotificationRecipientRole[]).map((role) => (
           <button

@@ -30,6 +30,7 @@ export type CalendarEventPayload = {
   finalDeckUrl?: string;
   finalDeckTitle?: string;
   sendCalendarInvites?: boolean;
+  includeClientInCalendar?: boolean;
   existingEventId?: string;
 };
 
