@@ -1440,7 +1440,7 @@ function reviewAccessRequest(payload) {
 function appendAccessRequest(request) {
   const sheet = getAccessRequestsSheet();
   const normalized = Object.assign({}, request, {
-    id: request.id || buildAccessRequestId(request.email || "user", new Date()),
+    id: request.id || buildAuthRequestId(request.email || "user", new Date()),
     createdAt: request.createdAt || formatTimestamp(new Date()),
     updatedAt: request.updatedAt || formatTimestamp(new Date()),
   });
