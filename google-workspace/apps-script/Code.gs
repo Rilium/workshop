@@ -129,7 +129,7 @@ function handleGet(event) {
   return jsonResponse({
     ok: true,
     service: "FunniFin Workshop Planner",
-    actions: ["freeBusy", "calendarLookup", "driveFolder", "brandPresentations", "listWorkshopRequests", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "listAuthUsers", "listAccessRequests", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification", "requestLoginCode", "verifyLoginCode", "reviewAccessRequest"],
+    actions: ["freeBusy", "calendarLookup", "driveFolder", "brandPresentations", "listWorkshopRequests", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "listAuthUsers", "listAccessRequests", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification", "requestLoginCode", "verifyLoginCode", "reviewAccessRequest", "updateAuthUser"],
   });
 }
 
@@ -187,6 +187,9 @@ function handlePost(event) {
   }
   if (body.action === "reviewAccessRequest") {
     return jsonResponse(reviewAccessRequest(body.payload || {}));
+  }
+  if (body.action === "updateAuthUser") {
+    return jsonResponse(updateAuthUser(body.payload || {}));
   }
   if (body.action === "ensurePresentationStructure") {
     return jsonResponse(ensurePresentationStructure(body.payload || {}));
@@ -1480,6 +1483,18 @@ function findAuthUserRowByEmail(email, sheet) {
   return null;
 }
 
+function findAuthUserRowById(userId, sheet) {
+  const rows = sheet.getDataRange().getValues();
+  const target = String(userId || "");
+  for (let index = 1; index < rows.length; index += 1) {
+    const user = rowToAuthUser(rows[index]);
+    if (user && String(user.id || "") === target) {
+      return rows[index];
+    }
+  }
+  return null;
+}
+
 function buildAuthUserId(email) {
   const normalized = String(email || "user")
     .toLowerCase()
@@ -1515,6 +1530,34 @@ function authUserToRow(user) {
     sheetText(user.updatedAt || ""),
     sheetText(JSON.stringify(user)),
   ];
+}
+
+function updateAuthUser(payload) {
+  const userId = String(payload.userId || payload.id || "");
+  if (!userId) throw new Error("Missing userId");
+
+  seedAuthUsersIfNeeded();
+  const usersSheet = getAuthUsersSheet();
+  const rows = usersSheet.getDataRange().getValues();
+  const rowIndex = rows.findIndex((row, index) => index > 0 && row[0] === userId);
+  const existingRow = rowIndex >= 1 ? rows[rowIndex] : null;
+  if (!existingRow) throw new Error("Auth user not found");
+  const current = rowToAuthUser(existingRow);
+  const next = Object.assign({}, current, {
+    email: String(payload.email || current.email || "").trim().toLowerCase(),
+    actualRole: String(payload.actualRole || current.actualRole || "Brand"),
+    expertId: String(payload.expertId == null ? current.expertId || "" : payload.expertId),
+    displayName: String(payload.displayName || current.displayName || payload.email || current.email || ""),
+    invitedBy: String(payload.invitedBy || current.invitedBy || "FunniFin"),
+    disabled: payload.disabled == null ? current.disabled : payload.disabled === true,
+    updatedAt: formatTimestamp(new Date()),
+  });
+  usersSheet.getRange(rowIndex + 1, 1, 1, AUTH_USER_HEADERS.length).setValues([authUserToRow(next)]);
+  return {
+    ok: true,
+    source: "google-sheet",
+    user: next,
+  };
 }
 
 function rowToAuthUser(row) {

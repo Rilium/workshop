@@ -1720,6 +1720,65 @@
   align-items: start;
 }
 
+.auth-invite-card--compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-4);
+  align-items: center;
+}
+
+.admin-auth-tabs {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px;
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-pill);
+  background: var(--neutral-50);
+}
+
+.admin-auth-tabs button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--neutral-700);
+  font: inherit;
+  font-weight: var(--fw-bold);
+}
+
+.admin-auth-tabs button.active {
+  border-color: var(--brand-mid);
+  background: var(--white);
+  color: var(--brand-dark);
+  box-shadow: var(--brand-shadow-card);
+}
+
+.auth-user-modal {
+  width: min(920px, 100%);
+}
+
+.auth-user-modal-body {
+  overflow: auto;
+}
+
+.auth-user-modal-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), var(--white) 36%);
+  backdrop-filter: blur(10px);
+}
+
+.auth-invite-grid--modal {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.auth-requests-table td:last-child {
+  text-align: right;
+}
+
 .auth-invite-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1787,6 +1846,18 @@
   display: flex;
   justify-content: flex-end;
   align-items: end;
+}
+
+.auth-invite-hint {
+  color: var(--neutral-500);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
+  text-align: right;
+}
+
+.auth-requests-tab {
+  display: grid;
+  gap: var(--sp-3);
 }
 
 .pricing-rule-grid {

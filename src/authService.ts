@@ -41,6 +41,20 @@ export type ReviewAccessRequestResult = {
   codeSent?: boolean;
 };
 
+export type UpdateAuthUserOptions = {
+  email: string;
+  actualRole: AuthRole;
+  displayName: string;
+  expertId?: string;
+  invitedBy?: string;
+  disabled?: boolean;
+  sendMail?: boolean;
+};
+
+export type UpdateAuthUserResult = {
+  user: AuthUser;
+};
+
 type AuthSessionPayload = {
   session: AuthSession;
   user: AuthUser;
@@ -84,6 +98,11 @@ const DEFAULT_CODE_TTL_MS = 10 * 60 * 1000;
 const pendingOtps = new Map<string, { otp: string; expiresAt: number }>();
 const localAuthUsers = new Map<string, AuthUser>(SEED_USERS.map((user) => [user.email.toLowerCase(), user]));
 const localAccessRequests = new Map<string, AccessRequest>();
+
+function findLocalUserById(userId: string) {
+  const normalizedId = String(userId || "");
+  return [...localAuthUsers.values()].find((user) => user.id === normalizedId) ?? null;
+}
 
 function getScriptUrl() {
   return (import.meta as unknown as { env: Record<string, string | undefined> }).env[
@@ -170,6 +189,10 @@ function upsertLocalAccessRequest(request: AccessRequest) {
 
 function upsertLocalUser(user: AuthUser) {
   localAuthUsers.set(user.email.toLowerCase(), user);
+}
+
+function removeLocalUser(email: string) {
+  localAuthUsers.delete(email.toLowerCase());
 }
 
 function findLocalUserByEmail(email: string) {
@@ -407,6 +430,41 @@ export async function listAccessRequests(): Promise<AccessRequest[]> {
   } catch {
     return Array.from(localAccessRequests.values());
   }
+}
+
+function localUpdateAuthUser(userId: string, patch: UpdateAuthUserOptions): UpdateAuthUserResult {
+  const existing = findLocalUserById(userId) ?? findLocalUserByEmail(patch.email);
+  if (!existing) throw new Error("Utente non trovato.");
+  const next: AuthUser = {
+    ...existing,
+    email: normalizeEmail(patch.email),
+    actualRole: patch.actualRole,
+    displayName: patch.displayName,
+    expertId: patch.expertId ?? "",
+    invitedBy: patch.invitedBy ?? existing.invitedBy,
+    disabled: Boolean(patch.disabled),
+  };
+  if (existing.email.toLowerCase() !== next.email.toLowerCase()) {
+    removeLocalUser(existing.email);
+  }
+  upsertLocalUser(next);
+  return { user: next };
+}
+
+export async function updateAuthUser(userId: string, patch: UpdateAuthUserOptions): Promise<UpdateAuthUserResult> {
+  if (!userId) throw new Error("userId mancante.");
+
+  try {
+    const result = await postAppsScript<UpdateAuthUserResult>("updateAuthUser", {
+      userId,
+      ...patch,
+    });
+    if (result?.user) return result;
+  } catch {
+    // fallback locale
+  }
+
+  return localUpdateAuthUser(userId, patch);
 }
 
 export function getStoredSession(): AuthSession | null {

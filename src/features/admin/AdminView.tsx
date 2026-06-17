@@ -52,6 +52,7 @@ import { ActionIconButton, ToolIconButton } from "../../components/ui/IconButton
 import { EventLink } from "../../components/ui/EventLink";
 import { Info } from "../../components/ui/Info";
 import { Panel } from "../../components/ui/Panel";
+import { ModalBackdrop } from "../../components/ui/Modal";
 import { Skeleton, SkeletonCard } from "../../components/ui/Skeleton";
 import { BottomActionBar } from "../../components/layout/BottomActionBar";
 import { OperationalStrip } from "../../components/layout/OperationalStrip";
@@ -65,6 +66,7 @@ import { AdminSectionNav } from "./components/AdminSectionNav";
 import { CatalogEditModal } from "./components/CatalogEditModal";
 import { ExpertProfileModal } from "./components/ExpertProfileModal";
 import { getWorkshopSelectionPrice } from "../../utils/workshop";
+import { updateAuthUser } from "../../authService";
 
 const GOOGLE_HEALTH_CACHE_KEY = "funnifin.googleHealth.v1";
 type AdminQueueFilter = "tutti" | "oggi" | "da-fissare" | "produzione" | "in-calendario" | "chiusi";
@@ -214,9 +216,15 @@ export function AdminView({
   const [authUsers, setAuthUsers] = useState<AuthUser[]>([]);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
   const [authLoading, setAuthLoading] = useState(false);
+  const [authSectionTab, setAuthSectionTab] = useState<"utenti" | "richieste">("utenti");
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<"create" | "edit">("create");
+  const [authModalTargetId, setAuthModalTargetId] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteDisplayName, setInviteDisplayName] = useState("");
   const [inviteRole, setInviteRole] = useState<AuthRole>("Brand");
+  const [inviteExpertId, setInviteExpertId] = useState("");
+  const [inviteDisabled, setInviteDisabled] = useState(false);
   const [inviteSendMail, setInviteSendMail] = useState(true);
   const [inviteBusy, setInviteBusy] = useState(false);
   useEffect(() => {
@@ -255,25 +263,70 @@ export function AdminView({
     }
   };
 
+  const resetAuthModal = () => {
+    setAuthModalOpen(false);
+    setAuthModalMode("create");
+    setAuthModalTargetId("");
+    setInviteEmail("");
+    setInviteDisplayName("");
+    setInviteRole("Brand");
+    setInviteExpertId("");
+    setInviteDisabled(false);
+    setInviteSendMail(true);
+  };
+
+  const openCreateAuthModal = () => {
+    setAuthModalMode("create");
+    setAuthModalTargetId("");
+    setInviteEmail("");
+    setInviteDisplayName("");
+    setInviteRole("Brand");
+    setInviteExpertId("");
+    setInviteDisabled(false);
+    setInviteSendMail(true);
+    setAuthModalOpen(true);
+  };
+
+  const openEditAuthModal = (user: AuthUser) => {
+    setAuthModalMode("edit");
+    setAuthModalTargetId(user.id);
+    setInviteEmail(user.email);
+    setInviteDisplayName(user.displayName);
+    setInviteRole(user.actualRole);
+    setInviteExpertId(user.expertId ?? "");
+    setInviteDisabled(user.disabled);
+    setInviteSendMail(true);
+    setAuthModalOpen(true);
+  };
+
   const handleInviteUser = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!inviteEmail.trim()) return;
     setInviteBusy(true);
     try {
-      await requestLoginCode(inviteEmail.trim(), {
-        sendMail: inviteSendMail,
-        requestedRole: inviteRole,
-        displayName: inviteDisplayName.trim() || inviteEmail.trim(),
-        invitedBy: "FunniFin",
-      });
-      notify("Invito inviato", `Invito ${inviteSendMail ? "con mail" : "senza mail"} preparato per ${inviteEmail.trim()}.`);
-      setInviteEmail("");
-      setInviteDisplayName("");
-      setInviteRole("Brand");
-      setInviteSendMail(true);
+      if (authModalMode === "create") {
+        await requestLoginCode(inviteEmail.trim(), {
+          sendMail: inviteSendMail,
+          requestedRole: inviteRole,
+          displayName: inviteDisplayName.trim() || inviteEmail.trim(),
+          invitedBy: "FunniFin",
+        });
+        notify("Invito inviato", `Invito ${inviteSendMail ? "con mail" : "senza mail"} preparato per ${inviteEmail.trim()}.`);
+      } else {
+        await updateAuthUser(authModalTargetId, {
+          email: inviteEmail.trim(),
+          actualRole: inviteRole,
+          displayName: inviteDisplayName.trim() || inviteEmail.trim(),
+          expertId: inviteExpertId.trim(),
+          invitedBy: "FunniFin",
+          disabled: inviteDisabled,
+        });
+        notify("Utente aggiornato", `${inviteDisplayName.trim() || inviteEmail.trim()} salvato su Google Sheets.`);
+      }
+      resetAuthModal();
       await refreshAuthData();
     } catch (error) {
-      notify("Invito non riuscito", error instanceof Error ? error.message : "Non sono riuscito a creare l'invito.");
+      notify(authModalMode === "create" ? "Invito non riuscito" : "Aggiornamento non riuscito", error instanceof Error ? error.message : "Non sono riuscito a salvare l'utente.");
     } finally {
       setInviteBusy(false);
     }
@@ -1142,6 +1195,13 @@ export function AdminView({
   ];
   const activeAdminSection = adminSections.find((section) => section.id === adminTab) ?? adminSections[0];
   const adminMainAction = (() => {
+    if (adminTab === "Utenti") {
+      return {
+        label: "Aggiungi utente",
+        disabled: false,
+        action: openCreateAuthModal,
+      };
+    }
     if (adminTab !== "Operativo") {
       if (adminTab === "Catalogo") {
         if (catalogView === "drive") {
@@ -2487,135 +2547,275 @@ export function AdminView({
                 <Info label="In attesa" value={String(accessRequests.filter((r) => r.status === "pending").length)} />
               </div>
             </div>
-            <form className="pricing-hero-card auth-invite-card" onSubmit={handleInviteUser}>
+            <div className="pricing-hero-card auth-invite-card auth-invite-card--compact">
               <div>
                 <span className="eyebrow">Nuovo invito</span>
                 <strong>Invia accesso con codice</strong>
                 <em>FunniFin crea il record su Sheet e, se attivo, invia la mail con il codice.</em>
               </div>
-              <div className="auth-invite-grid">
-                <label className="auth-invite-field">
-                  Email
-                  <input
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(event) => setInviteEmail(event.target.value)}
-                    placeholder="nome@azienda.it"
-                    autoComplete="email"
-                    required
-                    disabled={inviteBusy}
-                  />
-                </label>
-                <label className="auth-invite-field">
-                  Nome visualizzato
-                  <input
-                    type="text"
-                    value={inviteDisplayName}
-                    onChange={(event) => setInviteDisplayName(event.target.value)}
-                    placeholder="Nome Cognome o team"
-                    disabled={inviteBusy}
-                  />
-                </label>
-                <label className="auth-invite-field">
-                  Ruolo
-                  <select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as AuthRole)} disabled={inviteBusy}>
-                    <option value="FunniFin">FunniFin</option>
-                    <option value="Esperto">Esperto</option>
-                    <option value="Brand">Brand</option>
-                  </select>
-                </label>
-                <label className="auth-invite-toggle">
-                  <input
-                    type="checkbox"
-                    checked={inviteSendMail}
-                    onChange={(event) => setInviteSendMail(event.target.checked)}
-                    disabled={inviteBusy}
-                  />
-                  <span>Manda mail con codice</span>
-                </label>
-                <div className="auth-invite-actions">
-                  <AppButton type="submit" variant="primary" disabled={inviteBusy || !inviteEmail.trim()}>
-                    {inviteBusy ? "Invio..." : "Invia invito"}
-                  </AppButton>
-                </div>
+              <div className="auth-invite-actions">
+                <span className="auth-invite-hint">Il comando principale sta nel footer fisso qui sotto.</span>
               </div>
-            </form>
+            </div>
+            <div className="admin-auth-tabs" role="tablist" aria-label="Sezione utenti">
+              <button type="button" role="tab" aria-selected={authSectionTab === "utenti"} className={authSectionTab === "utenti" ? "active" : ""} onClick={() => setAuthSectionTab("utenti")}>
+                Utenti
+              </button>
+              <button type="button" role="tab" aria-selected={authSectionTab === "richieste"} className={authSectionTab === "richieste" ? "active" : ""} onClick={() => setAuthSectionTab("richieste")}>
+                Richieste di accesso
+              </button>
+            </div>
             {authLoading && <p style={{ color: "var(--color-muted)", marginTop: "0.5rem" }}>Carico utenti da Google Sheets...</p>}
-            <table className="auth-users-table" style={{ width: "100%", borderCollapse: "collapse", marginTop: "1rem" }}>
-              <thead>
-                <tr style={{ textAlign: "left", borderBottom: "1px solid var(--color-border)" }}>
-                  <th style={{ padding: "0.5rem 0.75rem" }}>Nome</th>
-                  <th style={{ padding: "0.5rem 0.75rem" }}>Email</th>
-                  <th style={{ padding: "0.5rem 0.75rem" }}>Ruolo</th>
-                  <th style={{ padding: "0.5rem 0.75rem" }}>Expert ID</th>
-                  <th style={{ padding: "0.5rem 0.75rem" }}>Stato</th>
-                </tr>
-              </thead>
-              <tbody>
-                {authUsers.map((user) => (
-                  <tr key={user.id} style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
-                    <td style={{ padding: "0.5rem 0.75rem" }}><strong>{user.displayName}</strong></td>
-                    <td style={{ padding: "0.5rem 0.75rem" }}><em>{user.email}</em></td>
-                    <td style={{ padding: "0.5rem 0.75rem" }}>
-                      <span className={`role-title-badge role-${user.actualRole.toLowerCase()}`}>{user.actualRole}</span>
-                    </td>
-                    <td style={{ padding: "0.5rem 0.75rem" }}>{user.expertId ?? "—"}</td>
-                    <td style={{ padding: "0.5rem 0.75rem" }}>
-                      <span style={{ color: user.disabled ? "var(--color-error)" : "var(--color-success)" }}>
-                        {user.disabled ? "Disabilitato" : "Attivo"}
-                      </span>
-                    </td>
+            {authSectionTab === "utenti" ? (
+              <table className="auth-users-table" style={{ width: "100%", borderCollapse: "collapse", marginTop: "1rem" }}>
+                <thead>
+                  <tr style={{ textAlign: "left", borderBottom: "1px solid var(--color-border)" }}>
+                    <th style={{ padding: "0.5rem 0.75rem" }}>Nome</th>
+                    <th style={{ padding: "0.5rem 0.75rem" }}>Email</th>
+                    <th style={{ padding: "0.5rem 0.75rem" }}>Ruolo</th>
+                    <th style={{ padding: "0.5rem 0.75rem" }}>Expert ID</th>
+                    <th style={{ padding: "0.5rem 0.75rem" }}>Stato</th>
+                    <th style={{ padding: "0.5rem 0.75rem" }}>Azioni</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {accessRequests.length === 0 ? (
-              <p style={{ color: "var(--color-muted)", marginTop: "1.5rem", fontSize: "0.875rem" }}>
-                Nessuna richiesta di accesso in attesa.
-              </p>
+                </thead>
+                <tbody>
+                  {authUsers.map((user) => (
+                    <tr key={user.id} style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
+                      <td style={{ padding: "0.5rem 0.75rem" }}><strong>{user.displayName}</strong></td>
+                      <td style={{ padding: "0.5rem 0.75rem" }}><em>{user.email}</em></td>
+                      <td style={{ padding: "0.5rem 0.75rem" }}>
+                        <span className={`role-title-badge role-${user.actualRole.toLowerCase()}`}>{user.actualRole}</span>
+                      </td>
+                      <td style={{ padding: "0.5rem 0.75rem" }}>{user.expertId ?? "—"}</td>
+                      <td style={{ padding: "0.5rem 0.75rem" }}>
+                        <span style={{ color: user.disabled ? "var(--color-error)" : "var(--color-success)" }}>
+                          {user.disabled ? "Disabilitato" : "Attivo"}
+                        </span>
+                      </td>
+                      <td style={{ padding: "0.5rem 0.75rem" }}>
+                        <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", flexWrap: "wrap" }}>
+                          <button
+                            type="button"
+                            className="app-button app-button-secondary"
+                            style={{ fontSize: "0.78rem", padding: "0.3rem 0.7rem" }}
+                            onClick={() => openEditAuthModal(user)}
+                            disabled={inviteBusy}
+                            aria-label={`Modifica ${user.displayName}`}
+                          >
+                            <Settings2 size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="app-button"
+                            style={{ fontSize: "0.78rem", padding: "0.3rem 0.7rem" }}
+                            onClick={() => void updateAuthUser(user.id, {
+                              email: user.email,
+                              actualRole: user.actualRole,
+                              displayName: user.displayName,
+                              expertId: user.expertId ?? "",
+                              invitedBy: user.invitedBy ?? "FunniFin",
+                              disabled: !user.disabled,
+                            }).then(() => refreshAuthData()).then(() => notify(user.disabled ? "Utente riattivato" : "Utente disabilitato", user.email)).catch((error: unknown) => notify("Aggiornamento non riuscito", error instanceof Error ? error.message : "Impossibile aggiornare l'utente."))}
+                            disabled={inviteBusy}
+                            aria-label={user.disabled ? `Riattiva ${user.displayName}` : `Disabilita ${user.displayName}`}
+                          >
+                            {user.disabled ? <Check size={14} /> : <X size={14} />}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             ) : (
-              <div style={{ marginTop: "1.5rem" }}>
-                <strong>Richieste di accesso</strong>
-                {accessRequests.map((req) => (
-                  <div key={req.id} className="pricing-hero-card" style={{ marginTop: "0.5rem" }}>
-                    <div>
-                      <span className="eyebrow">{req.status}</span>
-                      <strong>{req.email}</strong>
-                      <em>
-                        {req.requestedRole ? `${req.requestedRole} · ` : ""}
-                        {req.refCode ? `ref: ${req.refCode}` : "accesso diretto"}
-                      </em>
-                      <small style={{ display: "block", color: "var(--color-muted)", marginTop: "0.35rem" }}>
-                        {req.codeStatus ? `Codice: ${req.codeStatus}` : "Codice non ancora assegnato"}
-                        {req.sendMail === false ? " · mail disattivata" : " · mail attiva"}
-                      </small>
-                    </div>
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <button
-                        type="button"
-                        className="app-button app-button-primary"
-                        style={{ fontSize: "0.8rem", padding: "0.3rem 0.75rem" }}
-                        onClick={() => void handleReviewAccessRequest(req, "approved")}
-                        disabled={inviteBusy}
-                      >
-                        Approva
-                      </button>
-                      <button
-                        type="button"
-                        className="app-button"
-                        style={{ fontSize: "0.8rem", padding: "0.3rem 0.75rem" }}
-                        onClick={() => void handleReviewAccessRequest(req, "rejected")}
-                        disabled={inviteBusy}
-                      >
-                        Rifiuta
-                      </button>
-                    </div>
-                  </div>
-                ))}
+              <div className="auth-requests-tab">
+                {accessRequests.length === 0 ? (
+                  <p style={{ color: "var(--color-muted)", marginTop: "1.5rem", fontSize: "0.875rem" }}>
+                    Nessuna richiesta di accesso in attesa.
+                  </p>
+                ) : (
+                  <table className="auth-users-table auth-requests-table" style={{ width: "100%", borderCollapse: "collapse", marginTop: "1rem" }}>
+                    <thead>
+                      <tr style={{ textAlign: "left", borderBottom: "1px solid var(--color-border)" }}>
+                        <th style={{ padding: "0.5rem 0.75rem" }}>Email</th>
+                        <th style={{ padding: "0.5rem 0.75rem" }}>Ruolo</th>
+                        <th style={{ padding: "0.5rem 0.75rem" }}>Codice</th>
+                        <th style={{ padding: "0.5rem 0.75rem" }}>Stato</th>
+                        <th style={{ padding: "0.5rem 0.75rem", textAlign: "right" }}>Azioni</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {accessRequests.map((req) => (
+                        <tr key={req.id} style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
+                          <td style={{ padding: "0.5rem 0.75rem" }}>
+                            <strong>{req.email}</strong>
+                            <small style={{ display: "block", color: "var(--color-muted)", marginTop: "0.2rem" }}>
+                              {req.requestedRole ? `${req.requestedRole} · ` : ""}
+                              {req.refCode ? `ref: ${req.refCode}` : "accesso diretto"}
+                            </small>
+                          </td>
+                          <td style={{ padding: "0.5rem 0.75rem" }}>
+                            <span className={`role-title-badge role-${(req.requestedRole ?? "Brand").toLowerCase()}`}>{req.requestedRole ?? "Brand"}</span>
+                          </td>
+                          <td style={{ padding: "0.5rem 0.75rem" }}>
+                            <span>{req.codeStatus ? req.codeStatus : "pending"}</span>
+                            <small style={{ display: "block", color: "var(--color-muted)", marginTop: "0.2rem" }}>
+                              {req.sendMail === false ? "mail disattivata" : "mail attiva"}
+                            </small>
+                          </td>
+                          <td style={{ padding: "0.5rem 0.75rem" }}>
+                            <span style={{ color: req.status === "rejected" ? "var(--color-error)" : req.status === "approved" ? "var(--color-success)" : "var(--color-muted)" }}>
+                              {req.status}
+                            </span>
+                          </td>
+                          <td style={{ padding: "0.5rem 0.75rem" }}>
+                            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                              <button
+                                type="button"
+                                className="app-button app-button-primary"
+                                style={{ fontSize: "0.8rem", padding: "0.3rem 0.75rem" }}
+                                onClick={() => void handleReviewAccessRequest(req, "approved")}
+                                disabled={inviteBusy}
+                                aria-label={`Approva ${req.email}`}
+                              >
+                                <Check size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className="app-button"
+                                style={{ fontSize: "0.8rem", padding: "0.3rem 0.75rem" }}
+                                onClick={() => void handleReviewAccessRequest(req, "rejected")}
+                                disabled={inviteBusy}
+                                aria-label={`Rifiuta ${req.email}`}
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             )}
           </div>
         </Panel>
+      )}
+
+      {authModalOpen && (
+        <ModalBackdrop labelledBy="auth-user-modal-title" className="auth-user-modal-backdrop">
+          <form className="custom-modal admin-action-modal auth-user-modal" onSubmit={handleInviteUser}>
+            <header className="modal-header">
+              <div>
+                <span className="eyebrow">{authModalMode === "create" ? "Nuovo invito" : "Utente esistente"}</span>
+                <strong id="auth-user-modal-title">{authModalMode === "create" ? "Invia accesso con codice" : "Modifica utente autorizzato"}</strong>
+                <p>FunniFin crea il record su Sheet e, se attivo, invia la mail con il codice.</p>
+              </div>
+              <button type="button" className="modal-close" onClick={resetAuthModal} aria-label="Chiudi modal">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="modal-body auth-user-modal-body">
+              <div className="modal-stack">
+                <div className="workflow-impact-panel">
+                  <div>
+                    <strong>{authModalMode === "create" ? "Crea accesso" : "Aggiorna accesso"}</strong>
+                    <span>
+                      {authModalMode === "create"
+                        ? "Invito, codice e mail restano gestiti da FunniFin."
+                        : "Puoi correggere ruolo, nome visualizzato, Expert ID e stato account."}
+                    </span>
+                  </div>
+                  <ul className="modal-points single">
+                    <li>
+                      <Check size={16} />
+                      <span>Record scritto su Google Sheets</span>
+                    </li>
+                    <li>
+                      <Check size={16} />
+                      <span>{authModalMode === "create" ? "Codice OTP generato da FunniFin" : "Modifiche immediatamente salvate"}</span>
+                    </li>
+                    <li>
+                      <Check size={16} />
+                      <span>{authModalMode === "create" ? "Mail opzionale con codice" : "Stato utente modificabile"}</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="auth-invite-grid auth-invite-grid--modal">
+                  <label className="auth-invite-field">
+                    Email
+                    <input
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(event) => setInviteEmail(event.target.value)}
+                      placeholder="nome@azienda.it"
+                      autoComplete="email"
+                      required
+                      disabled={inviteBusy}
+                    />
+                  </label>
+                  <label className="auth-invite-field">
+                    Nome visualizzato
+                    <input
+                      type="text"
+                      value={inviteDisplayName}
+                      onChange={(event) => setInviteDisplayName(event.target.value)}
+                      placeholder="Nome Cognome o team"
+                      disabled={inviteBusy}
+                    />
+                  </label>
+                  <label className="auth-invite-field">
+                    Ruolo
+                    <select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as AuthRole)} disabled={inviteBusy}>
+                      <option value="FunniFin">FunniFin</option>
+                      <option value="Esperto">Esperto</option>
+                      <option value="Brand">Brand</option>
+                    </select>
+                  </label>
+                  <label className="auth-invite-field">
+                    Expert ID
+                    <input
+                      type="text"
+                      value={inviteExpertId}
+                      onChange={(event) => setInviteExpertId(event.target.value)}
+                      placeholder="solo per esperti"
+                      disabled={inviteBusy}
+                    />
+                  </label>
+                  <label className="auth-invite-toggle">
+                    <input
+                      type="checkbox"
+                      checked={inviteDisabled}
+                      onChange={(event) => setInviteDisabled(event.target.checked)}
+                      disabled={inviteBusy}
+                    />
+                    <span>Account disabilitato</span>
+                  </label>
+                  {authModalMode === "create" && (
+                    <label className="auth-invite-toggle">
+                      <input
+                        type="checkbox"
+                        checked={inviteSendMail}
+                        onChange={(event) => setInviteSendMail(event.target.checked)}
+                        disabled={inviteBusy}
+                      />
+                      <span>Manda mail con codice</span>
+                    </label>
+                  )}
+                </div>
+              </div>
+            </div>
+            <footer className="modal-footer auth-user-modal-footer">
+              <AppButton type="button" variant="ghost" onClick={resetAuthModal} disabled={inviteBusy}>
+                Annulla
+              </AppButton>
+              <AppButton type="submit" variant="primary" loading={inviteBusy} disabled={!inviteEmail.trim()}>
+                {authModalMode === "create" ? "Invia invito" : "Salva utente"}
+              </AppButton>
+            </footer>
+          </form>
+        </ModalBackdrop>
       )}
 
       {adminActionModal && (
@@ -2669,14 +2869,18 @@ export function AdminView({
           </div>
         }
         context={
-          adminTab === "Catalogo"
+          adminTab === "Utenti"
+            ? "Utenti e inviti"
+            : adminTab === "Catalogo"
             ? `Catalogo · ${catalogView === "drive" ? "Slide Drive" : "Sheet"}`
             : adminTab === "Google"
               ? "Google backend"
               : adminTab
         }
         detail={
-          adminTab === "Catalogo" && catalogView === "drive"
+          adminTab === "Utenti"
+            ? `${authUsers.filter((user) => !user.disabled).length} attivi · ${accessRequests.filter((request) => request.status === "pending").length} in attesa`
+            : adminTab === "Catalogo" && catalogView === "drive"
             ? `${driveLinkedCount}/${workshops.length} slide collegate`
             : adminTab === "Google"
               ? `Workspace Google · ${googleHealthStatusLabel.toLowerCase()}`
@@ -2687,6 +2891,8 @@ export function AdminView({
         primaryLabel={adminMainAction.label}
         primaryDisabled={adminMainAction.disabled}
         onPrimary={adminMainAction.action}
+        secondaryLabel={adminTab === "Utenti" ? "Ricarica utenti" : undefined}
+        onSecondary={adminTab === "Utenti" ? () => void refreshAuthData() : undefined}
       />
     </section>
   );
