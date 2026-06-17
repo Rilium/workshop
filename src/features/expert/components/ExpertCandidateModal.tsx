@@ -95,7 +95,7 @@ export function ExpertCandidateModal({
           <AppButton variant="ghost" onClick={onClose} disabled={sending}>
             Annulla
           </AppButton>
-          <AppButton variant="secondary" onClick={onConfirm} disabled={sending}>
+          <AppButton variant="secondary" onClick={onConfirm} loading={sending}>
             <Send size={17} /> {sending ? "Invio..." : "Conferma candidatura"}
           </AppButton>
         </footer>

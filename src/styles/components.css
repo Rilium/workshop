@@ -16,6 +16,62 @@
   white-space: nowrap;
 }
 
+.app-btn-loading {
+  cursor: progress;
+}
+
+.app-btn-loading svg {
+  animation: app-btn-spin 0.8s linear infinite;
+}
+
+@keyframes app-btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.confetti-burst {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -12px;
+  display: block;
+  width: var(--confetti-size);
+  height: calc(var(--confetti-size) * 1.8);
+  border-radius: 2px;
+  background: var(--confetti-color);
+  opacity: 0;
+  transform: translate3d(0, 0, 0) rotate(var(--confetti-rotate));
+  animation: confetti-fall var(--confetti-duration) ease-in var(--confetti-delay) forwards;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.confetti-piece--circle {
+  width: var(--confetti-size);
+  height: var(--confetti-size);
+  border-radius: 999px;
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -20px, 0) rotate(var(--confetti-rotate)) scale(0.8);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(calc((var(--confetti-size) * 1.6) - 32px), 110vh, 0) rotate(calc(var(--confetti-rotate) + 720deg)) scale(1);
+  }
+}
+
 .skeleton {
   display: block;
   min-width: 0;

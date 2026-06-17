@@ -72,13 +72,13 @@ export function AdminActionModal({
   rules: PricingRule[];
   expertCount: number;
   onClose: () => void;
-  onConfirmDate: (workshopId: string, decision: DateDecision, notification: NotificationChoice) => void;
-  onConfirmExpert: (workshopId: string, expertName: string, mode: "assign" | "reassign", notification: NotificationChoice) => void;
-  onInviteExperts: (notification: NotificationChoice) => void;
-  onConfirmBrandHandoff: (notification: NotificationChoice) => void;
-  onConfirmEvent: (notification: NotificationChoice) => void;
-  onSaveRequestEdit: (records: RequestWorkshopRecord[], notification: NotificationChoice) => void;
-  onSaveRule: (ruleId: string, patch: Partial<PricingRule>) => void;
+  onConfirmDate: (workshopId: string, decision: DateDecision, notification: NotificationChoice) => Promise<void> | void;
+  onConfirmExpert: (workshopId: string, expertName: string, mode: "assign" | "reassign", notification: NotificationChoice) => Promise<void> | void;
+  onInviteExperts: (notification: NotificationChoice) => Promise<void> | void;
+  onConfirmBrandHandoff: (notification: NotificationChoice) => Promise<void> | void;
+  onConfirmEvent: (notification: NotificationChoice) => Promise<void> | void;
+  onSaveRequestEdit: (records: RequestWorkshopRecord[], notification: NotificationChoice) => Promise<void> | void;
+  onSaveRule: (ruleId: string, patch: Partial<PricingRule>) => Promise<void> | void;
 }) {
   const rule = modal.type === "price" ? rules.find((item) => item.id === modal.ruleId) ?? rules[0] : rules[0];
   const [draftRule, setDraftRule] = useState({
@@ -93,6 +93,9 @@ export function AdminActionModal({
   const [selectedExpertWorkshopId, setSelectedExpertWorkshopId] = useState(
     modal.type === "expert" ? modal.workshopId ?? rows[0]?.workshop.id ?? "" : "",
   );
+  const [pendingAction, setPendingAction] = useState<
+    "edit_request" | "date" | "expert" | "open_candidacies" | "brand_handoff" | "confirm_event" | "price" | null
+  >(null);
   const [requestDraft, setRequestDraft] = useState<Record<string, RequestWorkshopRecord>>(() => {
     if (modal.type !== "edit_request") return {};
     return Object.fromEntries(
@@ -153,6 +156,23 @@ export function AdminActionModal({
       ),
     );
   }, [modal, notificationContextKey]);
+  useEffect(() => {
+    setPendingAction(null);
+  }, [modal.type, modal.type === "date" ? modal.workshopId : "", modal.type === "expert" ? modal.workshopId : "", modal.type === "price" ? modal.ruleId : ""]);
+
+  const runModalAction = async (
+    actionKey: NonNullable<typeof pendingAction>,
+    handler: () => Promise<void> | void,
+  ) => {
+    if (pendingAction) return;
+    setPendingAction(actionKey);
+    try {
+      await Promise.resolve(handler());
+      onClose();
+    } finally {
+      setPendingAction(null);
+    }
+  };
 
   const row =
     modal.type === "date"
@@ -203,17 +223,17 @@ export function AdminActionModal({
     approved: {
       title: "Approva data",
       action: "Approva data",
-      body: "La data passera come validata da FunniFin e il progetto potra avanzare quando tutte le date sono approvate.",
+      body: "Valida questa proposta e sblocca il percorso quando tutte le date del progetto risultano approvate.",
     },
     change_requested: {
       title: "Chiedi modifica data",
       action: "Chiedi modifica",
-      body: "Il cliente dovra proporre una nuova opzione per questo workshop.",
+      body: "Rimanda la proposta al cliente: serve una nuova data o una nuova fascia oraria per questo workshop.",
     },
     rejected: {
       title: "Rifiuta data",
       action: "Rifiuta data",
-      body: "La proposta viene marcata come rifiutata e resta da sostituire prima di aprire le candidature.",
+      body: "Marca la proposta come non valida: il workshop resta da ripianificare prima di aprire il passaggio successivo.",
     },
   };
   const title =
@@ -247,10 +267,10 @@ export function AdminActionModal({
   const workflowImpact = (() => {
     if (modal.type === "edit_request") {
       return [
-        `Richiesta: salva ${editedRecords.length} workshop e aggiorna il preventivo a ${money(editedQuoteTotal)} + IVA.`,
+        `Richiesta: salva ${editedRecords.length} workshop e riallinea il preventivo a ${money(editedQuoteTotal)} + IVA.`,
         emailImpact,
-        "Calendario: non crea eventi e non approva date; corregge solo la configurazione della richiesta.",
-        "Audit: la modifica viene registrata nel record richiesta reale.",
+        "Calendario: non crea eventi e non approva date; aggiorna solo la richiesta cliente.",
+        "Audit: la modifica viene scritta nel registro reale e resta tracciata.",
       ];
     }
     if (modal.type === "date") {
@@ -259,15 +279,15 @@ export function AdminActionModal({
         rows.length > 0 &&
         rows.every((item) => (item.workshop.id === modal.workshopId ? "approved" : item.approval) === "approved");
       return [
-        `Stato: ${modal.decision === "approved" ? (completesAllDates ? "tutte le date risultano approvate" : "approva solo questa data") : modal.decision === "change_requested" ? "richiede una nuova proposta data" : "marca la proposta come rifiutata"}.`,
+        `Stato: ${modal.decision === "approved" ? (completesAllDates ? "tutte le date risultano approvate" : "approva solo questa data") : modal.decision === "change_requested" ? "chiede una nuova proposta data" : "marca la proposta come rifiutata"}.`,
         emailImpact,
-        "Calendario: non crea ancora eventi; la creazione avviene nello step Conferma.",
+        "Calendario: non crea eventi; la conferma finale avviene solo nello step Conferma.",
         "Catalogo/Drive: non cambia catalogo ne slide, usa solo il workshop gia selezionato.",
       ];
     }
     if (modal.type === "expert") {
       return [
-        `Stato: ${modal.mode === "reassign" ? "toglie l'esperto e riapre la candidatura" : `assegna ${modal.expertName || "l'esperto selezionato"} al workshop scelto`}.`,
+        `Stato: ${modal.mode === "reassign" ? "riapre la candidatura e rimuove l'esperto" : `assegna ${modal.expertName || "l'esperto selezionato"} al workshop scelto`}.`,
         emailImpact,
         "Calendario: non crea eventi e non invita l'esperto a calendario in questa fase.",
         "Catalogo/Drive: mantiene nomi workshop e slide operative gia collegate al catalogo.",
@@ -300,7 +320,7 @@ export function AdminActionModal({
     if (modal.type === "price") {
       return [
         `Prezzi: salva "${draftRule.name || rule.name}" per ${normalizedMin}-${normalizedMax >= 99 ? "6+" : normalizedMax} workshop.`,
-        draftRule.specialQuote ? "Preventivo: il cliente vede percorso su preventivo, senza prezzo automatico finale." : `Preventivo: esempio ${pricePreviewCount} workshop passa da ${money(pricePreviewGross)} a ${money(pricePreviewTotal)}.`,
+        draftRule.specialQuote ? "Preventivo: il cliente vede il percorso senza il prezzo calcolato in automatico." : `Preventivo: esempio ${pricePreviewCount} workshop passa da ${money(pricePreviewGross)} a ${money(pricePreviewTotal)}.`,
         "Email: non invia comunicazioni.",
         "Catalogo: non modifica workshop o slide, cambia solo la regola commerciale applicata.",
       ];
@@ -568,13 +588,18 @@ export function AdminActionModal({
             <AppButton
               variant="primary"
               disabled={editedRecords.length === 0}
-              onClick={() => onSaveRequestEdit(editedRecords, notification)}
+              loading={pendingAction === "edit_request"}
+              onClick={() => void runModalAction("edit_request", () => onSaveRequestEdit(editedRecords, notification))}
             >
               Salva modifica
             </AppButton>
           )}
           {modal.type === "date" && (
-            <AppButton variant="primary" onClick={() => onConfirmDate(modal.workshopId, modal.decision, notification)}>
+            <AppButton
+              variant="primary"
+              loading={pendingAction === "date"}
+              onClick={() => void runModalAction("date", () => onConfirmDate(modal.workshopId, modal.decision, notification))}
+            >
               {decisionCopy[modal.decision].action}
             </AppButton>
           )}
@@ -582,25 +607,29 @@ export function AdminActionModal({
             <AppButton
               variant="primary"
               disabled={!selectedExpertWorkshopId}
-              onClick={() => onConfirmExpert(selectedExpertWorkshopId, modal.expertName, modal.mode, notification)}
+              loading={pendingAction === "expert"}
+              onClick={() => void runModalAction("expert", () => onConfirmExpert(selectedExpertWorkshopId, modal.expertName, modal.mode, notification))}
             >
               {modal.mode === "reassign" ? "Riapri candidatura" : "Assegna esperto"}
             </AppButton>
           )}
           {modal.type === "open_candidacies" && (
-            <AppButton variant="primary" onClick={() => onInviteExperts(notification)}>
+            <AppButton variant="primary" loading={pendingAction === "open_candidacies"} onClick={() => void runModalAction("open_candidacies", () => onInviteExperts(notification))}>
               Apri candidature
             </AppButton>
           )}
           {modal.type === "brand_handoff" && (
-            <AppButton variant="primary" onClick={() => onConfirmBrandHandoff(notification)}>
+            <AppButton variant="primary" loading={pendingAction === "brand_handoff"} onClick={() => void runModalAction("brand_handoff", () => onConfirmBrandHandoff(notification))}>
               Manda a brand
             </AppButton>
           )}
           {modal.type === "confirm_event" && (
             <AppButton
               variant="primary"
-              onClick={eventRecord?.mode === notification.eventMode ? onClose : () => onConfirmEvent(notification)}
+              loading={pendingAction === "confirm_event"}
+              onClick={() =>
+                void runModalAction("confirm_event", () => (eventRecord?.mode === notification.eventMode ? onClose() : onConfirmEvent(notification)))
+              }
               disabled={!canConfirmEvent}
             >
               {eventRecord?.mode === notification.eventMode
@@ -613,14 +642,17 @@ export function AdminActionModal({
           {modal.type === "price" && rule && (
             <AppButton
               variant="primary"
+              loading={pendingAction === "price"}
               onClick={() =>
-                onSaveRule(rule.id, {
-                  name: draftRule.name.trim() || rule.name,
-                  min: normalizedMin,
-                  max: normalizedMax,
-                  discountPercent: normalizedDiscount,
-                  specialQuote: draftRule.specialQuote,
-                })
+                void runModalAction("price", () =>
+                  onSaveRule(rule.id, {
+                    name: draftRule.name.trim() || rule.name,
+                    min: normalizedMin,
+                    max: normalizedMax,
+                    discountPercent: normalizedDiscount,
+                    specialQuote: draftRule.specialQuote,
+                  }),
+                )
               }
             >
               Salva regola

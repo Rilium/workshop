@@ -2514,42 +2514,26 @@ export function AdminView({
           rules={rules}
           expertCount={expertDirectory.length}
           onClose={() => setAdminActionModal(null)}
-          onConfirmDate={(workshopId, decision, notification) => {
-            void confirmDateDecision(workshopId, decision, notification);
-            setAdminActionModal(null);
-          }}
-          onConfirmExpert={(workshopId, expertName, mode, notification) => {
-            void confirmExpertAssignment(workshopId, expertName, mode, notification);
-            setAdminActionModal(null);
-          }}
-          onInviteExperts={(notification) => {
-            void inviteExpertsToCandidacy(notification);
-            setAdminActionModal(null);
-          }}
-          onConfirmBrandHandoff={(notification) => {
-            void sendBrandHandoff(notification);
-            setAdminActionModal(null);
-          }}
+          onConfirmDate={(workshopId, decision, notification) => confirmDateDecision(workshopId, decision, notification)}
+          onConfirmExpert={(workshopId, expertName, mode, notification) => confirmExpertAssignment(workshopId, expertName, mode, notification)}
+          onInviteExperts={(notification) => inviteExpertsToCandidacy(notification)}
+          onConfirmBrandHandoff={(notification) => sendBrandHandoff(notification)}
           onConfirmEvent={createCalendarEvent}
-          onSaveRequestEdit={(records, notification) => {
-            void confirmRequestEdit(records, notification);
-          }}
-          onSaveRule={(ruleId, patch) => {
+          onSaveRequestEdit={(records, notification) => confirmRequestEdit(records, notification)}
+          onSaveRule={async (ruleId, patch) => {
             const nextRules = rules.map((rule) => (rule.id === ruleId ? { ...rule, ...patch } : rule));
             const nextRule = nextRules.find((rule) => rule.id === ruleId);
             setRules(nextRules);
             setPricingSavedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
             if (nextRule) {
-              void updatePricingRule(nextRule)
-                .then((savedRule) => {
-                  setRules(nextRules.map((rule) => (rule.id === savedRule.id ? { ...rule, ...savedRule } : rule)));
-                  notify("Prezzi salvati su Google", "Nome, range, sconto e logica preventivo sono ora usati dal preventivo dinamico.");
-                })
-                .catch((error) => {
-                  notify("Prezzi salvati solo in locale", error instanceof Error ? error.message : "Redeploy Apps Script necessario per salvare su Google Sheets.");
-                });
+              try {
+                const savedRule = await updatePricingRule(nextRule);
+                setRules(nextRules.map((rule) => (rule.id === savedRule.id ? { ...rule, ...savedRule } : rule)));
+                notify("Prezzi salvati su Google", "Nome, range, sconto e logica preventivo sono ora usati dal preventivo dinamico.");
+              } catch (error) {
+                notify("Prezzi salvati solo in locale", error instanceof Error ? error.message : "Redeploy Apps Script necessario per salvare su Google Sheets.");
+              }
             }
-            setAdminActionModal(null);
           }}
         />
       )}

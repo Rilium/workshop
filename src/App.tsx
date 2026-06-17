@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { initialRules } from "./data/pricing";
 import { workshops } from "./data/catalog";
 import type { ProjectStatus, Role, Selection, Workshop } from "./types/domain";
@@ -10,6 +10,7 @@ import type { AssetDraftFolder, UploadedAsset } from "./driveAssetService";
 import type { WorkshopRequestRecord } from "./requestService";
 import { FeedbackToastStack } from "./components/ui/Toast";
 import { Topbar, SystemBar } from "./components/layout/Topbar";
+import { ConfettiBurst } from "./components/ui/ConfettiBurst";
 import { ClientView } from "./features/client/ClientView";
 import { CustomModal, CustomRequestModal } from "./features/client/components/CustomWorkshopModals";
 import { DatePickerModal } from "./features/client/components/DatePickerModal";
@@ -46,6 +47,8 @@ function AppInner() {
   const [clientUploadedAssets, setClientUploadedAssets] = useState<UploadedAsset[]>([]);
   const [currentRequest, setCurrentRequest] = useState<WorkshopRequestRecord | null>(null);
   const [requestRefreshToken, setRequestRefreshToken] = useState(0);
+  const [showEntryConfetti, setShowEntryConfetti] = useState(false);
+  const lastConfettiSessionRef = useRef<string | null>(null);
   const { toasts, notify, closeToast } = useToasts();
   const { selections, toggleWorkshop, addWorkshops, updateSelection } = useWorkshopSelection(workshops, notify);
   const quote = useQuote(selections, workshops, rules);
@@ -57,6 +60,15 @@ function AppInner() {
       }
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    if (loading || !session || !currentUser) return;
+    if (lastConfettiSessionRef.current === session.token) return;
+    lastConfettiSessionRef.current = session.token;
+    setShowEntryConfetti(true);
+    const timer = window.setTimeout(() => setShowEntryConfetti(false), 2800);
+    return () => window.clearTimeout(timer);
+  }, [currentUser, loading, session]);
 
   // Quando l'utente completa il login, nascondi il form e vai alla sua vista
   if (!loading && currentUser && showLogin) {
@@ -121,6 +133,7 @@ function AppInner() {
 
   return (
     <div className={"app-shell role-" + role.toLowerCase()}>
+      <ConfettiBurst active={showEntryConfetti} />
       {toasts.length > 0 && <FeedbackToastStack toasts={toasts} onClose={closeToast} />}
       {customModalWorkshop && <CustomModal workshop={customModalWorkshop} onClose={() => setCustomModalWorkshop(null)} />}
       {customRequestWorkshop && (
