@@ -43,6 +43,7 @@ import { AppButton } from "../../components/ui/AppButton";
 import { ActionIconButton, ToolIconButton } from "../../components/ui/IconButton";
 import { Info } from "../../components/ui/Info";
 import { Panel } from "../../components/ui/Panel";
+import { Skeleton, SkeletonCard } from "../../components/ui/Skeleton";
 import { Stepper } from "../../components/ui/Stepper";
 import { BottomActionBar } from "../../components/layout/BottomActionBar";
 import { OperationalStrip } from "../../components/layout/OperationalStrip";
@@ -383,9 +384,10 @@ export function ExpertView({
             </ToolIconButton>
           }
         >
-          {expertSyncState.loading && <span className="empty-selection">Lettura opportunita dal registro...</span>}
-          <div className="expert-opportunity-grid">
-            {expertRows.map(({ selection, workshop }) => {
+          <div className="expert-opportunity-grid" aria-busy={expertSyncState.loading}>
+            {expertSyncState.loading ? Array.from({ length: 3 }).map((_, index) => (
+              <SkeletonCard key={`expert-opportunity-skeleton-${index}`} className="opportunity-card" lines={3} />
+            )) : expertRows.map(({ selection, workshop }) => {
               const alreadyCandidate = selection.status === "candidatura_ricevuta";
               const unavailable = selection.status === "non_disponibile";
               return (
@@ -511,7 +513,16 @@ export function ExpertView({
                       <X size={16} />
                     </button>
                   </div>
-                  {expertDriveLoading && <span>Carico file Drive...</span>}
+                  {expertDriveLoading && Array.from({ length: 3 }).map((_, index) => (
+                    <span className="skeleton-row" key={`expert-drive-skeleton-${index}`} aria-hidden="true">
+                      <Skeleton className="skeleton-dot" />
+                      <span className="skeleton-text">
+                        <Skeleton className="skeleton-line" />
+                        <Skeleton className="skeleton-line short" />
+                      </span>
+                      <Skeleton className="skeleton-button" />
+                    </span>
+                  ))}
                   {!expertDriveLoading && expertDriveItems.length === 0 && <span>Nessun file selezionabile.</span>}
                   {!expertDriveLoading && expertDriveItems.map((item) => (
                     <button key={item.id} type="button" onClick={() => selectExpertDriveItem(item)}>

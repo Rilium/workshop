@@ -34,6 +34,7 @@ import {
 import { getWorkshopAvailability } from "../../../googleCalendarService";
 import { workshops } from "../../../data/catalog";
 import type { Selection, Workshop } from "../../../types/domain";
+import { Skeleton } from "../../../components/ui/Skeleton";
 
 export function DatePickerModal({
   selection,
@@ -150,8 +151,8 @@ export function DatePickerModal({
                 <Clock3 size={18} /> Inizio
                 <span>{availability.source === "google-freebusy" ? "Disponibilita aggiornata" : "Disponibilita demo"}</span>
               </div>
-              <div className="slot-grid">
-                {loadingSlots && <span className="slot-loading">Carico disponibilita...</span>}
+              <div className="slot-grid" aria-busy={loadingSlots}>
+                {loadingSlots && Array.from({ length: 8 }).map((_, index) => <Skeleton key={index} className="slot-skeleton" />)}
                 {!loadingSlots && availability.slots.map((slot) => (
                   <button
                     key={slot.time}

@@ -40,6 +40,7 @@ import { AppButton } from "../../components/ui/AppButton";
 import { EmptyWorkflowState } from "../../components/ui/EmptyWorkflowState";
 import { Panel } from "../../components/ui/Panel";
 import { RemoveWorkshopButton } from "../../components/ui/RemoveWorkshopButton";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { Stepper } from "../../components/ui/Stepper";
 import { ToolIconButton } from "../../components/ui/IconButton";
 import { BottomActionBar } from "../../components/layout/BottomActionBar";
@@ -923,7 +924,21 @@ export function ClientView({
                 Apri cartella Drive: {assetFolder.name}
               </a>
             )}
-            {uploadedAssets.length > 0 && (
+            {uploadingAssets && (
+              <div className="upload-skeleton-list" aria-hidden="true">
+                {Array.from({ length: 2 }).map((_, index) => (
+                  <span className="skeleton-row" key={index}>
+                    <Skeleton className="skeleton-dot" />
+                    <span className="skeleton-text">
+                      <Skeleton className="skeleton-line" />
+                      <Skeleton className="skeleton-line short" />
+                    </span>
+                    <Skeleton className="skeleton-button" />
+                  </span>
+                ))}
+              </div>
+            )}
+            {!uploadingAssets && uploadedAssets.length > 0 && (
               <div className="asset-file-list">
                 {uploadedAssets.map((asset, index) => (
                   <div key={`${asset.name}-${index}`} className="asset-file-row">

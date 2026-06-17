@@ -307,6 +307,13 @@
   white-space: nowrap;
 }
 
+.review-list .skeleton-row.review-list-item,
+.review-list .review-list-item.skeleton-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  border-radius: var(--radius-pill);
+}
+
 .review-status-badge {
   width: fit-content;
   border-radius: var(--radius-pill);

@@ -51,6 +51,7 @@ import { ActionIconButton, ToolIconButton } from "../../components/ui/IconButton
 import { EventLink } from "../../components/ui/EventLink";
 import { Info } from "../../components/ui/Info";
 import { Panel } from "../../components/ui/Panel";
+import { Skeleton, SkeletonCard } from "../../components/ui/Skeleton";
 import { BottomActionBar } from "../../components/layout/BottomActionBar";
 import { OperationalStrip } from "../../components/layout/OperationalStrip";
 import { OperatorIdentityCard } from "../../components/layout/OperatorIdentityCard";
@@ -1202,6 +1203,7 @@ export function AdminView({
   const currentRule = quote.rule;
   const currentRuleRange = `${currentRule.min}-${currentRule.max === 99 ? "6+" : currentRule.max}`;
   const currentRuleMode = currentRule.specialQuote ? "su preventivo" : `${currentRule.discountPercent}% sconto`;
+  const showRequestSkeleton = requestSyncState.loading && requestSyncState.source === "local";
   return (
     <section className="admin-console">
       <RoleHero
@@ -1271,8 +1273,10 @@ export function AdminView({
                 </div>
               </div>
             </div>
-            <div className="project-choice-list" aria-label="Progetti in coda">
-              {filteredAdminProjects.map((project) => {
+            <div className="project-choice-list" aria-label="Progetti in coda" aria-busy={requestSyncState.loading}>
+              {showRequestSkeleton ? (
+                Array.from({ length: 4 }).map((_, index) => <SkeletonCard key={index} className="project-choice-skeleton" lines={2} />)
+              ) : filteredAdminProjects.map((project) => {
                 const activeStatus = project.source === "local" ? projectStatus : project.status;
                 const selected = selectedProject.id === project.id;
                 return (
@@ -1375,7 +1379,20 @@ export function AdminView({
                         <CalendarCheck size={17} /> {calendarCheck.loading ? "Verifico..." : "Verifica FreeBusy"}
                       </AppButton>
                     </div>
-                    {currentProjectSelections.map((row) => (
+                    {calendarCheck.loading ? Array.from({ length: Math.max(currentProjectSelections.length, 2) }).map((_, index) => (
+                      <article className="date-review-skeleton" key={`calendar-skeleton-${index}`} aria-hidden="true">
+                        <div>
+                          <Skeleton className="skeleton-title" />
+                          <Skeleton className="skeleton-line" />
+                        </div>
+                        <Skeleton className="skeleton-button" />
+                        <div className="row-actions compact-actions">
+                          <Skeleton className="skeleton-dot" />
+                          <Skeleton className="skeleton-dot" />
+                          <Skeleton className="skeleton-dot" />
+                        </div>
+                      </article>
+                    )) : currentProjectSelections.map((row) => (
                       <article className={row.approval} key={row.workshop.id}>
                         <div>
                           <strong>{row.workshop.title}</strong>
@@ -1482,6 +1499,19 @@ export function AdminView({
                             <span>Il cliente ha creato {clientAssetFolder.name}, ma non risultano ancora file caricati.</span>
                           </div>
                         )}
+                      </div>
+                    ) : driveFolderStatus.loading ? (
+                      <div className="folder-preview-list" aria-hidden="true">
+                        {Array.from({ length: 3 }).map((_, index) => (
+                          <span className="skeleton-row" key={`drive-folder-skeleton-${index}`}>
+                            <Skeleton className="skeleton-dot" />
+                            <span className="skeleton-text">
+                              <Skeleton className="skeleton-line" />
+                              <Skeleton className="skeleton-line short" />
+                            </span>
+                            <Skeleton className="skeleton-button" />
+                          </span>
+                        ))}
                       </div>
                     ) : driveFolderPreview && driveFolderPreview.folders.length + driveFolderPreview.files.length > 0 ? (
                       <div className="folder-preview-list">
@@ -1603,6 +1633,8 @@ export function AdminView({
                 </div>
                 {sheetPreviewUrl ? (
                   <iframe title="Preview Google Sheet catalogo FunniFin" src={sheetPreviewUrl} loading="lazy" />
+                ) : googleHealthLoading ? (
+                  <Skeleton className="sheet-preview-skeleton" />
                 ) : (
                   <div className="sheet-preview-empty">
                     <FolderKanban size={20} />
@@ -1990,14 +2022,25 @@ export function AdminView({
                 <strong>{googleHealthLoading ? "Controllo..." : googleHealth ? "Connesso" : googleHealthError ? "Errore verifica" : "Verifica non eseguita"}</strong>
                 <em>{googleHealth?.checkedAt ?? googleHealthError ?? "Sheets, Calendar, Drive e MailApp"}</em>
               </div>
-              <div className="pricing-hero-metrics" aria-label="Stato backend Google">
-                <Info label="Richieste" value={String(googleHealth?.spreadsheet.requests ?? adminProjects.length)} />
-                <Info label="Eventi log" value={String(googleHealth?.spreadsheet.events ?? 0)} />
-                <Info label="Interessi" value={String(googleHealth?.spreadsheet.catalogTopics ?? Object.keys(catalogEdits).length)} />
-                <Info label="Workshop" value={String(googleHealth?.spreadsheet.catalogWorkshops ?? workshops.length)} />
-                <Info label="Prezzi" value={String(googleHealth?.spreadsheet.pricingRules ?? rules.length)} />
-                <Info label="Esperti" value={String(googleHealth?.spreadsheet.experts ?? expertDirectory.length)} />
-                <Info label="Mail quota" value={String(googleHealth?.mail.remainingDailyQuota ?? "-")} />
+              <div className="pricing-hero-metrics" aria-label="Stato backend Google" aria-busy={googleHealthLoading}>
+                {googleHealthLoading ? (
+                  Array.from({ length: 7 }).map((_, index) => (
+                    <span className="skeleton-metric" key={`google-metric-skeleton-${index}`} aria-hidden="true">
+                      <Skeleton />
+                      <Skeleton />
+                    </span>
+                  ))
+                ) : (
+                  <>
+                    <Info label="Richieste" value={String(googleHealth?.spreadsheet.requests ?? adminProjects.length)} />
+                    <Info label="Eventi log" value={String(googleHealth?.spreadsheet.events ?? 0)} />
+                    <Info label="Interessi" value={String(googleHealth?.spreadsheet.catalogTopics ?? Object.keys(catalogEdits).length)} />
+                    <Info label="Workshop" value={String(googleHealth?.spreadsheet.catalogWorkshops ?? workshops.length)} />
+                    <Info label="Prezzi" value={String(googleHealth?.spreadsheet.pricingRules ?? rules.length)} />
+                    <Info label="Esperti" value={String(googleHealth?.spreadsheet.experts ?? expertDirectory.length)} />
+                    <Info label="Mail quota" value={String(googleHealth?.mail.remainingDailyQuota ?? "-")} />
+                  </>
+                )}
               </div>
             </div>
 

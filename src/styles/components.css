@@ -16,6 +16,158 @@
   white-space: nowrap;
 }
 
+.skeleton {
+  display: block;
+  min-width: 0;
+  border-radius: var(--radius-xs);
+  background: linear-gradient(90deg, var(--neutral-100) 24%, var(--brand-light) 38%, var(--neutral-100) 62%);
+  background-size: 380% 100%;
+  animation: skeleton-shimmer 1.25s ease-in-out infinite;
+}
+
+.skeleton-text {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.skeleton-line {
+  width: 100%;
+  height: 10px;
+}
+
+.skeleton-line.short {
+  width: 64%;
+}
+
+.skeleton-card {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  padding: var(--sp-4);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+}
+
+.skeleton-kicker {
+  width: 76px;
+  height: 9px;
+}
+
+.skeleton-title {
+  width: 78%;
+  height: 16px;
+}
+
+.skeleton-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 64px;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 58px;
+  padding: var(--sp-3);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+}
+
+.skeleton-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+}
+
+.skeleton-button {
+  width: 92px;
+  height: 34px;
+  border-radius: var(--radius-pill);
+}
+
+.skeleton-metric {
+  display: grid;
+  gap: 8px;
+  min-height: 68px;
+  padding: var(--sp-3);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  background: var(--white);
+}
+
+.skeleton-metric .skeleton:first-child {
+  width: 54%;
+  height: 9px;
+}
+
+.skeleton-metric .skeleton:last-child {
+  width: 74%;
+  height: 18px;
+}
+
+.slot-skeleton {
+  height: 42px;
+  border-radius: var(--radius-pill);
+}
+
+.sheet-preview-skeleton,
+.deck-preview-skeleton {
+  width: 100%;
+  min-height: 280px;
+  border-radius: var(--radius-lg);
+}
+
+.upload-skeleton-list {
+  width: 100%;
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.app-boot-skeleton {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: var(--sp-6);
+  padding: var(--sp-5);
+  background: var(--color-page);
+}
+
+.app-boot-topbar {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-2xl);
+  background: var(--white);
+  padding: var(--sp-4);
+  box-shadow: var(--brand-shadow-card);
+}
+
+.app-boot-main {
+  width: min(1080px, 100%);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: var(--sp-4);
+  align-self: start;
+  justify-self: center;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
 button svg {
   flex: 0 0 auto;
 }

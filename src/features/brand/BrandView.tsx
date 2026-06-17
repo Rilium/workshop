@@ -42,6 +42,7 @@ import { AppButton } from "../../components/ui/AppButton";
 import { ActionIconButton, ToolIconButton } from "../../components/ui/IconButton";
 import { Info } from "../../components/ui/Info";
 import { Panel } from "../../components/ui/Panel";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { BottomActionBar } from "../../components/layout/BottomActionBar";
 import { OperatorIdentityCard } from "../../components/layout/OperatorIdentityCard";
 import { RoleHero } from "../../components/layout/RoleHero";
@@ -348,8 +349,16 @@ export function BrandView({
           </span>
           <strong>{brandProjects.length} progetti</strong>
         </div>
-        <div className="review-list">
-          {brandProjects.map((project) => (
+        <div className="review-list" aria-busy={brandProjectLoading}>
+          {brandProjectLoading ? Array.from({ length: 3 }).map((_, index) => (
+            <span className="review-list-item skeleton-row" key={`brand-project-skeleton-${index}`} aria-hidden="true">
+              <Skeleton className="skeleton-dot" />
+              <span className="skeleton-text">
+                <Skeleton className="skeleton-line" />
+                <Skeleton className="skeleton-line short" />
+              </span>
+            </span>
+          )) : brandProjects.map((project) => (
             <button
               key={project.id}
               className={`review-list-item ${selectedBrandProject?.id === project.id ? "active" : ""}`}
@@ -359,7 +368,7 @@ export function BrandView({
               <span>{project.company} · {statusLabel[project.status] ?? project.status}</span>
             </button>
           ))}
-          {brandProjects.length === 0 && <span className="empty-selection">Nessun progetto in revisione brand.</span>}
+          {!brandProjectLoading && brandProjects.length === 0 && <span className="empty-selection">Nessun progetto in revisione brand.</span>}
         </div>
       </Panel>
       <Panel
@@ -395,18 +404,30 @@ export function BrandView({
             ))}
           </div>
           <div className="brand-review-area">
-            <div className="review-list">
-              {brandItems[brandFilter as keyof typeof brandItems].map((item) => (
+            <div className="review-list" aria-busy={brandDriveLoading}>
+              {brandDriveLoading ? Array.from({ length: 4 }).map((_, index) => (
+                <span className="review-list-item skeleton-row" key={`brand-deck-skeleton-${index}`} aria-hidden="true">
+                  <Skeleton className="skeleton-dot" />
+                  <span className="skeleton-text">
+                    <Skeleton className="skeleton-line" />
+                    <Skeleton className="skeleton-line short" />
+                  </span>
+                </span>
+              )) : brandItems[brandFilter as keyof typeof brandItems].map((item) => (
                 <button key={item.id} className={`review-list-item ${selectedBrandDeck?.id === item.id ? "active" : ""}`} onClick={() => setSelectedBrandDeckId(item.id)}>
                   <Presentation size={16} />
                   <span>{item.title}_v{String(item.version).padStart(2, "0")}</span>
                 </button>
               ))}
-              {brandItems[brandFilter as keyof typeof brandItems].length === 0 && (
+              {!brandDriveLoading && brandItems[brandFilter as keyof typeof brandItems].length === 0 && (
                 <span className="empty-selection">Nessun deck in questa coda.</span>
               )}
             </div>
-            {!selectedBrandDeck ? (
+            {brandDriveLoading ? (
+              <div className="brand-review">
+                <Skeleton className="deck-preview-skeleton" />
+              </div>
+            ) : !selectedBrandDeck ? (
               <div className="brand-empty-state">
                 <Presentation size={42} />
                 <strong>Nessuna presentazione da revisionare</strong>
