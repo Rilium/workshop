@@ -66,6 +66,26 @@ import { CatalogEditModal } from "./components/CatalogEditModal";
 import { ExpertProfileModal } from "./components/ExpertProfileModal";
 import { getWorkshopSelectionPrice } from "../../utils/workshop";
 
+const GOOGLE_HEALTH_CACHE_KEY = "funnifin.googleHealth.v1";
+
+function readCachedGoogleHealth() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(GOOGLE_HEALTH_CACHE_KEY);
+    if (!raw) return null;
+    const health = JSON.parse(raw) as GoogleHealth;
+    return health?.source === "google-workspace" && health.spreadsheet?.id ? { ...health, cached: true } : null;
+  } catch (error) {
+    window.localStorage.removeItem(GOOGLE_HEALTH_CACHE_KEY);
+    return null;
+  }
+}
+
+function writeCachedGoogleHealth(health: GoogleHealth | null) {
+  if (typeof window === "undefined" || !health) return;
+  window.localStorage.setItem(GOOGLE_HEALTH_CACHE_KEY, JSON.stringify(health));
+}
+
 export function AdminView({
   projectStatus,
   quote,
@@ -134,9 +154,20 @@ export function AdminView({
   const [workspaceSettings, setWorkspaceSettings] = useState<WorkspaceSetting[]>([]);
   const [sensitiveSettingDrafts, setSensitiveSettingDrafts] = useState<Record<string, string>>({});
   const [dirtyWorkspaceSettingKeys, setDirtyWorkspaceSettingKeys] = useState<Record<string, boolean>>({});
-  const [googleHealth, setGoogleHealth] = useState<GoogleHealth | null>(null);
+  const [googleHealth, setGoogleHealth] = useState<GoogleHealth | null>(() => readCachedGoogleHealth());
   const [googleHealthError, setGoogleHealthError] = useState("");
   const [googleHealthLoading, setGoogleHealthLoading] = useState(false);
+  const googleHealthStatusLabel = googleHealthLoading && googleHealth
+    ? "Aggiorno live"
+    : googleHealthLoading
+      ? "Controllo"
+      : googleHealth
+        ? googleHealth.cached
+          ? "Cache pronta"
+          : "Live"
+        : googleHealthError
+          ? "Errore"
+          : "Health";
   const [adminActionModal, setAdminActionModal] = useState<AdminActionModalState | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<Record<string, CalendarEventRecord>>({});
   const [driveFolderPreview, setDriveFolderPreview] = useState<DriveFolderResponse | null>(null);
@@ -908,7 +939,7 @@ export function AdminView({
     {
       id: "Google",
       title: "Google backend",
-      meta: googleHealth ? `${googleHealth.spreadsheet.requests} richieste` : "health",
+      meta: googleHealth ? `${googleHealth.spreadsheet.requests} richieste · ${googleHealthStatusLabel}` : googleHealthStatusLabel,
       body: "Sheets, Calendar, Drive, Mail quota e settings operative.",
       icon: <Settings2 size={18} />,
     },
@@ -1089,9 +1120,9 @@ export function AdminView({
     if (adminTab === "Google") {
       return {
         eyebrow: "Google backend",
-        title: googleHealthLoading ? "Controllo in corso" : googleHealth ? "Workspace connesso" : googleHealthError ? "Errore verifica" : "Verifica non eseguita",
-        detail: googleHealth?.checkedAt ?? googleHealthError ?? "Sheets, Calendar, Drive e MailApp",
-        meta: googleHealth ? `${googleHealth.spreadsheet.requests} richieste` : "health",
+        title: googleHealth ? "Workspace connesso" : googleHealthLoading ? "Controllo in corso" : googleHealthError ? "Errore verifica" : "Verifica non eseguita",
+        detail: googleHealth?.checkedAt ? `${googleHealth.checkedAt} · ${googleHealthStatusLabel}` : googleHealthError || "Sheets, Calendar, Drive e MailApp",
+        meta: googleHealth ? `${googleHealth.spreadsheet.requests} richieste` : googleHealthStatusLabel,
       };
     }
     return {
@@ -1201,12 +1232,13 @@ export function AdminView({
         notify("Esperti locali verificati", error instanceof Error ? error.message : "Google Sheets non disponibile, uso rubrica locale.");
       });
   };
-  const refreshGoogleHealth = (options?: { silent?: boolean; refresh?: boolean }) => {
+  const refreshGoogleHealth = (options?: { silent?: boolean; refresh?: boolean; preserveCurrent?: boolean }) => {
     setGoogleHealthLoading(true);
     setGoogleHealthError("");
     void Promise.all([getGoogleHealth({ refresh: options?.refresh }), listWorkspaceSettings().catch(() => workspaceSettings)])
       .then(([health, settings]) => {
         setGoogleHealth(health);
+        writeCachedGoogleHealth(health);
         setWorkspaceSettings(settings);
         setGoogleHealthLoading(false);
         if (!options?.silent) {
@@ -1214,18 +1246,18 @@ export function AdminView({
         }
       })
       .catch((error) => {
-        setGoogleHealth(null);
+        if (!options?.preserveCurrent) setGoogleHealth(null);
         setGoogleHealthLoading(false);
         setGoogleHealthError(error instanceof Error ? error.message : "Health Google non disponibile.");
       });
   };
   useEffect(() => {
-    if (adminTab !== "Google" || googleHealth || googleHealthLoading) return;
-    refreshGoogleHealth({ silent: true });
+    if (adminTab !== "Google" || googleHealthLoading) return;
+    refreshGoogleHealth({ silent: true, refresh: true, preserveCurrent: Boolean(googleHealth) });
   }, [adminTab]);
   useEffect(() => {
-    if (adminTab !== "Catalogo" || catalogView !== "sheet" || googleHealth || googleHealthLoading) return;
-    refreshGoogleHealth({ silent: true });
+    if (adminTab !== "Catalogo" || catalogView !== "sheet" || googleHealthLoading) return;
+    refreshGoogleHealth({ silent: true, refresh: true, preserveCurrent: Boolean(googleHealth) });
   }, [adminTab, catalogView]);
   const saveWorkspaceSetting = (setting: WorkspaceSetting) => {
     void updateWorkspaceSetting(setting)
@@ -2114,11 +2146,11 @@ export function AdminView({
             <div className="pricing-hero-card">
               <div>
                 <span className="eyebrow">Workspace Google</span>
-                <strong>{googleHealthLoading ? "Controllo..." : googleHealth ? "Connesso" : googleHealthError ? "Errore verifica" : "Verifica non eseguita"}</strong>
-                <em>{googleHealth?.checkedAt ?? googleHealthError ?? "Sheets, Calendar, Drive e MailApp"}</em>
+                <strong>{googleHealthLoading && googleHealth ? "Aggiorno..." : googleHealthLoading ? "Controllo..." : googleHealth ? "Connesso" : googleHealthError ? "Errore verifica" : "Verifica non eseguita"}</strong>
+                <em>{googleHealth?.checkedAt ? `${googleHealth.checkedAt}${googleHealth.cached ? " · cache" : ""}${googleHealthLoading ? " · refresh live" : ""}` : googleHealthError || "Sheets, Calendar, Drive e MailApp"}</em>
               </div>
               <div className="pricing-hero-metrics" aria-label="Stato backend Google" aria-busy={googleHealthLoading}>
-                {googleHealthLoading ? (
+                {googleHealthLoading && !googleHealth ? (
                   Array.from({ length: 7 }).map((_, index) => (
                     <span className="skeleton-metric" key={`google-metric-skeleton-${index}`} aria-hidden="true">
                       <Skeleton />
@@ -2387,7 +2419,7 @@ export function AdminView({
           adminTab === "Catalogo" && catalogView === "drive"
             ? `${driveLinkedCount}/${workshops.length} slide collegate`
             : adminTab === "Google"
-              ? `Workspace Google · ${googleHealthLoading ? "controllo in corso" : googleHealth ? "connesso" : googleHealthError ? "errore verifica" : "pronto da verificare"}`
+              ? `Workspace Google · ${googleHealthStatusLabel.toLowerCase()}`
               : `${selectedProject.company} · ${statusLabel[activeAdminStatus]}`
         }
         backLabel={adminBackAction ? "Indietro" : undefined}
