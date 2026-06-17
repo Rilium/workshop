@@ -17,7 +17,7 @@ import { DatePickerModal } from "./features/client/components/DatePickerModal";
 import { AdminView } from "./features/admin/AdminView";
 import { ExpertView } from "./features/expert/ExpertView";
 import { BrandView } from "./features/brand/BrandView";
-import { AuthProvider, useAuth } from "./AuthContext";
+import { AuthProvider, AUTH_ENTRY_CONFETTI_EVENT, useAuth } from "./AuthContext";
 import { LoginView } from "./features/auth/LoginView";
 import { Skeleton, SkeletonCard } from "./components/ui/Skeleton";
 
@@ -48,10 +48,10 @@ function AppInner() {
   const [currentRequest, setCurrentRequest] = useState<WorkshopRequestRecord | null>(null);
   const [requestRefreshToken, setRequestRefreshToken] = useState(0);
   const [showEntryConfetti, setShowEntryConfetti] = useState(false);
-  const lastConfettiSessionRef = useRef<string | null>(null);
   const { toasts, notify, closeToast } = useToasts();
   const { selections, toggleWorkshop, addWorkshops, updateSelection } = useWorkshopSelection(workshops, notify);
   const quote = useQuote(selections, workshops, rules);
+  const lastConfettiTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (window.location.hash === "#esperto-candidature") {
@@ -62,18 +62,31 @@ function AppInner() {
   }, [currentUser]);
 
   useEffect(() => {
+    if (!loading && currentUser && showLogin) {
+      setShowLogin(false);
+    }
+  }, [currentUser, loading, showLogin]);
+
+  useEffect(() => {
     if (loading || !session || !currentUser) return;
-    if (lastConfettiSessionRef.current === session.token) return;
-    lastConfettiSessionRef.current = session.token;
+    if (lastConfettiTokenRef.current === session.token) return;
+    lastConfettiTokenRef.current = session.token;
     setShowEntryConfetti(true);
     const timer = window.setTimeout(() => setShowEntryConfetti(false), 2800);
     return () => window.clearTimeout(timer);
-  }, [currentUser, loading, session]);
+  }, [currentUser, loading, session?.token]);
 
-  // Quando l'utente completa il login, nascondi il form e vai alla sua vista
-  if (!loading && currentUser && showLogin) {
-    setShowLogin(false);
-  }
+  useEffect(() => {
+    const handleEntryConfetti = (event: Event) => {
+      const token = (event as CustomEvent<{ token?: string }>).detail?.token ?? session?.token ?? null;
+      if (!token || lastConfettiTokenRef.current === token) return;
+      lastConfettiTokenRef.current = token;
+      setShowEntryConfetti(true);
+      window.setTimeout(() => setShowEntryConfetti(false), 2800);
+    };
+    window.addEventListener(AUTH_ENTRY_CONFETTI_EVENT, handleEntryConfetti as EventListener);
+    return () => window.removeEventListener(AUTH_ENTRY_CONFETTI_EVENT, handleEntryConfetti as EventListener);
+  }, [session?.token]);
 
   // Mostra login per ruoli non-Cliente quando non autenticato
   if (loading) {

@@ -67,6 +67,40 @@ import { ExpertProfileModal } from "./components/ExpertProfileModal";
 import { getWorkshopSelectionPrice } from "../../utils/workshop";
 
 const GOOGLE_HEALTH_CACHE_KEY = "funnifin.googleHealth.v1";
+type AdminQueueFilter = "tutti" | "oggi" | "da-fissare" | "produzione" | "in-calendario" | "chiusi";
+type QueueCardTone = "neutral" | "today" | "late" | "soon" | "calendar" | "closed";
+
+const queueFilterOptions: Array<{ id: AdminQueueFilter; label: string }> = [
+  { id: "tutti", label: "Tutti" },
+  { id: "oggi", label: "Oggi" },
+  { id: "da-fissare", label: "Da fissare" },
+  { id: "produzione", label: "Produzione" },
+  { id: "in-calendario", label: "In calendario" },
+  { id: "chiusi", label: "Chiusi" },
+];
+
+function parseQueueDate(value?: string) {
+  if (!value) return null;
+  const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const date = dateOnly ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]), 12) : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function startOfLocalDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function formatQueueDate(date: Date | null, now = new Date()) {
+  if (!date) return { label: "Senza data", distance: "da fissare", dayOffset: null as number | null };
+  const dayOffset = Math.round((startOfLocalDay(date).getTime() - startOfLocalDay(now).getTime()) / 86400000);
+  if (dayOffset === 0) return { label: "Oggi", distance: "oggi", dayOffset };
+  if (dayOffset === -1) return { label: "Ieri", distance: "ieri", dayOffset };
+  if (dayOffset === 1) return { label: "Domani", distance: "domani", dayOffset };
+
+  const label = new Intl.DateTimeFormat("it-IT", { weekday: "short", day: "numeric", month: "short" }).format(date);
+  const distance = dayOffset < 0 ? `${Math.abs(dayOffset)} gg fa` : `tra ${dayOffset} gg`;
+  return { label, distance, dayOffset };
+}
 
 function readCachedGoogleHealth() {
   if (typeof window === "undefined") return null;
@@ -122,7 +156,7 @@ export function AdminView({
   const [adminTab, setAdminTab] = useState("Operativo");
   const [catalogView, setCatalogView] = useState<"sheet" | "drive">("sheet");
   const [adminSearch, setAdminSearch] = useState("");
-  const [adminQueueFilter, setAdminQueueFilter] = useState<"tutti" | "da-fare" | "esperti" | "brand">("tutti");
+  const [adminQueueFilter, setAdminQueueFilter] = useState<AdminQueueFilter>("tutti");
   const localProject = buildLocalAdminProject(selections, quote.total, projectStatus);
   const [adminProjects, setAdminProjects] = useState<AdminProject[]>(() => (currentRequest ? [requestToAdminProject(currentRequest)] : [localProject]));
   const [selectedProjectId, setSelectedProjectId] = useState(currentRequest?.id ?? localProject.id);
@@ -563,15 +597,17 @@ export function AdminView({
       },
     } satisfies Partial<WorkshopRequestRecord>;
   };
-  const confirmRequestEdit = async (records: RequestWorkshopRecord[], notification: NotificationChoice) => {
+  const confirmRequestEdit = async (records: RequestWorkshopRecord[], phase: ProjectStatus, notification: NotificationChoice) => {
     const patch = buildEditedRequestPatch(records);
     const adminPatch: Partial<AdminProject> = {
       workshopIds: patch.workshopIds ?? [],
       dateCount: patch.dateCount ?? 0,
       quoteTotal: patch.quoteTotal ?? 0,
-      request: selectedProject.request ? { ...selectedProject.request, ...patch } : selectedProject.request,
+      status: phase,
+      request: selectedProject.request ? { ...selectedProject.request, ...patch, status: phase } : selectedProject.request,
     };
     updateAdminProject(selectedProject.id, adminPatch, "request_admin_edited", "FunniFin ha modificato workshop, date o preventivo della richiesta.");
+    setProjectStatus(phase, "Fase progetto aggiornata", selectedProject.source === "local" ? statusLabel[phase] : `${selectedProject.company}: ${statusLabel[phase]}`);
     setDateApprovals((current) => {
       const next = { ...current };
       Object.keys(next).forEach((key) => {
@@ -585,7 +621,7 @@ export function AdminView({
     if (selectedProject.source === "sheet") {
       persistAdminProjectPatch(
         selectedProject.id,
-        patch,
+        { ...patch, status: phase },
         "request_admin_edited",
         "FunniFin ha modificato la richiesta cliente.",
       );
@@ -599,7 +635,7 @@ export function AdminView({
           manager: selectedProject.manager,
           email: selectedProject.email,
           phone: selectedProject.phone,
-          status: statusLabel[activeAdminStatus],
+          status: statusLabel[phase],
           quoteTotal: patch.quoteTotal ?? activeAdminQuote,
         },
         workshops: records.map((record) => ({
@@ -615,9 +651,9 @@ export function AdminView({
         fromName: getWorkspaceSettingValue("mail.fromName", SECRET_SETTINGS.google.email.fromName),
         note: notification.note,
       });
-      notify("Richiesta modificata", `Modifica salvata e email inviata a ${notification.recipients.join(", ")}.`);
+      notify("Richiesta modificata", `Fase: ${statusLabel[phase]}. Email inviata a ${notification.recipients.join(", ")}.`);
     } else {
-      notify("Richiesta modificata", "Modifica salvata senza inviare email.");
+      notify("Richiesta modificata", `Fase: ${statusLabel[phase]}. Salvata senza inviare email.`);
     }
     setAdminActionModal(null);
   };
@@ -947,16 +983,86 @@ export function AdminView({
       runProjectStatus("approvazione_finale", "Creazione evento non riuscita", message);
     }
   };
-  const filteredAdminProjects = adminProjects.filter((project) => {
+  const getProjectQueueMeta = (project: AdminProject) => {
+    const status = project.source === "local" ? projectStatus : project.status;
+    const scheduleRows =
+      project.source === "local"
+        ? selections.map((selection) => ({ date: selection.date, time: selection.time, approval: selection.dateConfirmed ? "approved" : "pending" }))
+        : project.request?.workshops.map((workshop) => ({ date: workshop.date, time: workshop.time, approval: workshop.approval ?? "pending" })) ?? [];
+    const datedRows = scheduleRows
+      .map((row) => ({ ...row, parsedDate: parseQueueDate(row.date) }))
+      .filter((row): row is typeof row & { parsedDate: Date } => Boolean(row.parsedDate))
+      .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
+    const today = startOfLocalDay(new Date());
+    const nextDatedRow = datedRows.find((row) => startOfLocalDay(row.parsedDate).getTime() >= today.getTime()) ?? datedRows[0];
+    const createdAt = parseQueueDate(project.request?.createdAt);
+    const displayDate = nextDatedRow?.parsedDate ?? createdAt;
+    const formattedDate = formatQueueDate(displayDate);
+    const hasCalendarEvent = status === "confermato" || project.request?.calendarEvent?.mode === "confirmed";
+    const hasTentativeEvent = status === "evento_provvisorio" || project.request?.calendarEvent?.mode === "tentative";
+    const hasMissingDates = project.dateCount < project.workshopIds.length || scheduleRows.some((row) => !row.date);
+    const hasDateIssue = scheduleRows.some((row) => row.approval === "rejected" || row.approval === "change_requested");
+    const datesApproved = scheduleRows.length > 0 && scheduleRows.every((row) => row.approval === "approved");
+    const needsScheduling = !hasCalendarEvent && (hasMissingDates || hasDateIssue || ["richiesta_inviata", "in_verifica_funnifin"].includes(status));
+    const statusIndex = projectStatuses.indexOf(status);
+    const productionIndex = projectStatuses.indexOf("date_approvate");
+    const isProduction = !hasCalendarEvent && !needsScheduling && statusIndex >= productionIndex;
+    const dayOffset = formattedDate.dayOffset;
+    const isClosed = hasCalendarEvent && dayOffset !== null && dayOffset < 0;
+    const tone: QueueCardTone = isClosed
+      ? "closed"
+      : hasCalendarEvent
+      ? "calendar"
+      : dayOffset === 0
+        ? "today"
+        : dayOffset !== null && dayOffset < 0
+          ? "late"
+          : dayOffset !== null && dayOffset <= 7
+            ? "soon"
+            : "neutral";
+    const dateCaption = isClosed ? "chiuso" : hasCalendarEvent ? "calendario" : nextDatedRow ? "sessione" : "richiesta";
+    const detail = isClosed
+      ? "Sessione passata"
+      : hasCalendarEvent
+        ? "Evento definitivo"
+      : hasTentativeEvent
+        ? "Evento provvisorio"
+        : hasDateIssue
+          ? "Data da rivedere"
+          : hasMissingDates
+            ? "Date mancanti"
+            : datesApproved
+              ? "Date approvate"
+              : statusLabel[status];
+
+    return {
+      dateLabel: formattedDate.label,
+      dateDistance: formattedDate.distance,
+      dateCaption,
+      detail,
+      dayOffset,
+      hasCalendarEvent,
+      isClosed,
+      isProduction,
+      needsScheduling,
+      tone,
+    };
+  };
+  const matchesProjectQueueFilter = (meta: ReturnType<typeof getProjectQueueMeta>, filter: AdminQueueFilter) => {
+    if (filter === "tutti") return true;
+    if (filter === "oggi") return meta.dayOffset === 0;
+    if (filter === "da-fissare") return meta.needsScheduling;
+    if (filter === "produzione") return meta.isProduction;
+    if (filter === "in-calendario") return meta.hasCalendarEvent && !meta.isClosed;
+    return meta.isClosed;
+  };
+  const searchedAdminProjects = adminProjects.filter((project) => {
     const text = `${project.company} ${project.manager} ${project.email}`.toLowerCase();
-    const matchesSearch = adminSearch.trim() === "" || text.includes(adminSearch.trim().toLowerCase());
-    const matchesFilter =
-      adminQueueFilter === "tutti" ||
-      (adminQueueFilter === "da-fare" && ["richiesta_inviata", "in_verifica_funnifin", "date_approvate"].includes(project.status)) ||
-      (adminQueueFilter === "esperti" && !project.assignedExpert) ||
-      (adminQueueFilter === "brand" && ["in_revisione_brand", "approvazione_finale"].includes(project.status));
-    return matchesSearch && matchesFilter;
+    return adminSearch.trim() === "" || text.includes(adminSearch.trim().toLowerCase());
   });
+  const adminQueueCards = searchedAdminProjects.map((project) => ({ project, meta: getProjectQueueMeta(project) }));
+  const filteredAdminProjectCards = adminQueueCards.filter(({ meta }) => matchesProjectQueueFilter(meta, adminQueueFilter));
+  const countQueueFilter = (filter: AdminQueueFilter) => adminQueueCards.filter(({ meta }) => matchesProjectQueueFilter(meta, filter)).length;
   const adminFlowSteps = [
     { id: "workshops", title: "Richiesta", body: "Workshop, prezzo e coerenza" },
     { id: "calendar", title: "Date", body: "FreeBusy e approvazioni" },
@@ -1080,11 +1186,11 @@ export function AdminView({
         disabled: false,
         action: () => {
           setExpertsSyncedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-          setAdminQueueFilter("esperti");
-          notify("Vista esperti aggiornata", `${expertDirectory.length} profili riletti dalla rubrica interna. La coda mostra i progetti senza esperto.`);
+          setAdminQueueFilter("produzione");
+          notify("Vista esperti aggiornata", `${expertDirectory.length} profili riletti dalla rubrica interna. La coda mostra i progetti in produzione.`);
         },
       };
-    }
+      }
     if (adminWorkspacePanel === "workshops") {
       return {
         label: "Verifica e vai alle date",
@@ -1443,7 +1549,7 @@ export function AdminView({
                   <strong>Coda progetti</strong>
                   <span>
                     {requestSyncState.loading && "Lettura registro..."}
-                    {!requestSyncState.loading && requestSyncState.source === "sheet" && `${filteredAdminProjects.length} richieste reali`}
+                    {!requestSyncState.loading && requestSyncState.source === "sheet" && `${filteredAdminProjectCards.length} progetti visibili`}
                     {!requestSyncState.loading && requestSyncState.source === "local" && "Vista locale temporanea"}
                   </span>
                 </div>
@@ -1470,14 +1576,10 @@ export function AdminView({
                   )}
                 </label>
                 <div className="admin-filter-pills">
-                  {[
-                    ["tutti", "Tutti"],
-                    ["da-fare", "Da fare"],
-                    ["esperti", "Esperti"],
-                    ["brand", "Brand"],
-                  ].map(([id, label]) => (
-                    <button key={id} className={adminQueueFilter === id ? "active" : ""} onClick={() => setAdminQueueFilter(id as typeof adminQueueFilter)}>
-                      {label}
+                  {queueFilterOptions.map(({ id, label }) => (
+                    <button key={id} className={adminQueueFilter === id ? "active" : ""} onClick={() => setAdminQueueFilter(id)}>
+                      <span>{label}</span>
+                      <em>{countQueueFilter(id)}</em>
                     </button>
                   ))}
                 </div>
@@ -1486,18 +1588,32 @@ export function AdminView({
             <div className="project-choice-list" aria-label="Progetti in coda" aria-busy={requestSyncState.loading}>
               {showRequestSkeleton ? (
                 Array.from({ length: 4 }).map((_, index) => <SkeletonCard key={index} className="project-choice-skeleton" lines={2} />)
-              ) : filteredAdminProjects.map((project) => {
+              ) : filteredAdminProjectCards.length === 0 ? (
+                <div className="queue-empty-state">
+                  <strong>Nessun progetto qui</strong>
+                  <span>Prova Tutti o cambia ricerca.</span>
+                </div>
+              ) : filteredAdminProjectCards.map(({ project, meta }) => {
                 const activeStatus = project.source === "local" ? projectStatus : project.status;
                 const selected = selectedProject.id === project.id;
                 return (
-                  <button key={project.id} className={selected ? "active" : ""} onClick={() => selectProject(project)}>
-                    <span className="queue-status-dot" />
-                    <div>
+                  <button key={project.id} className={`project-choice-card ${selected ? "active" : ""} ${meta.tone}`} onClick={() => selectProject(project)}>
+                    <span className="queue-date-badge">
+                      <strong>{meta.dateLabel}</strong>
+                      <em>{meta.dateCaption}</em>
+                    </span>
+                    <div className="queue-project-copy">
                       <strong>{project.company}</strong>
                       <em>{project.manager} · {project.workshopIds.length} workshop</em>
+                      <span>
+                        <Clock3 size={14} />
+                        {meta.dateDistance} · {meta.detail}
+                      </span>
                     </div>
-                    <small>{statusLabel[activeStatus]}</small>
-                    <b>{money(project.source === "local" ? quote.total : project.quoteTotal)}</b>
+                    <div className="queue-card-side">
+                      <small>{statusLabel[activeStatus]}</small>
+                      <b>{money(project.source === "local" ? quote.total : project.quoteTotal)}</b>
+                    </div>
                   </button>
                 );
               })}
@@ -2519,7 +2635,7 @@ export function AdminView({
           onInviteExperts={(notification) => inviteExpertsToCandidacy(notification)}
           onConfirmBrandHandoff={(notification) => sendBrandHandoff(notification)}
           onConfirmEvent={createCalendarEvent}
-          onSaveRequestEdit={(records, notification) => confirmRequestEdit(records, notification)}
+          onSaveRequestEdit={(records, phase, notification) => confirmRequestEdit(records, phase, notification)}
           onSaveRule={async (ruleId, patch) => {
             const nextRules = rules.map((rule) => (rule.id === ruleId ? { ...rule, ...patch } : rule));
             const nextRule = nextRules.find((rule) => rule.id === ruleId);

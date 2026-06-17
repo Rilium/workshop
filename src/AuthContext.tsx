@@ -35,6 +35,7 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+export const AUTH_ENTRY_CONFETTI_EVENT = "funnifin:entry-confetti";
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (user) {
         setSession(stored);
         setCurrentUser(user);
+        window.setTimeout(() => {
+          window.dispatchEvent(new CustomEvent(AUTH_ENTRY_CONFETTI_EVENT, { detail: { token: stored.token } }));
+        }, 0);
       }
     }
     setLoading(false);
@@ -66,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) throw new Error("Utente non trovato.");
     setSession(newSession);
     setCurrentUser(user);
+    window.dispatchEvent(new CustomEvent(AUTH_ENTRY_CONFETTI_EVENT, { detail: { token: newSession.token } }));
   };
 
   const logout = () => {

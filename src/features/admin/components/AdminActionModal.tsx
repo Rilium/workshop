@@ -34,8 +34,9 @@ import {
 import type { WorkflowNotificationRecipientRole } from "../../../emailService";
 import type { RequestWorkshopRecord } from "../../../requestService";
 import { workshops } from "../../../data/catalog";
+import { projectStatuses, statusDescription, statusLabel } from "../../../data/workflow";
 import { SECRET_SETTINGS } from "../../../secretSettings";
-import type { AdminProject, AdminProjectWorkshopRow, CalendarEventRecord, DateDecision, Duration, Format, PricingRule, Workshop } from "../../../types/domain";
+import type { AdminProject, AdminProjectWorkshopRow, CalendarEventRecord, DateDecision, Duration, Format, PricingRule, ProjectStatus, Workshop } from "../../../types/domain";
 import type { AdminActionModalState, NotificationChoice } from "../../../types/ui";
 import { money } from "../../../utils/money";
 import { getWorkshopSelectionPrice } from "../../../utils/workshop";
@@ -77,7 +78,7 @@ export function AdminActionModal({
   onInviteExperts: (notification: NotificationChoice) => Promise<void> | void;
   onConfirmBrandHandoff: (notification: NotificationChoice) => Promise<void> | void;
   onConfirmEvent: (notification: NotificationChoice) => Promise<void> | void;
-  onSaveRequestEdit: (records: RequestWorkshopRecord[], notification: NotificationChoice) => Promise<void> | void;
+  onSaveRequestEdit: (records: RequestWorkshopRecord[], phase: ProjectStatus, notification: NotificationChoice) => Promise<void> | void;
   onSaveRule: (ruleId: string, patch: Partial<PricingRule>) => Promise<void> | void;
 }) {
   const rule = modal.type === "price" ? rules.find((item) => item.id === modal.ruleId) ?? rules[0] : rules[0];
@@ -93,6 +94,7 @@ export function AdminActionModal({
   const [selectedExpertWorkshopId, setSelectedExpertWorkshopId] = useState(
     modal.type === "expert" ? modal.workshopId ?? rows[0]?.workshop.id ?? "" : "",
   );
+  const [requestPhase, setRequestPhase] = useState<ProjectStatus>(project.status);
   const [pendingAction, setPendingAction] = useState<
     "edit_request" | "date" | "expert" | "open_candidacies" | "brand_handoff" | "confirm_event" | "price" | null
   >(null);
@@ -135,6 +137,7 @@ export function AdminActionModal({
   }, [modal, notificationContextKey]);
   useEffect(() => {
     if (modal.type !== "edit_request") return;
+    setRequestPhase(project.status);
     setRequestDraft(
       Object.fromEntries(
         rows.map((row) => [
@@ -155,7 +158,7 @@ export function AdminActionModal({
         ]),
       ),
     );
-  }, [modal, notificationContextKey]);
+  }, [modal, notificationContextKey, project.status]);
   useEffect(() => {
     setPendingAction(null);
   }, [modal.type, modal.type === "date" ? modal.workshopId : "", modal.type === "expert" ? modal.workshopId : "", modal.type === "price" ? modal.ruleId : ""]);
@@ -267,7 +270,7 @@ export function AdminActionModal({
   const workflowImpact = (() => {
     if (modal.type === "edit_request") {
       return [
-        `Richiesta: salva ${editedRecords.length} workshop e riallinea il preventivo a ${money(editedQuoteTotal)} + IVA.`,
+        `Richiesta: salva ${editedRecords.length} workshop, riallinea il preventivo a ${money(editedQuoteTotal)} + IVA e imposta la fase "${statusLabel[requestPhase]}".`,
         emailImpact,
         "Calendario: non crea eventi e non approva date; aggiorna solo la richiesta cliente.",
         "Audit: la modifica viene scritta nel registro reale e resta tracciata.",
@@ -348,9 +351,19 @@ export function AdminActionModal({
               </p>
               <div className="request-edit-summary">
                 <Info label="Cliente" value={project.company} />
+                <Info label="Fase" value={statusLabel[requestPhase]} />
                 <Info label="Workshop" value={`${editedRecords.length} selezionati`} />
                 <Info label="Preventivo aggiornato" value={`${money(editedQuoteTotal)} + IVA`} />
               </div>
+              <label className="request-phase-field">
+                Fase progetto
+                <select value={requestPhase} onChange={(event) => setRequestPhase(event.target.value as ProjectStatus)}>
+                  {projectStatuses.map((status) => (
+                    <option key={status} value={status}>{statusLabel[status]}</option>
+                  ))}
+                </select>
+                <span>{statusDescription[requestPhase]}</span>
+              </label>
               <div className="request-edit-list" aria-label="Modifica workshop richiesta">
                 {workshops.map((workshop) => {
                   const draft = requestDraft[workshop.id];
@@ -589,7 +602,7 @@ export function AdminActionModal({
               variant="primary"
               disabled={editedRecords.length === 0}
               loading={pendingAction === "edit_request"}
-              onClick={() => void runModalAction("edit_request", () => onSaveRequestEdit(editedRecords, notification))}
+              onClick={() => void runModalAction("edit_request", () => onSaveRequestEdit(editedRecords, requestPhase, notification))}
             >
               Salva modifica
             </AppButton>
