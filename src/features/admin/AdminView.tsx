@@ -52,6 +52,7 @@ import { ActionIconButton, ToolIconButton } from "../../components/ui/IconButton
 import { EventLink } from "../../components/ui/EventLink";
 import { Info } from "../../components/ui/Info";
 import { Panel } from "../../components/ui/Panel";
+import { SectionTitle } from "../../components/ui/SectionTitle";
 import { ModalBackdrop } from "../../components/ui/Modal";
 import { Skeleton, SkeletonCard } from "../../components/ui/Skeleton";
 import { BottomActionBar } from "../../components/layout/BottomActionBar";
@@ -1593,15 +1594,17 @@ export function AdminView({
       <AdminSectionNav sections={adminSections} activeSection={adminTab} onSection={setAdminTab} />
 
       {adminTab === "Operativo" && (
-        <Panel
-          title="Richieste cliente"
-          icon={<BriefcaseBusiness size={20} />}
-          actions={
-            <ToolIconButton active={requestSyncState.source === "sheet"} onClick={refreshAdminWorkspacePanel} label="Ricarica richieste cliente">
-              <RefreshCw size={18} />
-            </ToolIconButton>
-          }
-        >
+        <>
+          <SectionTitle
+            title="Richieste cliente"
+            icon={<BriefcaseBusiness size={20} />}
+            meta={activeAdminSection?.meta}
+            actions={
+              <ToolIconButton active={requestSyncState.source === "sheet"} onClick={refreshAdminWorkspacePanel} label="Ricarica richieste cliente">
+                <RefreshCw size={18} />
+              </ToolIconButton>
+            }
+          />
         <div className="admin-workbench-v2">
           <aside className="admin-project-queue" aria-label="Coda progetti cliente">
             <div className="queue-control-panel">
@@ -1940,32 +1943,33 @@ export function AdminView({
             </div>
           </section>
         </div>
-        </Panel>
+        </>
       )}
 
       {adminTab === "Catalogo" && (
-        <Panel
-          title="Catalogo"
-          icon={<Settings2 size={20} />}
-          actions={
-            <>
-              <ToolIconButton onClick={catalogView === "drive" ? syncDriveSlidesFromRoot : refreshCatalogSection} label={catalogView === "drive" ? "Ricarica slide Drive" : "Ricarica catalogo Sheet"}>
-                <RefreshCw size={18} />
-              </ToolIconButton>
-              <ToolIconButton
-                label="Come funziona Catalogo Sheet e Slide Drive"
-                onClick={() =>
-                  notify(
-                    "Catalogo Sheet e Slide Drive",
-                    "Lo Sheet governa ambiti, categorie, tag e workshop vendibili. Canva resta una reference visuale consultabile dal link. Drive collega le presentazioni operative ai workshop.",
-                  )
-                }
-              >
-                <InfoIcon size={18} />
-              </ToolIconButton>
-            </>
-          }
-        >
+        <>
+          <SectionTitle
+            title="Catalogo"
+            icon={<Settings2 size={20} />}
+            actions={
+              <>
+                <ToolIconButton onClick={catalogView === "drive" ? syncDriveSlidesFromRoot : refreshCatalogSection} label={catalogView === "drive" ? "Ricarica slide Drive" : "Ricarica catalogo Sheet"}>
+                  <RefreshCw size={18} />
+                </ToolIconButton>
+                <ToolIconButton
+                  label="Come funziona Catalogo Sheet e Slide Drive"
+                  onClick={() =>
+                    notify(
+                      "Catalogo Sheet e Slide Drive",
+                      "Lo Sheet governa ambiti, categorie, tag e workshop vendibili. Canva resta una reference visuale consultabile dal link. Drive collega le presentazioni operative ai workshop.",
+                    )
+                  }
+                >
+                  <InfoIcon size={18} />
+                </ToolIconButton>
+              </>
+            }
+          />
           <div className="catalog-tabs" aria-label="Sezioni catalogo">
             <button className={catalogView === "sheet" ? "active" : ""} onClick={() => setCatalogView("sheet")}>
               <BookOpen size={17} />
@@ -2208,27 +2212,28 @@ export function AdminView({
               }}
             />
           )}
-        </Panel>
+        </>
       )}
 
       {adminTab === "Prezzi" && (
-        <Panel
-          title="Regole prezzo"
-          icon={<CircleDollarSign size={20} />}
-          actions={
-            <>
-              <ToolIconButton onClick={refreshPricingSection} label="Ricarica regole prezzo">
-                <RefreshCw size={18} />
-              </ToolIconButton>
-              <ToolIconButton
-                label="Modifica prima regola prezzo"
-                onClick={() => setAdminActionModal({ type: "price", ruleId: rules[0].id })}
-              >
-                <Settings2 size={18} />
-              </ToolIconButton>
-            </>
-          }
-        >
+        <>
+          <SectionTitle
+            title="Regole prezzo"
+            icon={<CircleDollarSign size={20} />}
+            actions={
+              <>
+                <ToolIconButton onClick={refreshPricingSection} label="Ricarica regole prezzo">
+                  <RefreshCw size={18} />
+                </ToolIconButton>
+                <ToolIconButton
+                  label="Modifica prima regola prezzo"
+                  onClick={() => setAdminActionModal({ type: "price", ruleId: rules[0].id })}
+                >
+                  <Settings2 size={18} />
+                </ToolIconButton>
+              </>
+            }
+          />
           {pricingSavedAt && (
             <div className="inline-status-card">
               <Check size={18} />
@@ -2295,24 +2300,25 @@ export function AdminView({
               })}
             </div>
           </div>
-        </Panel>
+        </>
       )}
 
       {adminTab === "Esperti" && (
-        <Panel
-          title="Esperti e candidature"
-          icon={<UsersRound size={20} />}
-          actions={
-            <>
-              <ToolIconButton onClick={refreshExpertsSection} label="Ricarica esperti">
-                <RefreshCw size={18} />
-              </ToolIconButton>
-              <AppButton variant="secondary" onClick={createExpertProfile}>
-                <Plus size={17} /> Nuovo esperto
-              </AppButton>
-            </>
-          }
-        >
+        <>
+          <SectionTitle
+            title="Esperti e candidature"
+            icon={<UsersRound size={20} />}
+            actions={
+              <>
+                <ToolIconButton onClick={refreshExpertsSection} label="Ricarica esperti">
+                  <RefreshCw size={18} />
+                </ToolIconButton>
+                <AppButton variant="secondary" onClick={createExpertProfile}>
+                  <Plus size={17} /> Nuovo esperto
+                </AppButton>
+              </>
+            }
+          />
           {expertsSyncedAt && (
             <div className="inline-status-card">
               <Check size={18} />
@@ -2384,19 +2390,20 @@ export function AdminView({
               onSave={() => saveExpertProfile(selectedExpertProfile)}
             />
           )}
-        </Panel>
+        </>
       )}
 
       {adminTab === "Google" && (
-        <Panel
-          title="Google backend"
-          icon={<Settings2 size={20} />}
-          actions={
-            <ToolIconButton onClick={() => refreshGoogleHealth({ refresh: true })} label="Ricarica stato Google">
-              <RefreshCw size={18} />
-            </ToolIconButton>
-          }
-        >
+        <>
+          <SectionTitle
+            title="Google backend"
+            icon={<Settings2 size={20} />}
+            actions={
+              <ToolIconButton onClick={() => refreshGoogleHealth({ refresh: true })} label="Ricarica stato Google">
+                <RefreshCw size={18} />
+              </ToolIconButton>
+            }
+          />
           <div className="pricing-console">
             <div className="pricing-hero-card">
               <div>
@@ -2525,10 +2532,11 @@ export function AdminView({
               })}
             </div>
           </div>
-        </Panel>
+        </>
       )}
       {adminTab === "Utenti" && (
-        <Panel title="Utenti e inviti" icon={<UsersRound size={20} />}>
+        <>
+          <SectionTitle title="Utenti e inviti" icon={<UsersRound size={20} />} />
           <div className="pricing-console">
             <div className="pricing-hero-card">
               <div>
@@ -2686,7 +2694,7 @@ export function AdminView({
               </div>
             )}
           </div>
-        </Panel>
+        </>
       )}
 
       {authModalOpen && (

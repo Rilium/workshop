@@ -40,6 +40,7 @@ import { money } from "../../utils/money";
 import { AppButton } from "../../components/ui/AppButton";
 import { EmptyWorkflowState } from "../../components/ui/EmptyWorkflowState";
 import { Panel } from "../../components/ui/Panel";
+import { SectionTitle } from "../../components/ui/SectionTitle";
 import { RemoveWorkshopButton } from "../../components/ui/RemoveWorkshopButton";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { Stepper } from "../../components/ui/Stepper";
@@ -493,15 +494,16 @@ export function ClientView({
       >
 
       {clientStep === "Interessi" && (
-          <Panel
-            title="Scegli interessi e temi"
-            icon={<BookOpen size={20} />}
-            actions={
-              <ToolIconButton onClick={() => refreshClientSection("Interessi e temi")} label="Ricarica interessi e temi">
-                <RefreshCw size={18} />
-              </ToolIconButton>
-            }
-          >
+          <Panel>
+            <SectionTitle
+              title="Scegli interessi e temi"
+              icon={<BookOpen size={20} />}
+              actions={
+                <ToolIconButton onClick={() => refreshClientSection("Interessi e temi")} label="Ricarica interessi e temi">
+                  <RefreshCw size={18} />
+                </ToolIconButton>
+              }
+            />
             <div className="catalog-display-toolbar">
               <span>{topics.length} interessi · {allThemes.length} temi · {workshops.length} workshop</span>
             </div>
@@ -632,15 +634,16 @@ export function ClientView({
       )}
 
       {clientStep === "Consigliati" && (
-          <Panel
-            title="Workshop consigliati"
-            icon={<Sparkles size={20} />}
-            actions={
-              <ToolIconButton onClick={() => refreshClientSection("Workshop consigliati")} label="Ricarica workshop consigliati">
-                <RefreshCw size={18} />
-              </ToolIconButton>
-            }
-          >
+          <Panel>
+            <SectionTitle
+              title="Workshop consigliati"
+              icon={<Sparkles size={20} />}
+              actions={
+                <ToolIconButton onClick={() => refreshClientSection("Workshop consigliati")} label="Ricarica workshop consigliati">
+                  <RefreshCw size={18} />
+                </ToolIconButton>
+              }
+            />
             <div className="recommendation-intro">
               <div>
                 <span className="eyebrow">Dati dagli interessi scelti</span>
@@ -698,15 +701,16 @@ export function ClientView({
       )}
 
       {clientStep === "Workshop" && (
-          <Panel
-            title="Scegli workshop"
-            icon={<Presentation size={20} />}
-            actions={
-              <ToolIconButton onClick={() => refreshClientSection("Catalogo workshop")} label="Ricarica catalogo workshop">
-                <RefreshCw size={18} />
-              </ToolIconButton>
-            }
-          >
+          <Panel>
+            <SectionTitle
+              title="Scegli workshop"
+              icon={<Presentation size={20} />}
+              actions={
+                <ToolIconButton onClick={() => refreshClientSection("Catalogo workshop")} label="Ricarica catalogo workshop">
+                  <RefreshCw size={18} />
+                </ToolIconButton>
+              }
+            />
             <div className="workshop-command-bar">
               <div className="workshop-command-summary">
                 <strong>{filteredWorkshops.length} workshop</strong>
@@ -824,15 +828,16 @@ export function ClientView({
       )}
 
       {clientStep === "Personalizza" && (
-          <Panel
-            title="Personalizzazione su misura"
-            icon={<Sparkles size={20} />}
-            actions={
-              <ToolIconButton onClick={() => refreshClientSection("Personalizzazione")} label="Ricarica personalizzazione">
-                <RefreshCw size={18} />
-              </ToolIconButton>
-            }
-          >
+          <Panel>
+            <SectionTitle
+              title="Personalizzazione su misura"
+              icon={<Sparkles size={20} />}
+              actions={
+                <ToolIconButton onClick={() => refreshClientSection("Personalizzazione")} label="Ricarica personalizzazione">
+                  <RefreshCw size={18} />
+                </ToolIconButton>
+              }
+            />
             {selectedWorkshopRows.length === 0 ? (
               <EmptyWorkflowState
                 title="Nessun workshop da personalizzare"
@@ -874,15 +879,16 @@ export function ClientView({
       )}
 
       {clientStep === "Date" && (
-          <Panel
-            title="Proponi date"
-            icon={<CalendarCheck size={20} />}
-            actions={
-              <ToolIconButton onClick={() => refreshClientSection("Date")} label="Ricarica date">
-                <RefreshCw size={18} />
-              </ToolIconButton>
-            }
-          >
+          <Panel>
+            <SectionTitle
+              title="Proponi date"
+              icon={<CalendarCheck size={20} />}
+              actions={
+                <ToolIconButton onClick={() => refreshClientSection("Date")} label="Ricarica date">
+                  <RefreshCw size={18} />
+                </ToolIconButton>
+              }
+            />
             {selectedWorkshopRows.length === 0 ? (
               <EmptyWorkflowState
                 title="Nessun workshop da pianificare"
@@ -920,15 +926,16 @@ export function ClientView({
       )}
 
       {clientStep === "Materiali" && (
-          <Panel
-            title="Logo e note cliente"
-            icon={<UploadCloud size={20} />}
-            actions={
-              <ToolIconButton onClick={() => refreshClientSection("Materiali cliente")} label="Ricarica materiali cliente">
-                <RefreshCw size={18} />
-              </ToolIconButton>
-            }
-          >
+          <Panel>
+            <SectionTitle
+              title="Logo e note cliente"
+              icon={<UploadCloud size={20} />}
+              actions={
+                <ToolIconButton onClick={() => refreshClientSection("Materiali cliente")} label="Ricarica materiali cliente">
+                  <RefreshCw size={18} />
+                </ToolIconButton>
+              }
+            />
           <div className="upload-box">
             <UploadCloud size={32} />
             <strong>Logo, brand guideline e note platea</strong>
@@ -983,15 +990,16 @@ export function ClientView({
       )}
 
       {clientStep === "Invio" && (
-          <Panel
-            title="Invio richiesta"
-            icon={<FileCheck2 size={20} />}
-            actions={
-              <ToolIconButton onClick={() => refreshClientSection("Invio richiesta")} label="Ricarica riepilogo invio">
-                <RefreshCw size={18} />
-              </ToolIconButton>
-            }
-          >
+          <Panel>
+            <SectionTitle
+              title="Invio richiesta"
+              icon={<FileCheck2 size={20} />}
+              actions={
+                <ToolIconButton onClick={() => refreshClientSection("Invio richiesta")} label="Ricarica riepilogo invio">
+                  <RefreshCw size={18} />
+                </ToolIconButton>
+              }
+            />
             <ReadinessPanel rows={selectedWorkshopRows} missingDateRows={missingDateRows} />
             {requestFinalized ? (
               <div className="request-success-card">

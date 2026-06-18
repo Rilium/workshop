@@ -48,7 +48,6 @@ export function Stepper({
       </div>
       {children != null && (
         <div className="ff-stepper-card" style={{ borderRadius: cardRadius }}>
-          <p className="ff-stepper-eyebrow">Step {activeIndex + 1} — {activeStep}</p>
           {children}
         </div>
       )}

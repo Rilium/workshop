@@ -43,6 +43,7 @@ import { AppButton } from "../../components/ui/AppButton";
 import { ActionIconButton, ToolIconButton } from "../../components/ui/IconButton";
 import { Info } from "../../components/ui/Info";
 import { Panel } from "../../components/ui/Panel";
+import { SectionTitle } from "../../components/ui/SectionTitle";
 import { Skeleton, SkeletonCard } from "../../components/ui/Skeleton";
 import { Stepper } from "../../components/ui/Stepper";
 import { BottomActionBar } from "../../components/layout/BottomActionBar";
@@ -375,15 +376,16 @@ export function ExpertView({
       <Stepper steps={expertSteps} activeStep={expertStep} completedSteps={expertCompletedSteps} onStep={setExpertStep}>
 
       {expertStep === "Opportunita" && (
-        <Panel
-          title="Opportunita disponibili"
-          icon={<Megaphone size={20} />}
-          actions={
-            <ToolIconButton onClick={() => refreshExpertSection("Opportunita")} label="Ricarica opportunita">
-              <RefreshCw size={18} />
-            </ToolIconButton>
-          }
-        >
+        <Panel>
+          <SectionTitle
+            title="Opportunità disponibili"
+            icon={<Megaphone size={20} />}
+            actions={
+              <ToolIconButton onClick={() => refreshExpertSection("Opportunita")} label="Ricarica opportunita">
+                <RefreshCw size={18} />
+              </ToolIconButton>
+            }
+          />
           <div className="expert-opportunity-grid" aria-busy={expertSyncState.loading}>
             {expertSyncState.loading ? Array.from({ length: 3 }).map((_, index) => (
               <SkeletonCard key={`expert-opportunity-skeleton-${index}`} className="opportunity-card" lines={3} />
@@ -438,15 +440,16 @@ export function ExpertView({
       )}
 
       {expertStep === "Assegnati" && (
-        <Panel
-          title="Workshop assegnati"
-          icon={<CalendarCheck size={20} />}
-          actions={
-            <ToolIconButton onClick={() => refreshExpertSection("Assegnati")} label="Ricarica workshop assegnati">
-              <RefreshCw size={18} />
-            </ToolIconButton>
-          }
-        >
+        <Panel>
+          <SectionTitle
+            title="Workshop assegnati"
+            icon={<CalendarCheck size={20} />}
+            actions={
+              <ToolIconButton onClick={() => refreshExpertSection("Assegnati")} label="Ricarica workshop assegnati">
+                <RefreshCw size={18} />
+              </ToolIconButton>
+            }
+          />
           <div className="expert-opportunity-grid">
             {(assignedRow ? [assignedRow] : []).map(({ selection, workshop }) => (
               <div className="opportunity-card selected" key={workshop.id}>
@@ -470,15 +473,16 @@ export function ExpertView({
       )}
 
       {expertStep === "Upload deck" && (
-        <Panel
-          title="Upload presentazione"
-          icon={<UploadCloud size={20} />}
-          actions={
-            <ToolIconButton onClick={() => refreshExpertSection("Upload deck")} label="Ricarica file Drive">
-              <RefreshCw size={18} />
-            </ToolIconButton>
-          }
-        >
+        <Panel>
+          <SectionTitle
+            title="Upload presentazione"
+            icon={<UploadCloud size={20} />}
+            actions={
+              <ToolIconButton onClick={() => refreshExpertSection("Upload deck")} label="Ricarica file Drive">
+                <RefreshCw size={18} />
+              </ToolIconButton>
+            }
+          />
           <div className="expert-upload-panel">
             <div className="expert-upload-copy">
               <span className="topic-badge">deck</span>
@@ -547,15 +551,16 @@ export function ExpertView({
       )}
 
       {expertStep === "Storico" && (
-        <Panel
-          title="Storico workshop"
-          icon={<Presentation size={20} />}
-          actions={
-            <ToolIconButton onClick={() => refreshExpertSection("Storico")} label="Ricarica storico">
-              <RefreshCw size={18} />
-            </ToolIconButton>
-          }
-        >
+        <Panel>
+          <SectionTitle
+            title="Storico workshop"
+            icon={<Presentation size={20} />}
+            actions={
+              <ToolIconButton onClick={() => refreshExpertSection("Storico")} label="Ricarica storico">
+                <RefreshCw size={18} />
+              </ToolIconButton>
+            }
+          />
           <div className="expert-history-list">
             <div className="info">
               <span>Storico reale</span>
