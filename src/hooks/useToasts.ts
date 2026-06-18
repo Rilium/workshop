@@ -25,8 +25,10 @@ function writeStoredNotifications(notifications: AppNotification[]) {
   window.localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(notifications.slice(0, 120)));
 }
 
-function compactAudience(audience: AppNotificationRole[] | undefined, fallbackRole: Role) {
-  const next = audience?.length ? audience : isNotificationRole(fallbackRole) ? [fallbackRole] : [];
+function compactAudience(audience: AppNotificationRole[] | undefined) {
+  // Solo le notify() con audience esplicito finiscono nel centro notifiche.
+  // Quelle senza audience sono toast fuggevoli e non inquinano la lista.
+  const next = audience?.length ? audience : [];
   return Array.from(new Set(next.filter((role): role is AppNotificationRole => NON_CLIENT_ROLES.includes(role as AppNotificationRole))));
 }
 
@@ -38,7 +40,7 @@ export function useToasts(role: Role) {
     const id = Date.now() + Math.round(Math.random() * 1000);
     setToasts((current) => [...current.slice(-3), { id, title, body }]);
 
-    const audience = compactAudience(options.audience, role);
+    const audience = compactAudience(options.audience);
     if (options.persist === false || audience.length === 0) return;
 
     const now = new Date().toISOString();

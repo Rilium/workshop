@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, BadgeCheck, BriefcaseBusiness, Sparkles, X } from "lucide-react";
+import { useDarkMode } from "./hooks/useDarkMode";
+import { DarkModeToggle } from "./components/ui/DarkModeToggle";
 import { initialRules } from "./data/pricing";
 import { workshops } from "./data/catalog";
 import type { ProjectStatus, Role, Selection, Workshop } from "./types/domain";
@@ -127,6 +129,7 @@ function WelcomeModal({
 
 function AppInner() {
   const { currentUser, effectiveRole, session, loading, switchEffectiveRole, logout } = useAuth();
+  const { isDark, toggle: toggleDark } = useDarkMode();
 
   // Il ruolo visualizzato: per utenti autenticati viene dall'effectiveRole;
   // per la vista Cliente pubblica usiamo "Cliente".
@@ -345,6 +348,7 @@ function AppInner() {
           }}
         />
       )}
+      <DarkModeToggle isDark={isDark} onToggle={toggleDark} />
       <Topbar role={role} context={topbarContext} projectStatus={projectStatus} notify={notify} />
       {/* Banner impersonificazione */}
       {isImpersonating && (
