@@ -144,7 +144,7 @@ function handleGet(event) {
   return jsonResponse({
     ok: true,
     service: "FunniFin Workshop Planner",
-    actions: ["freeBusy", "calendarLookup", "driveFolder", "brandPresentations", "listWorkshopRequests", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "listAuthUsers", "listAccessRequests", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification", "requestLoginCode", "verifyLoginCode", "reviewAccessRequest", "updateAuthUser"],
+    actions: ["freeBusy", "calendarLookup", "driveFolder", "brandPresentations", "listWorkshopRequests", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "listAuthUsers", "listAccessRequests", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "deleteWorkshopRequest", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification", "requestLoginCode", "verifyLoginCode", "reviewAccessRequest", "updateAuthUser"],
   });
 }
 
@@ -164,6 +164,10 @@ function handlePost(event) {
   if (body.action === "updateWorkshopRequest") {
     requireSession(body.payload || {}, ["FunniFin", "Esperto", "Brand"]);
     return jsonResponse(updateWorkshopRequest(body.payload || {}));
+  }
+  if (body.action === "deleteWorkshopRequest") {
+    requireFunniFinSession(body.payload || {});
+    return jsonResponse(deleteWorkshopRequest(body.payload || {}));
   }
   if (body.action === "updateCatalogTopic") {
     requireFunniFinSession(body.payload || {});
@@ -607,6 +611,32 @@ function updateWorkshopRequest(payload) {
     ok: true,
     source: "google-sheet",
     request: merged,
+  };
+}
+
+function deleteWorkshopRequest(payload) {
+  const requestId = payload.requestId || payload.id;
+  if (!requestId) throw new Error("Missing requestId");
+
+  const sheet = getRequestsSheet();
+  const rows = sheet.getDataRange().getValues();
+  const rowIndex = rows.findIndex((row, index) => index > 0 && row[0] === requestId);
+  if (rowIndex < 1) throw new Error(`Request not found: ${requestId}`);
+
+  const current = rowToRequest(rows[rowIndex]) || { id: requestId };
+  sheet.deleteRow(rowIndex + 1);
+  appendRequestEvent(
+    String(requestId),
+    "request_deleted",
+    `Richiesta eliminata: ${current.company || requestId}`,
+    current,
+  );
+
+  return {
+    ok: true,
+    source: "google-sheet",
+    deleted: true,
+    requestId: String(requestId),
   };
 }
 

@@ -131,6 +131,50 @@
   --font-weight-xbold: var(--fw-xbold);
 }
 
+/* ─── Dark mode token overrides ──────────────────────────────────────────── */
+
+html[data-theme="dark"] {
+  --white: #1e2828;
+  --neutral-50: #141c1c;
+  --neutral-100: #1e2828;
+  --neutral-200: #2a3838;
+  --neutral-300: #374646;
+  --neutral-400: #5a6868;
+  --neutral-600: #8a9a9a;
+  --neutral-800: #c4d0d0;
+  --neutral-900: #e4eeee;
+
+  --brand-light: #0d2e30;
+  --brand-mid: #1a4448;
+  --brand-dark: #7de2ea;
+
+  --color-page: #141c1c;
+  --color-panel: #1e2828;
+  --color-ink: #e4eeee;
+  --color-muted: #8a9a9a;
+  --color-border: #2a3838;
+  --color-white: #1e2828;
+  --color-amber-soft: #2a2010;
+
+  --card-bg: #1e2828;
+  --card-border: 1px solid #2a3838;
+  --card-shadow: 0 2px 8px rgba(0,0,0,0.32);
+  --card-shadow-hover: 0 4px 16px rgba(0,0,0,0.44);
+
+  --nav-bg: #141c1c;
+  --nav-active-bg: #1e2828;
+
+  --chip-auto-bg: #0d2e30; --chip-auto-text: #7de2ea;
+  --chip-finanza-bg: #0d2e30; --chip-finanza-text: #1cafb9;
+  --chip-fiscale-bg: #2a1020; --chip-fiscale-text: #f06090;
+  --chip-guida-bg: #2a1e10; --chip-guida-text: #c89060;
+}
+
+html[data-theme="dark"] body {
+  background: var(--color-page);
+  color: var(--color-ink);
+}
+
 * {
   box-sizing: border-box;
 }

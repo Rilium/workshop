@@ -10,6 +10,7 @@ import { buildLocalAdminProject, requestToAdminProject } from "./utils/workshop"
 import type { AssetDraftFolder, UploadedAsset } from "./driveAssetService";
 import type { WorkshopRequestRecord } from "./requestService";
 import { FeedbackToastStack } from "./components/ui/Toast";
+import { NotificationCenter } from "./components/ui/NotificationCenter";
 import { AppButton } from "./components/ui/AppButton";
 import { Topbar, SystemBar } from "./components/layout/Topbar";
 import { ConfettiBurst } from "./components/ui/ConfettiBurst";
@@ -150,7 +151,17 @@ function AppInner() {
   const [requestRefreshToken, setRequestRefreshToken] = useState(0);
   const [showCelebrationConfetti, setShowCelebrationConfetti] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
-  const { toasts, notify, closeToast } = useToasts();
+  const {
+    toasts,
+    notifications,
+    notify,
+    closeToast,
+    closeNotification,
+    reopenNotification,
+    markNotificationRead,
+    markVisibleNotificationsRead,
+    clearClosedNotifications,
+  } = useToasts(role);
   const { selections, toggleWorkshop, addWorkshops, updateSelection } = useWorkshopSelection(workshops, notify);
   const quote = useQuote(selections, workshops, rules);
   const lastConfettiTokenRef = useRef<string | null>(null);
@@ -286,6 +297,15 @@ function AppInner() {
     if (role === "Esperto") window.history.replaceState(null, "", "#esperto-candidature");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+  const runNotificationAction = (notification: (typeof notifications)[number]) => {
+    const action = notification.action;
+    if (!action) return;
+    if (action.role && action.role !== role && currentUser?.actualRole === "FunniFin") {
+      switchEffectiveRole(action.role);
+    }
+    if (action.hash) window.history.replaceState(null, "", action.hash);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <div className={"app-shell role-" + role.toLowerCase()}>
@@ -355,6 +375,21 @@ function AppInner() {
         onLogout={logout}
         onLogin={() => setShowLogin(true)}
         currentUser={currentUser}
+        notificationCenter={
+          <NotificationCenter
+            role={role}
+            notifications={notifications}
+            onCloseNotification={closeNotification}
+            onReopenNotification={reopenNotification}
+            onMarkRead={markNotificationRead}
+            onMarkVisibleRead={markVisibleNotificationsRead}
+            onAction={runNotificationAction}
+            onClearClosed={() => {
+              const r = role as import("./types/domain").AppNotificationRole;
+              clearClosedNotifications(r);
+            }}
+          />
+        }
       />
 
       <main className="main-content">
@@ -386,6 +421,12 @@ function AppInner() {
             onRequestCreated={(request) => {
               setCurrentRequest(request);
               setRequestRefreshToken((value) => value + 1);
+              notify("Nuova richiesta cliente", `${request.company}: ${request.workshops.length} workshop da prendere in carico.`, {
+                audience: ["FunniFin"],
+                priority: "task",
+                category: "task",
+                action: { label: "Apri coda", role: "FunniFin", hash: "#funnifin", projectId: request.id },
+              });
               fireConfetti(3200);
             }}
           />

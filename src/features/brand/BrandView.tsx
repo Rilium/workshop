@@ -35,7 +35,7 @@ import { getBrandPresentations, type BrandPresentation } from "../../googleDrive
 import { listWorkshopRequests, updateWorkshopRequest } from "../../requestService";
 import { roleIdentities } from "../../data/mockData";
 import { statusLabel } from "../../data/workflow";
-import type { AdminProject, BrandDeckStatus, ProjectStatus } from "../../types/domain";
+import type { AdminProject, BrandDeckStatus, NotifyOptions, ProjectStatus } from "../../types/domain";
 import { getDeckOpenUrl, getDeckPreviewUrl } from "../../utils/googleDrive";
 import { requestToAdminProject } from "../../utils/workshop";
 import { AppButton } from "../../components/ui/AppButton";
@@ -61,7 +61,7 @@ export function BrandView({
   setBrandFilter: (filter: string) => void;
   setProjectStatus: (status: ProjectStatus, title: string, body: string) => void;
   syncProjectStatus: (status: ProjectStatus) => void;
-  notify: (title: string, body: string) => void;
+  notify: (title: string, body: string, options?: NotifyOptions) => void;
   systemRefreshToken: number;
   systemSettingsToken: number;
 }) {
@@ -167,10 +167,22 @@ export function BrandView({
       setBrandProjects((current) => current.map((item) => (item.id === project.id ? project : item)));
       setSelectedBrandProjectId(project.id);
       setProjectStatus(status, eventType === "brand_approved" ? "Brand approvato" : "Modifiche richieste", note);
-      notify(eventType === "brand_approved" ? "Brand approvato" : "Modifiche richieste", `${project.company}: stato salvato sul registro.`);
+      notify(eventType === "brand_approved" ? "Brand approvato" : "Modifiche richieste", `${project.company}: stato salvato sul registro.`, {
+        audience: eventType === "brand_approved" ? ["FunniFin"] : ["FunniFin", "Esperto"],
+        priority: "task",
+        category: "task",
+        action: eventType === "brand_approved"
+          ? { label: "Vai alla conferma", role: "FunniFin", hash: "#funnifin", projectId: project.id }
+          : { label: "Apri modifiche", role: "Esperto", hash: "#esperto-candidature", projectId: project.id },
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Aggiornamento brand non salvato.";
-      notify("Registro brand non aggiornato", message);
+      notify("Registro brand non aggiornato", message, {
+        audience: ["Brand"],
+        priority: "critical",
+        category: "system",
+        action: { label: "Riapri revisione", role: "Brand", hash: "#brand", projectId: selectedBrandProject.id },
+      });
     }
   };
   const refreshBrandDrive = (showFeedback = true) => {
@@ -285,9 +297,19 @@ export function BrandView({
       const project = requestToAdminProject(request);
       setBrandProjects((current) => current.map((item) => (item.id === project.id ? project : item)));
       setSelectedBrandProjectId(project.id);
-      notify("Deck abilitato per Calendar", `${selectedBrandDeck.title}: il link verra scritto solo negli eventi creati dopo questa abilitazione.`);
+      notify("Deck abilitato per Calendar", `${selectedBrandDeck.title}: il link verra scritto solo negli eventi creati dopo questa abilitazione.`, {
+        audience: ["FunniFin"],
+        priority: "task",
+        category: "task",
+        action: { label: "Crea evento", role: "FunniFin", hash: "#funnifin", projectId: project.id },
+      });
     } catch (error) {
-      notify("Deck Calendar non salvato", error instanceof Error ? error.message : "Aggiornamento registro non riuscito.");
+      notify("Deck Calendar non salvato", error instanceof Error ? error.message : "Aggiornamento registro non riuscito.", {
+        audience: ["Brand"],
+        priority: "critical",
+        category: "system",
+        action: { label: "Riprova deck", role: "Brand", hash: "#brand", projectId: selectedBrandProject.id },
+      });
     }
   };
   const uploadDeckVersion = () => {

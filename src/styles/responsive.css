@@ -331,10 +331,22 @@
   .catalog-source-card,
   .sheet-preview-head,
   .drive-root-card,
+  .queue-top-row,
   .expert-management-grid,
   .catalog-map-head,
   .catalog-workshop-mini-list > div {
     grid-template-columns: 1fr;
+  }
+
+  .queue-top-row {
+    display: grid;
+  }
+
+  .queue-top-row .admin-search-field,
+  .admin-sort-field {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
   }
 
   .sheet-preview-card iframe,
@@ -358,13 +370,19 @@
 
   .pricing-editor-grid,
   .request-edit-summary,
+  .request-delete-summary,
   .request-edit-controls,
   .price-preview-card,
   .pricing-hero-card,
+  .google-health-hero,
   .auth-invite-grid,
   .pricing-hero-metrics,
   .pricing-rule-body {
     grid-template-columns: 1fr;
+  }
+
+  .google-health-status {
+    justify-items: start;
   }
 
   .auth-invite-actions {
@@ -695,6 +713,39 @@
     gap: var(--sp-2);
   }
 
+  .bottom-action-copy--admin {
+    width: 100%;
+    max-width: none;
+    align-items: stretch;
+  }
+
+  .bottom-project-summary-card {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .bottom-project-main-row {
+    width: 100%;
+    grid-template-columns: auto minmax(0, 1fr) 38px;
+    gap: var(--sp-2);
+  }
+
+  .bottom-project-info {
+    width: max-content;
+    max-width: min(46vw, 240px);
+    justify-self: start;
+  }
+
+  .bottom-project-meta {
+    justify-self: start;
+    min-width: 78px;
+  }
+
+  .bottom-project-menu,
+  .bottom-project-menu-spacer {
+    justify-self: end;
+  }
+
   .bottom-action-copy > div {
     gap: 4px;
   }
@@ -718,7 +769,9 @@
   }
 
   .bottom-action-buttons .app-btn {
-    width: auto;
+    width: 100%;
+    min-width: 0;
+    grid-column: 1 / -1;
   }
 
   .bottom-action-buttons .bottom-back-btn {
@@ -728,14 +781,21 @@
     min-width: 44px;
   }
 
-  .bottom-action-buttons .app-btn:not(.bottom-back-btn):last-child {
-    grid-column: 2;
-    grid-row: 1;
-    width: 100%;
+  .bottom-action-buttons .app-btn:has(svg) {
+    width: 44px;
+    min-width: 44px;
+    justify-self: start;
   }
 
-  .bottom-action-buttons .app-btn:not(.bottom-back-btn):not(:last-child) {
+  .bottom-action-buttons .app-btn:not(.bottom-back-btn):has(svg):last-child {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .bottom-action-buttons .app-btn:not(.bottom-back-btn):not(:has(svg)) {
     grid-column: 1 / -1;
+    width: 100%;
   }
 
   .ff-stepper-card,
@@ -759,6 +819,53 @@
 
   .workshop-session-meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .notification-panel {
+    top: auto;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: min(86vh, 760px);
+    padding: var(--sp-4);
+    border-left: 0;
+    border-top: 1px solid var(--neutral-200);
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+    box-shadow: 0 -18px 42px rgba(13, 39, 45, 0.18);
+  }
+
+  .notification-panel-head h2 {
+    font-size: var(--text-xl);
+  }
+
+  .notification-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .notification-item {
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: var(--sp-2);
+    padding: var(--sp-3);
+  }
+
+  .notification-item-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .notification-item-topline {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .notification-item-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .notification-item-actions button {
+    width: 100%;
   }
 }
 

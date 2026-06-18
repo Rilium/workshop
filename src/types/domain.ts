@@ -4,6 +4,39 @@ import type { BrandPresentationStatus } from "../googleDriveService";
 import type { WorkshopRequestRecord } from "../requestService";
 
 export type Role = "FunniFin" | "Cliente" | "Esperto" | "Brand";
+export type AppNotificationRole = Exclude<Role, "Cliente">;
+export type NotificationPriority = "critical" | "task" | "info";
+export type NotificationCategory = "task" | "mail" | "system" | "feedback";
+export type NotificationStatus = "open" | "closed";
+export type NotificationAction = {
+  label: string;
+  role?: AppNotificationRole;
+  hash?: string;
+  section?: string;
+  projectId?: string;
+};
+export type AppNotification = {
+  id: string;
+  toastId?: number;
+  title: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+  sourceRole?: Role;
+  audience: AppNotificationRole[];
+  priority: NotificationPriority;
+  category: NotificationCategory;
+  status: NotificationStatus;
+  readBy: AppNotificationRole[];
+  action?: NotificationAction;
+};
+export type NotifyOptions = {
+  audience?: AppNotificationRole[];
+  priority?: NotificationPriority;
+  category?: NotificationCategory;
+  action?: NotificationAction;
+  persist?: boolean;
+};
 export type Duration = "1h" | "2h";
 export type Format = "live" | "webinar" | "ibrido";
 export type ProjectStatus =

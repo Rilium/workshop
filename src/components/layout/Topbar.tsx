@@ -62,6 +62,7 @@ export function SystemBar({
   onLogout,
   onLogin,
   currentUser,
+  notificationCenter,
 }: {
   role: Role;
   /** actualRole dell'utente autenticato (null = visitatore anonimo Cliente) */
@@ -76,6 +77,7 @@ export function SystemBar({
   onLogout: () => void;
   onLogin: () => void;
   currentUser: AuthUser | null;
+  notificationCenter?: React.ReactNode;
 }) {
   const isFunniFin = actualRole === "FunniFin";
 
@@ -119,6 +121,7 @@ export function SystemBar({
         <span>{context}</span>
       </div>
       <div className="system-actions">
+        {notificationCenter}
         <ToolIconButton onClick={onSettings} label={settingsLabel}>
           <Settings2 size={18} />
         </ToolIconButton>

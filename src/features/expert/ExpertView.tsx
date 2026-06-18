@@ -36,7 +36,7 @@ import { getDriveFolderPreview, type DriveFolderItem } from "../../googleDriveSe
 import { listWorkshopRequests, updateWorkshopRequest } from "../../requestService";
 import { roleIdentities } from "../../data/mockData";
 import { workshops } from "../../data/catalog";
-import type { AdminProject, ProjectStatus, Selection, Workshop } from "../../types/domain";
+import type { AdminProject, NotifyOptions, ProjectStatus, Selection, Workshop } from "../../types/domain";
 import { useAuth } from "../../AuthContext";
 import { requestToAdminProject } from "../../utils/workshop";
 import { AppButton } from "../../components/ui/AppButton";
@@ -65,7 +65,7 @@ export function ExpertView({
   selections: Selection[];
   updateSelection: (id: string, patch: Partial<Selection>) => void;
   setProjectStatus: (status: ProjectStatus, title: string, body: string) => void;
-  notify: (title: string, body: string) => void;
+  notify: (title: string, body: string, options?: NotifyOptions) => void;
   syncProjectStatus: (status: ProjectStatus) => void;
   systemRefreshToken: number;
   systemSettingsToken: number;
@@ -210,9 +210,19 @@ export function ExpertView({
         updateSelection(assignedRow.workshop.id, { status: "in_revisione_brand" });
       }
       setProjectStatus("in_revisione_brand", "Deck inviato al brand", `${expertDeckFile.name} passa alla revisione qualita.`);
-      notify("Deck inviato al brand", `${expertDeckFile.name} salvato sul registro del progetto.`);
+      notify("Deck inviato al brand", `${expertDeckFile.name} salvato sul registro del progetto.`, {
+        audience: ["Brand"],
+        priority: "task",
+        category: "task",
+        action: { label: "Apri revisione", role: "Brand", hash: "#brand", projectId: activeExpertProject.id },
+      });
     } catch (error) {
-      notify("Invio a brand non salvato", error instanceof Error ? error.message : "Aggiornamento registro non riuscito.");
+      notify("Invio a brand non salvato", error instanceof Error ? error.message : "Aggiornamento registro non riuscito.", {
+        audience: ["Esperto"],
+        priority: "critical",
+        category: "system",
+        action: { label: "Torna all'upload", role: "Esperto", hash: "#esperto-candidature", projectId: activeExpertProject.id },
+      });
     }
   };
   const loadExpertDriveItems = async (openPicker: boolean) => {
@@ -302,11 +312,21 @@ export function ExpertView({
       }
       if (activeExpertProject.source === "local") updateSelection(workshop.id, { status: "candidatura_ricevuta" });
       setProjectStatus("aperto_a_esperti", "Candidatura inviata", "FunniFin ha ricevuto la candidatura interna e puo assegnarti il workshop.");
-      notify("Candidatura registrata", "Nessuna email automatica inviata: FunniFin la vede nella coda progetto.");
+      notify("Candidatura registrata", "Nessuna email automatica inviata: FunniFin la vede nella coda progetto.", {
+        audience: ["FunniFin"],
+        priority: "task",
+        category: "task",
+        action: { label: "Apri coda", role: "FunniFin", hash: "#funnifin", projectId: activeExpertProject.id },
+      });
       setCandidateModalRow(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invio candidatura non riuscito.";
-      notify("Candidatura non inviata", message);
+      notify("Candidatura non inviata", message, {
+        audience: ["Esperto"],
+        priority: "critical",
+        category: "system",
+        action: { label: "Riprova candidatura", role: "Esperto", hash: "#esperto-candidature", projectId: activeExpertProject.id },
+      });
     } finally {
       setCandidateSending(false);
     }

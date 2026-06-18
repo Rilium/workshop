@@ -167,6 +167,38 @@
   margin-left: auto;
 }
 
+.admin-sort-field {
+  flex: 0 0 190px;
+  min-width: 170px;
+  height: 38px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-pill);
+  background: var(--white);
+}
+
+.admin-sort-field span {
+  color: var(--neutral-600);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-xbold);
+  white-space: nowrap;
+}
+
+.admin-sort-field select {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--neutral-900);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-xbold);
+}
+
 .queue-head,
 .section-card-head,
 .admin-detail-header,
@@ -269,19 +301,35 @@
 }
 
 .project-choice-card {
+  position: relative;
   min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(74px, 0.34fr) minmax(0, 1fr) minmax(118px, auto);
-  gap: var(--sp-3);
-  align-items: center;
   min-height: 96px;
   border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg);
   background: var(--white);
-  color: var(--neutral-900);
-  padding: var(--sp-3);
-  text-align: left;
   box-shadow: none;
+  overflow: hidden;
+}
+
+.project-choice-main {
+  width: 100%;
+  min-width: 0;
+  min-height: 96px;
+  display: grid;
+  grid-template-columns: minmax(74px, 0.34fr) minmax(0, 1fr) minmax(118px, auto);
+  gap: var(--sp-3);
+  align-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--neutral-900);
+  padding: var(--sp-3) calc(var(--sp-3) + 26px) var(--sp-3) var(--sp-3);
+  text-align: left;
+  cursor: pointer;
+}
+
+.project-choice-main:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -3px;
 }
 
 .project-choice-card.active {
@@ -292,6 +340,38 @@
 
 .project-choice-card:hover {
   border-color: var(--brand-mid);
+}
+
+.project-choice-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--neutral-500);
+  cursor: pointer;
+}
+
+.project-choice-delete:hover,
+.project-choice-delete:focus-visible {
+  border-color: rgba(239, 111, 155, 0.32);
+  background: #fff7fa;
+  color: var(--accent-pink);
+}
+
+.project-choice-delete:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.project-choice-delete:disabled svg {
+  animation: app-btn-spin 0.8s linear infinite;
 }
 
 .project-choice-skeleton {
@@ -1794,6 +1874,24 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.request-delete-modal {
+  max-width: 560px;
+}
+
+.request-delete-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3);
+}
+
+.request-delete-confirm-btn {
+  background: var(--accent-pink);
+}
+
+.request-delete-confirm-btn:hover {
+  background: #d84d82;
+}
+
 .auth-users-table {
   width: 100%;
   border-collapse: collapse;
@@ -1958,6 +2056,162 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--sp-3);
+}
+
+.google-backend-console {
+  display: grid;
+  gap: var(--sp-4);
+}
+
+.google-health-hero {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-4);
+  align-items: center;
+  padding: var(--sp-5);
+  border: 1px solid var(--brand-mid);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(180deg, var(--white), var(--brand-light));
+  box-shadow: 0 14px 34px rgba(28, 175, 185, 0.08);
+}
+
+.google-health-hero.error {
+  border-color: rgba(239, 111, 155, 0.32);
+  background: #fff7fa;
+}
+
+.google-health-hero.cache {
+  border-color: rgba(245, 207, 69, 0.68);
+  background: #fffdf0;
+}
+
+.google-health-copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.google-health-copy strong {
+  color: var(--neutral-900);
+  font-size: var(--text-2xl);
+  line-height: 1.15;
+}
+
+.google-health-copy em {
+  color: var(--neutral-600);
+  font-style: normal;
+  font-weight: var(--fw-bold);
+  line-height: 1.4;
+}
+
+.google-health-status {
+  min-width: 136px;
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+  padding: var(--sp-3);
+  border: 1px solid var(--brand-mid);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+}
+
+.google-health-status span {
+  color: var(--brand-dark);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-xbold);
+  text-transform: uppercase;
+}
+
+.google-health-status strong {
+  color: var(--neutral-900);
+  font-size: var(--text-xl);
+  line-height: 1.1;
+}
+
+.google-health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--sp-3);
+}
+
+.google-health-card {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  box-shadow: var(--brand-shadow-card);
+}
+
+.google-health-card.ok {
+  border-color: var(--brand-mid);
+}
+
+.google-health-card.missing {
+  border-color: rgba(239, 111, 155, 0.28);
+}
+
+.google-health-card-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-light);
+  color: var(--brand-dark);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-xbold);
+}
+
+.google-health-card.missing .google-health-card-head {
+  background: #fff7fa;
+  color: var(--accent-pink);
+}
+
+.google-health-card strong {
+  color: var(--neutral-900);
+  font-size: var(--text-lg);
+  line-height: 1.2;
+}
+
+.google-health-card p,
+.google-health-card em {
+  min-width: 0;
+  margin: 0;
+  color: var(--neutral-600);
+  font-style: normal;
+  font-weight: var(--fw-bold);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.google-health-card em {
+  font-size: var(--text-sm);
+}
+
+.google-health-card .app-btn {
+  width: fit-content;
+  margin-top: var(--sp-1);
+}
+
+.skeleton-google-card {
+  min-height: 168px;
+}
+
+.google-data-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-xl);
+  background: var(--neutral-50);
 }
 
 .admin-settings-stack {

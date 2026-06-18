@@ -7,6 +7,7 @@ import {
   BriefcaseBusiness,
   CalendarCheck,
   Check,
+  ChevronDown,
   ChevronLeft,
   CircleDollarSign,
   Clock3,
@@ -36,13 +37,13 @@ import { createWorkshopCalendarEvent, getWorkshopAvailability } from "../../goog
 import type { AssetDraftFolder, UploadedAsset } from "../../driveAssetService";
 import { deleteExpert, getGoogleHealth, listCatalogConfig, listCatalogWorkshops, listExperts, listPricingRules, listWorkspaceSettings, updateCatalogTopic, updateExpert, updatePricingRule, updateWorkspaceSetting, type CatalogWorkshopConfig, type GoogleHealth, type WorkspaceSetting } from "../../googleAdminService";
 import { getDriveFolderPreview, type DriveFolderResponse } from "../../googleDriveService";
-import { listWorkshopRequests, updateWorkshopRequest, type RequestWorkshopRecord, type WorkshopRequestRecord } from "../../requestService";
+import { deleteWorkshopRequest, listWorkshopRequests, updateWorkshopRequest, type RequestWorkshopRecord, type WorkshopRequestRecord } from "../../requestService";
 import { listAuthUsers, listAccessRequests, requestLoginCode, reviewAccessRequest } from "../../authService";
 import type { AuthRole, AuthUser, AccessRequest } from "../../types/auth";
 import { SECRET_SETTINGS } from "../../secretSettings";
 import { adminSettingDefinitions, adminSettingGroups, appEnv, projectStatuses, statusLabel } from "../../data/workflow";
 import { canvaCatalogSource, experts, initialExpertProfiles, topics, workshops } from "../../data/catalog";
-import type { AdminProject, AdminProjectWorkshopRow, AdminWorkspacePanel, CalendarEventRecord, DateApproval, DateDecision, DriveSlideLink, ExpertProfile, Format, PricingRule, ProjectStatus, Quote, Selection, Theme, Workshop } from "../../types/domain";
+import type { AdminProject, AdminProjectWorkshopRow, AdminWorkspacePanel, AppNotificationRole, CalendarEventRecord, DateApproval, DateDecision, DriveSlideLink, ExpertProfile, Format, NotifyOptions, PricingRule, ProjectStatus, Quote, Selection, Theme, Workshop } from "../../types/domain";
 import type { AdminActionModalState, NotificationChoice } from "../../types/ui";
 import { money } from "../../utils/money";
 import { buildLocalAdminProject, requestToAdminProject, topicColorClass } from "../../utils/workshop";
@@ -71,6 +72,7 @@ import { getWorkshopSelectionPrice } from "../../utils/workshop";
 import { updateAuthUser } from "../../authService";
 
 type AdminQueueFilter = "tutti" | "oggi" | "da-fissare" | "produzione" | "in-calendario" | "chiusi";
+type AdminQueueSort = "recenti" | "vecchi" | "prezzo_alto" | "date_vicine" | "date_lontane";
 type QueueCardTone = "neutral" | "today" | "late" | "soon" | "calendar" | "closed";
 
 const queueFilterOptions: Array<{ id: AdminQueueFilter; label: string }> = [
@@ -81,6 +83,27 @@ const queueFilterOptions: Array<{ id: AdminQueueFilter; label: string }> = [
   { id: "in-calendario", label: "In calendario" },
   { id: "chiusi", label: "Chiusi" },
 ];
+
+const queueSortOptions: Array<{ id: AdminQueueSort; label: string }> = [
+  { id: "recenti", label: "Più recenti" },
+  { id: "vecchi", label: "Più vecchi" },
+  { id: "prezzo_alto", label: "Prezzo più alto" },
+  { id: "date_vicine", label: "Date più vicine" },
+  { id: "date_lontane", label: "Date più lontane" },
+];
+
+function notificationRoleFromRecipient(role: WorkflowNotificationRecipientRole): AppNotificationRole | null {
+  if (role === "funnifin") return "FunniFin";
+  if (role === "expert") return "Esperto";
+  if (role === "brand") return "Brand";
+  return null;
+}
+
+function workflowNotificationAction(audience: AppNotificationRole[]): NotifyOptions["action"] {
+  if (audience.includes("Brand")) return { label: "Apri revisioni", role: "Brand", hash: "#brand" };
+  if (audience.includes("Esperto")) return { label: "Vai alle candidature", role: "Esperto", hash: "#esperto-candidature" };
+  return { label: "Apri progetto", role: "FunniFin", hash: "#funnifin" };
+}
 
 function parseQueueDate(value?: string) {
   if (!value) return null;
@@ -129,7 +152,7 @@ export function AdminView({
   setRules: (rules: PricingRule[]) => void;
   setProjectStatus: (status: ProjectStatus, title: string, body: string) => void;
   updateSelection: (id: string, patch: Partial<Selection>) => void;
-  notify: (title: string, body: string) => void;
+  notify: (title: string, body: string, options?: NotifyOptions) => void;
   syncProjectStatus: (status: ProjectStatus) => void;
   clientAssetFolder: AssetDraftFolder | null;
   clientUploadedAssets: UploadedAsset[];
@@ -142,6 +165,8 @@ export function AdminView({
   const [catalogView, setCatalogView] = useState<"sheet" | "drive">("sheet");
   const [adminSearch, setAdminSearch] = useState("");
   const [adminQueueFilter, setAdminQueueFilter] = useState<AdminQueueFilter>("tutti");
+  const [adminQueueSort, setAdminQueueSort] = useState<AdminQueueSort>("recenti");
+  const [bottomProjectMenuOpen, setBottomProjectMenuOpen] = useState(false);
   const localProject = buildLocalAdminProject(selections, quote.total, projectStatus);
   const [adminProjects, setAdminProjects] = useState<AdminProject[]>(() => (currentRequest ? [requestToAdminProject(currentRequest)] : [localProject]));
   const [selectedProjectId, setSelectedProjectId] = useState(currentRequest?.id ?? localProject.id);
@@ -188,6 +213,8 @@ export function AdminView({
           ? "Errore"
           : "Health";
   const [adminActionModal, setAdminActionModal] = useState<AdminActionModalState | null>(null);
+  const [requestDeleteConfirm, setRequestDeleteConfirm] = useState<AdminProject | null>(null);
+  const [deletingRequestId, setDeletingRequestId] = useState("");
   const [calendarEvents, setCalendarEvents] = useState<Record<string, CalendarEventRecord>>({});
   const [driveFolderPreview, setDriveFolderPreview] = useState<DriveFolderResponse | null>(null);
   const [driveFolderStatus, setDriveFolderStatus] = useState<{ loading: boolean; error: string }>({ loading: false, error: "" });
@@ -808,13 +835,27 @@ export function AdminView({
         note: choice.note,
         event,
       });
+      const audience = Array.from(
+        new Set(choice.recipients.map(notificationRoleFromRecipient).filter((item): item is AppNotificationRole => Boolean(item))),
+      );
       notify(
         result.sent ? (result.opaque ? "Email inoltrata, consegna da verificare" : "Email inviata") : "Email pronta in demo",
         `${choice.recipients.join(", ")} · ${result.recipients.join(", ")}`,
+        {
+          audience,
+          priority: audience.length > 0 ? "task" : "info",
+          category: "mail",
+          action: workflowNotificationAction(audience),
+        },
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invio notifica non riuscito";
-      notify("Email non inviata", message);
+      notify("Email non inviata", message, {
+        audience: ["FunniFin"],
+        priority: "critical",
+        category: "mail",
+        action: { label: "Verifica Google", role: "FunniFin", hash: "#funnifin" },
+      });
     }
   };
   const selectProject = (project: AdminProject) => {
@@ -822,6 +863,34 @@ export function AdminView({
     setAssignmentWorkshopId(project.workshopIds[0] ?? "");
     if (project.source === "local") setProjectStatus(projectStatus, "Richiesta locale", "Non ancora salvata sul registro richieste.");
     else notify("Progetto selezionato", `${project.company}: ${statusLabel[project.status]}.`);
+  };
+  const confirmDeleteRequest = async () => {
+    if (!requestDeleteConfirm) return;
+    const project = requestDeleteConfirm;
+    setDeletingRequestId(project.id);
+    try {
+      if (project.source !== "local") {
+        await deleteWorkshopRequest(project.id);
+      }
+      const nextProjects = adminProjects.filter((item) => item.id !== project.id);
+      const fallbackProjects = nextProjects.length ? nextProjects : [buildLocalAdminProject(selections, quote.total, projectStatus)];
+      setAdminProjects(fallbackProjects);
+      setSelectedProjectId((current) => (current === project.id ? fallbackProjects[0].id : current));
+      setDateApprovals((current) => Object.fromEntries(Object.entries(current).filter(([key]) => !key.startsWith(`${project.id}:`))));
+      setWorkshopExperts((current) => Object.fromEntries(Object.entries(current).filter(([key]) => !key.startsWith(`${project.id}:`))));
+      setCalendarEvents((current) => {
+        const next = { ...current };
+        delete next[project.id];
+        return next;
+      });
+      setRequestDeleteConfirm(null);
+      setRequestSyncState((current) => ({ ...current, source: nextProjects.length ? current.source : "local" }));
+      notify("Richiesta eliminata", `${project.company} rimossa dalla coda clienti.`);
+    } catch (error) {
+      notify("Richiesta non eliminata", getFriendlyErrorMessage(error, "Eliminazione non riuscita."));
+    } finally {
+      setDeletingRequestId("");
+    }
   };
   const assignExpertTo = (workshopId: string, expertName = expertDraft) => {
     const workshop = workshops.find((item) => item.id === workshopId);
@@ -1092,13 +1161,41 @@ export function AdminView({
     if (filter === "in-calendario") return meta.hasCalendarEvent && !meta.isClosed;
     return meta.isClosed;
   };
+  const projectSortTimestamp = (project: AdminProject) => {
+    const raw = project.request?.updatedAt || project.request?.createdAt || "";
+    const parsed = raw ? new Date(raw.replace(" ", "T")).getTime() : 0;
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+  const queueDateSortValue = (meta: ReturnType<typeof getProjectQueueMeta>) => (
+    meta.dayOffset === null ? Number.POSITIVE_INFINITY : meta.dayOffset
+  );
+  const sortProjectQueueCards = (cards: Array<{ project: AdminProject; meta: ReturnType<typeof getProjectQueueMeta> }>) => {
+    const sorted = [...cards];
+    sorted.sort((a, b) => {
+      if (adminQueueSort === "prezzo_alto") return b.project.quoteTotal - a.project.quoteTotal;
+      if (adminQueueSort === "vecchi") return projectSortTimestamp(a.project) - projectSortTimestamp(b.project);
+      if (adminQueueSort === "date_vicine") return queueDateSortValue(a.meta) - queueDateSortValue(b.meta);
+      if (adminQueueSort === "date_lontane") {
+        const aDate = queueDateSortValue(a.meta);
+        const bDate = queueDateSortValue(b.meta);
+        if (!Number.isFinite(aDate) && !Number.isFinite(bDate)) return 0;
+        if (!Number.isFinite(aDate)) return 1;
+        if (!Number.isFinite(bDate)) return -1;
+        return bDate - aDate;
+      }
+      return projectSortTimestamp(b.project) - projectSortTimestamp(a.project);
+    });
+    return sorted;
+  };
   const searchedAdminProjects = adminProjects.filter((project) => {
     const text = `${project.company} ${project.manager} ${project.email}`.toLowerCase();
     return adminSearch.trim() === "" || text.includes(adminSearch.trim().toLowerCase());
   });
-  const adminQueueCards = searchedAdminProjects.map((project) => ({ project, meta: getProjectQueueMeta(project) }));
+  const adminQueueCards = sortProjectQueueCards(searchedAdminProjects.map((project) => ({ project, meta: getProjectQueueMeta(project) })));
   const filteredAdminProjectCards = adminQueueCards.filter(({ meta }) => matchesProjectQueueFilter(meta, adminQueueFilter));
   const countQueueFilter = (filter: AdminQueueFilter) => adminQueueCards.filter(({ meta }) => matchesProjectQueueFilter(meta, filter)).length;
+  const bottomProjectMenuItems = [...adminProjects.map((project) => ({ project, meta: getProjectQueueMeta(project) }))]
+    .sort((a, b) => projectSortTimestamp(a.project) - projectSortTimestamp(b.project));
   const adminFlowSteps = [
     { id: "workshops", title: "Richiesta", body: "Workshop, prezzo e coerenza" },
     { id: "calendar", title: "Date", body: "FreeBusy e approvazioni" },
@@ -1112,6 +1209,71 @@ export function AdminView({
   const sheetPreviewUrl = googleHealth?.spreadsheet.id
     ? `https://docs.google.com/spreadsheets/d/${encodeURIComponent(googleHealth.spreadsheet.id)}/preview`
     : "";
+  const googleHealthMode = googleHealthLoading
+    ? "refresh"
+    : googleHealthError
+      ? "error"
+      : googleHealth?.cached
+        ? "cache"
+        : googleHealth
+          ? "live"
+          : "idle";
+  const googleHealthModeLabel = googleHealthMode === "refresh"
+    ? googleHealth
+      ? "Aggiornamento live"
+      : "Verifica live"
+    : googleHealthMode === "error"
+      ? "Errore"
+      : googleHealthMode === "cache"
+        ? "Cache locale"
+        : googleHealthMode === "live"
+          ? "Live Google"
+          : "Non verificato";
+  const googleBackendCards = [
+    {
+      title: "Google Sheets",
+      status: googleHealth ? "Attivo" : "Da verificare",
+      detail: googleHealth
+        ? `${googleHealth.spreadsheet.requests} richieste · ${googleHealth.spreadsheet.events} eventi log · ${googleHealth.spreadsheet.settings} settings`
+        : "Nessun dato live disponibile in questa sessione.",
+      meta: googleHealth?.spreadsheet.id || "ID non letto",
+      ok: Boolean(googleHealth?.spreadsheet.id),
+      actionLabel: "Apri Sheet",
+      actionUrl: googleHealth?.spreadsheet.url || "",
+    },
+    {
+      title: "Google Calendar",
+      status: googleHealth?.calendar.configured ? "Configurato" : googleHealth ? "Non configurato" : "Da verificare",
+      detail: googleHealth?.calendar.configured
+        ? `${googleHealth.calendar.name || "Calendario"} pronto per FreeBusy ed eventi`
+        : "Serve calendar.id o calendar.name nei settings Google.",
+      meta: googleHealth?.calendar.id || googleHealth?.calendar.name || "Nessun calendario",
+      ok: Boolean(googleHealth?.calendar.configured),
+    },
+    {
+      title: "Google Drive",
+      status: googleHealth?.drive.configured ? "Configurato" : googleHealth ? "Non configurato" : "Da verificare",
+      detail: googleHealth?.drive.configured
+        ? "Root materiali e/o slide operative lette dai settings"
+        : "Serve una root Drive o una root slide per collegare i materiali.",
+      meta: googleHealth?.drive.slidesRootFolderId || googleHealth?.drive.rootFolderId || "Nessuna cartella",
+      ok: Boolean(googleHealth?.drive.configured),
+    },
+    {
+      title: "MailApp",
+      status: googleHealth ? `${googleHealth.mail.remainingDailyQuota} rimaste` : "Da verificare",
+      detail: googleHealth ? "Quota giornaliera letta da Apps Script." : "Quota mail non letta.",
+      meta: "Invii template workshop e accessi",
+      ok: Boolean(googleHealth && googleHealth.mail.remainingDailyQuota > 0),
+    },
+    {
+      title: "Accessi",
+      status: googleHealth ? `${googleHealth.spreadsheet.authUsers} utenti` : "Da verificare",
+      detail: googleHealth ? `${googleHealth.spreadsheet.accessRequests} richieste accesso registrate` : "Dati auth non letti.",
+      meta: "AuthUsers + AccessRequests",
+      ok: Boolean(googleHealth),
+    },
+  ];
   const orphanWorkshops = catalogWorkshopsForAdmin.filter((workshop) => {
     const topic = topics.find((item) => item.id === workshop.topicId);
     return !topic || !topic.themes.some((theme) => theme.id === workshop.themeId);
@@ -1609,6 +1771,14 @@ export function AdminView({
                     </button>
                   )}
                 </label>
+                <label className="admin-sort-field">
+                  <span>Ordina per</span>
+                  <select value={adminQueueSort} onChange={(event) => setAdminQueueSort(event.target.value as AdminQueueSort)}>
+                    {queueSortOptions.map((option) => (
+                      <option key={option.id} value={option.id}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
               </div>
               {requestSyncState.error && requestSyncState.source === "sheet" && (
                 <div className="inline-status-card warning">
@@ -1636,25 +1806,40 @@ export function AdminView({
               ) : filteredAdminProjectCards.map(({ project, meta }) => {
                 const activeStatus = project.source === "local" ? projectStatus : project.status;
                 const selected = selectedProject.id === project.id;
+                const deleting = deletingRequestId === project.id;
                 return (
-                  <button key={project.id} className={`project-choice-card ${selected ? "active" : ""} ${meta.tone}`} onClick={() => selectProject(project)}>
-                    <span className="queue-date-badge">
-                      <strong>{meta.dateLabel}</strong>
-                      <em>{meta.dateCaption}</em>
-                    </span>
-                    <div className="queue-project-copy">
-                      <strong>{project.company}</strong>
-                      <em>{project.manager} · {project.workshopIds.length} workshop</em>
-                      <span>
-                        <Clock3 size={14} />
-                        {meta.dateDistance} · {meta.detail}
+                  <article key={project.id} className={`project-choice-card ${selected ? "active" : ""} ${meta.tone}`}>
+                    <button type="button" className="project-choice-main" onClick={() => selectProject(project)}>
+                      <span className="queue-date-badge">
+                        <strong>{meta.dateLabel}</strong>
+                        <em>{meta.dateCaption}</em>
                       </span>
-                    </div>
-                    <div className="queue-card-side">
-                      <small>{statusLabel[activeStatus]}</small>
-                      <b>{money(project.source === "local" ? quote.total : project.quoteTotal)}</b>
-                    </div>
-                  </button>
+                      <div className="queue-project-copy">
+                        <strong>{project.company}</strong>
+                        <em>{project.manager} · {project.workshopIds.length} workshop</em>
+                        <span>
+                          <Clock3 size={14} />
+                          {meta.dateDistance} · {meta.detail}
+                        </span>
+                      </div>
+                      <div className="queue-card-side">
+                        <small>{statusLabel[activeStatus]}</small>
+                        <b>{money(project.source === "local" ? quote.total : project.quoteTotal)}</b>
+                      </div>
+                    </button>
+                    {project.source !== "local" && (
+                      <button
+                        type="button"
+                        className="project-choice-delete"
+                        onClick={() => setRequestDeleteConfirm(project)}
+                        aria-label={`Elimina richiesta ${project.company}`}
+                        title={`Elimina richiesta ${project.company}`}
+                        disabled={deleting}
+                      >
+                        {deleting ? <RefreshCw size={14} /> : <Trash2 size={14} />}
+                      </button>
+                    )}
+                  </article>
                 );
               })}
             </div>
@@ -2385,42 +2570,70 @@ export function AdminView({
               </ToolIconButton>
             }
           />
-          <div className="pricing-console">
-            <div className="pricing-hero-card">
-              <div>
+          <div className="google-backend-console">
+            <div className={`google-health-hero ${googleHealthMode}`}>
+              <div className="google-health-copy">
                 <span className="eyebrow">Workspace Google</span>
-                <strong>{googleHealthLoading && googleHealth ? "Aggiorno..." : googleHealthLoading ? "Controllo..." : googleHealth ? "Connesso" : googleHealthError ? "Errore verifica" : "Verifica non eseguita"}</strong>
-                <em>{googleHealth?.checkedAt ? `${googleHealth.checkedAt}${googleHealth.cached ? " · cache" : ""}${googleHealthLoading ? " · refresh live" : ""}` : googleHealthError || "Sheets, Calendar, Drive e MailApp"}</em>
+                <strong>{googleHealth ? "Backend collegato" : googleHealthLoading ? "Controllo backend" : googleHealthError ? "Backend non verificato" : "Stato da verificare"}</strong>
+                <em>
+                  {googleHealth?.checkedAt
+                    ? `${googleHealth.checkedAt} · ${googleHealthModeLabel}`
+                    : googleHealthError || "Usa il refresh per leggere Sheets, Calendar, Drive, Mail e accessi dal backend reale."}
+                </em>
               </div>
-              <div className="pricing-hero-metrics" aria-label="Stato backend Google" aria-busy={googleHealthLoading}>
-                {googleHealthLoading && !googleHealth ? (
-                  Array.from({ length: 7 }).map((_, index) => (
-                    <span className="skeleton-metric" key={`google-metric-skeleton-${index}`} aria-hidden="true">
-                      <Skeleton />
-                      <Skeleton />
-                    </span>
-                  ))
-                ) : (
-                  <>
-                    <Info label="Richieste" value={String(googleHealth?.spreadsheet.requests ?? adminProjects.length)} />
-                    <Info label="Eventi log" value={String(googleHealth?.spreadsheet.events ?? 0)} />
-                    <Info label="Interessi" value={String(googleHealth?.spreadsheet.catalogTopics ?? Object.keys(catalogEdits).length)} />
-                    <Info label="Workshop" value={String(googleHealth?.spreadsheet.catalogWorkshops ?? workshops.length)} />
-                    <Info label="Prezzi" value={String(googleHealth?.spreadsheet.pricingRules ?? rules.length)} />
-                    <Info label="Esperti" value={String(googleHealth?.spreadsheet.experts ?? expertDirectory.length)} />
-                    <Info label="Mail quota" value={String(googleHealth?.mail.remainingDailyQuota ?? "-")} />
-                  </>
-                )}
+              <div className="google-health-status">
+                <span>{googleHealthModeLabel}</span>
+                <strong>{googleHealth ? `${googleHealth.spreadsheet.requests} richieste` : "--"}</strong>
               </div>
             </div>
 
-            {googleHealth?.spreadsheet.url && (
-              <div className="inline-status-card">
-                <FolderKanban size={18} />
-                <span>DB Google Sheets collegato: {googleHealth.spreadsheet.id}</span>
-                <AppButton variant="outline" onClick={() => window.open(googleHealth.spreadsheet.url, "_blank", "noopener,noreferrer")}>
-                  <ExternalLink size={17} /> Apri Sheet
-                </AppButton>
+            {googleHealthError && (
+              <div className="inline-status-card warning">
+                <AlertCircle size={18} />
+                <div className="inline-status-copy">
+                  <span>{googleHealthError}</span>
+                  <small>Il backend ha risposto con errore oppure la sessione FunniFin non è valida. I numeri sotto non vengono simulati.</small>
+                </div>
+              </div>
+            )}
+
+            <div className="google-health-grid" aria-label="Controlli backend Google" aria-busy={googleHealthLoading}>
+              {googleHealthLoading && !googleHealth ? (
+                Array.from({ length: 5 }).map((_, index) => (
+                  <article className="google-health-card skeleton-google-card" key={`google-card-skeleton-${index}`} aria-hidden="true">
+                    <Skeleton />
+                    <Skeleton />
+                    <Skeleton />
+                  </article>
+                ))
+              ) : (
+                googleBackendCards.map((card) => (
+                  <article className={`google-health-card ${card.ok ? "ok" : "missing"}`} key={card.title}>
+                    <div className="google-health-card-head">
+                      {card.ok ? <Check size={17} /> : <AlertCircle size={17} />}
+                      <span>{card.status}</span>
+                    </div>
+                    <strong>{card.title}</strong>
+                    <p>{card.detail}</p>
+                    <em>{card.meta}</em>
+                    {card.actionUrl && (
+                      <AppButton variant="outline" onClick={() => window.open(card.actionUrl, "_blank", "noopener,noreferrer")}>
+                        <ExternalLink size={17} /> {card.actionLabel}
+                      </AppButton>
+                    )}
+                  </article>
+                ))
+              )}
+            </div>
+
+            {googleHealth && (
+              <div className="google-data-strip" aria-label="Conteggi letti da Google Sheets">
+                <Info label="Interessi" value={String(googleHealth.spreadsheet.catalogTopics)} />
+                <Info label="Workshop" value={String(googleHealth.spreadsheet.catalogWorkshops)} />
+                <Info label="Prezzi" value={String(googleHealth.spreadsheet.pricingRules)} />
+                <Info label="Esperti" value={String(googleHealth.spreadsheet.experts)} />
+                <Info label="Utenti" value={String(googleHealth.spreadsheet.authUsers)} />
+                <Info label="Accessi" value={String(googleHealth.spreadsheet.accessRequests)} />
               </div>
             )}
 
@@ -2793,6 +3006,59 @@ export function AdminView({
         </ModalBackdrop>
       )}
 
+      {requestDeleteConfirm && (
+        <ModalBackdrop labelledBy="request-delete-modal-title" className="request-delete-modal-backdrop">
+          <section className="custom-modal admin-action-modal request-delete-modal">
+            <header className="modal-header">
+              <div>
+                <span className="eyebrow">Coda clienti</span>
+                <strong id="request-delete-modal-title">Eliminare questa richiesta?</strong>
+                <p>La richiesta sparisce dalla coda operativa e dal registro Google.</p>
+              </div>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setRequestDeleteConfirm(null)}
+                aria-label="Chiudi modal"
+                disabled={deletingRequestId === requestDeleteConfirm.id}
+              >
+                <X size={18} />
+              </button>
+            </header>
+            <div className="modal-body">
+              <div className="modal-stack">
+                <div className="request-delete-summary">
+                  <Info label="Cliente" value={requestDeleteConfirm.company} />
+                  <Info label="Referente" value={requestDeleteConfirm.manager || requestDeleteConfirm.email} />
+                  <Info label="Workshop" value={`${requestDeleteConfirm.workshopIds.length} selezionati`} />
+                  <Info label="Totale" value={`${money(requestDeleteConfirm.quoteTotal)} + IVA`} />
+                </div>
+                <p className="modal-warning">Non viene inviata nessuna email al cliente.</p>
+              </div>
+            </div>
+            <footer className="modal-footer">
+              <AppButton
+                type="button"
+                variant="ghost"
+                onClick={() => setRequestDeleteConfirm(null)}
+                disabled={deletingRequestId === requestDeleteConfirm.id}
+              >
+                Annulla
+              </AppButton>
+              <AppButton
+                type="button"
+                variant="primary"
+                className="request-delete-confirm-btn"
+                onClick={() => void confirmDeleteRequest()}
+                loading={deletingRequestId === requestDeleteConfirm.id}
+              >
+                Elimina richiesta
+              </AppButton>
+            </footer>
+          </section>
+        </ModalBackdrop>
+      )}
+
       {adminActionModal && (
         <AdminActionModal
           modal={adminActionModal}
@@ -2831,15 +3097,71 @@ export function AdminView({
       <BottomActionBar
         leftContent={
           <div className="bottom-action-copy bottom-action-copy--project bottom-action-copy--admin">
-            <div className="bottom-project-info">
-              <span className="bottom-project-eyebrow">
-                {adminBottomState.eyebrow}
-              </span>
-              <strong className="bottom-project-company">{adminBottomState.title}</strong>
-              <small className="bottom-project-detail">{adminBottomState.detail}</small>
-            </div>
-            <div className="bottom-project-meta">
-              <strong className="bottom-project-price">{adminBottomState.meta}</strong>
+            <div
+              className="bottom-project-summary-card"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  setBottomProjectMenuOpen(false);
+                }
+              }}
+            >
+              <div className="bottom-project-step-row">
+                <span className="bottom-project-eyebrow">
+                  {adminBottomState.eyebrow}
+                </span>
+              </div>
+              <div className="bottom-project-main-row">
+                <div className="bottom-project-info">
+                  <strong className="bottom-project-company">{adminBottomState.title}</strong>
+                  <small className="bottom-project-detail">{adminBottomState.detail}</small>
+                </div>
+                <div className="bottom-project-meta">
+                  <strong className="bottom-project-price">{adminBottomState.meta}</strong>
+                </div>
+                {adminTab === "Operativo" && adminProjects.length > 1 && (
+                  <div className="bottom-project-menu">
+                    <button
+                      type="button"
+                      className="bottom-project-menu-trigger"
+                      aria-label="Cambia richiesta"
+                      aria-expanded={bottomProjectMenuOpen}
+                      onClick={() => setBottomProjectMenuOpen((open) => !open)}
+                    >
+                      <ChevronDown size={18} />
+                    </button>
+                    {bottomProjectMenuOpen && (
+                      <div className="bottom-project-menu-popover" role="menu" aria-label="Cambia richiesta">
+                        <div className="bottom-project-menu-head">
+                          <strong>Coda progetti</strong>
+                          <span>Ordine cronologico</span>
+                        </div>
+                        {bottomProjectMenuItems.map(({ project, meta }) => (
+                          <button
+                            key={project.id}
+                            type="button"
+                            className={project.id === selectedProject.id ? "active" : ""}
+                            role="menuitem"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => {
+                              selectProject(project);
+                              setBottomProjectMenuOpen(false);
+                            }}
+                          >
+                            <span>
+                              <strong>{project.company}</strong>
+                              <small>{project.workshopIds.length} workshop · {meta.dateDistance}</small>
+                            </span>
+                            <em>{money(project.quoteTotal)}</em>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {(adminTab !== "Operativo" || adminProjects.length <= 1) && (
+                  <span className="bottom-project-menu-spacer" aria-hidden="true" />
+                )}
+              </div>
             </div>
           </div>
         }

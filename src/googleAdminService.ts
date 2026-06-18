@@ -73,6 +73,8 @@ export type GoogleHealth = {
     url: string;
     requests: number;
     events: number;
+    authUsers: number;
+    accessRequests: number;
     catalogTopics: number;
     catalogWorkshops: number;
     pricingRules: number;

@@ -216,3 +216,10 @@ export async function updateWorkshopRequest(
   });
   return result.request;
 }
+
+export async function deleteWorkshopRequest(requestId: string): Promise<{ deleted: boolean; requestId: string }> {
+  return postAppsScript<{ deleted: boolean; requestId: string }>({
+    action: "deleteWorkshopRequest",
+    payload: withSessionPayload({ requestId }),
+  });
+}
