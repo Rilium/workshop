@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowRight, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, Mail, RefreshCw, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../AuthContext";
 
 type LoginStep = "email" | "code";
@@ -9,31 +9,33 @@ export function LoginView({ onClose }: { onClose?: () => void }) {
   const [step, setStep] = useState<LoginStep>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
-  const [sendMail, setSendMail] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
+  const goToCode = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
-    setLoading(true);
+    setError("");
+    setInfo("");
+    setStep("code");
+  };
+
+  const handleResendCode = async () => {
+    setResending(true);
     setError("");
     try {
-      const result = await requestCode(email.trim(), { sendMail });
+      const result = await requestCode(email.trim(), { sendMail: true });
       if (result.pending) {
         setInfo("FunniFin ha preso in carico la richiesta. Riceverai il codice dopo l'approvazione.");
-      } else if (sendMail) {
-        setInfo("Se l'account è abilitato, riceverai un codice di accesso via email.");
       } else {
-        setInfo("Codice generato da FunniFin. L'invio mail è stato lasciato disattivato.");
+        setInfo("Codice inviato via email.");
       }
-      setStep("code");
     } catch {
-      setInfo("FunniFin ha preso in carico la richiesta. Riceverai il codice dopo l'approvazione.");
-      setStep("code");
+      setInfo("Richiesta presa in carico. Riceverai il codice se l'account è abilitato.");
     } finally {
-      setLoading(false);
+      setResending(false);
     }
   };
 
@@ -44,7 +46,6 @@ export function LoginView({ onClose }: { onClose?: () => void }) {
     setError("");
     try {
       await verifyCode(email.trim(), code.trim());
-      // Il contesto aggiorna currentUser → App mostrerà la vista corretta
     } catch (err) {
       setError(err instanceof Error ? err.message : "Accesso non riuscito.");
     } finally {
@@ -69,10 +70,9 @@ export function LoginView({ onClose }: { onClose?: () => void }) {
         </div>
 
         {step === "email" && (
-          <form className="login-form" onSubmit={handleEmailSubmit}>
+          <form className="login-form" onSubmit={goToCode}>
             <p className="login-description">
-              Inserisci il tuo indirizzo email. Se il tuo account è abilitato,
-              riceverai un codice di accesso temporaneo.
+              Inserisci il tuo indirizzo email e il codice ricevuto da FunniFin.
             </p>
             <label className="login-label" htmlFor="login-email">
               <Mail size={16} />
@@ -89,22 +89,12 @@ export function LoginView({ onClose }: { onClose?: () => void }) {
               required
               disabled={loading}
             />
-            <label className="login-toggle" htmlFor="login-send-mail">
-              <input
-                id="login-send-mail"
-                type="checkbox"
-                checked={sendMail}
-                onChange={(event) => setSendMail(event.target.checked)}
-                disabled={loading}
-              />
-              <span>Manda mail con il codice</span>
-            </label>
             <button
               type="submit"
               className="login-submit"
-              disabled={loading || !email.trim()}
+              disabled={!email.trim()}
             >
-              {loading ? "Invio in corso…" : "Continua"}
+              Continua
               <ArrowRight size={16} />
             </button>
           </form>
@@ -114,8 +104,7 @@ export function LoginView({ onClose }: { onClose?: () => void }) {
           <form className="login-form" onSubmit={handleCodeSubmit}>
             {info && <p className="login-info">{info}</p>}
             <p className="login-description">
-              Inserisci il codice a 6 cifre ricevuto via email per{" "}
-              <strong>{email}</strong>.
+              Inserisci il codice di accesso per <strong>{email}</strong>.
             </p>
             <label className="login-label" htmlFor="login-code">
               <ShieldCheck size={16} />
@@ -156,6 +145,15 @@ export function LoginView({ onClose }: { onClose?: () => void }) {
               }}
             >
               ← Cambia email
+            </button>
+            <button
+              type="button"
+              className="login-back"
+              onClick={handleResendCode}
+              disabled={resending}
+            >
+              <RefreshCw size={13} />
+              {resending ? "Invio…" : "Non hai il codice? Richiedine uno nuovo"}
             </button>
             <p className="login-dev-hint">
               <em>Phase 1 – codice demo: <strong>123456</strong></em>

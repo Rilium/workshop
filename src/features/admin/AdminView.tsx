@@ -1605,20 +1605,26 @@ export function AdminView({
         <div className="admin-workbench-v2">
           <aside className="admin-project-queue" aria-label="Coda progetti cliente">
             <div className="queue-control-panel">
-              <div className="queue-head">
-                <div>
-                  <strong>Coda progetti</strong>
-                  <span>
-                    {requestSyncState.loading && "Lettura registro..."}
-                    {!requestSyncState.loading && requestSyncState.source === "sheet" && `${filteredAdminProjectCards.length} progetti visibili`}
-                    {!requestSyncState.loading && requestSyncState.source === "local" && "Vista locale temporanea"}
-                  </span>
+              <div className="queue-top-row">
+                <div className="queue-head">
+                  <div>
+                    <strong>Coda progetti</strong>
+                    <span>
+                      {requestSyncState.loading && "Lettura registro..."}
+                      {!requestSyncState.loading && requestSyncState.source === "sheet" && `${filteredAdminProjectCards.length} di ${adminProjects.length}`}
+                      {!requestSyncState.loading && requestSyncState.source === "local" && "Vista locale temporanea"}
+                    </span>
+                  </div>
                 </div>
-                {adminSearch && (
-                  <ToolIconButton active onClick={() => setAdminSearch("")} label="Reset ricerca progetti">
-                    <X size={20} />
-                  </ToolIconButton>
-                )}
+                <label className="admin-search-field">
+                  <Search size={16} />
+                  <input value={adminSearch} onChange={(event) => setAdminSearch(event.target.value)} placeholder="Cerca azienda o referente" />
+                  {adminSearch && (
+                    <button type="button" onClick={() => setAdminSearch("")} aria-label="Cancella ricerca">
+                      <X size={16} />
+                    </button>
+                  )}
+                </label>
               </div>
               {requestSyncState.error && requestSyncState.source === "sheet" && (
                 <div className="inline-status-card warning">
@@ -1626,24 +1632,13 @@ export function AdminView({
                   <span>{requestSyncState.error}</span>
                 </div>
               )}
-              <div className="queue-controls">
-                <label className="admin-search-field">
-                  <Search size={18} />
-                  <input value={adminSearch} onChange={(event) => setAdminSearch(event.target.value)} placeholder="Cerca azienda o referente" />
-                  {adminSearch && (
-                    <button type="button" onClick={() => setAdminSearch("")} aria-label="Cancella ricerca">
-                      <X size={18} />
-                    </button>
-                  )}
-                </label>
-                <div className="admin-filter-pills">
-                  {queueFilterOptions.map(({ id, label }) => (
-                    <button key={id} className={adminQueueFilter === id ? "active" : ""} onClick={() => setAdminQueueFilter(id)}>
-                      <span>{label}</span>
-                      <em>{countQueueFilter(id)}</em>
-                    </button>
-                  ))}
-                </div>
+              <div className="admin-filter-pills">
+                {queueFilterOptions.map(({ id, label }) => (
+                  <button key={id} className={adminQueueFilter === id ? "active" : ""} onClick={() => setAdminQueueFilter(id)}>
+                    <span>{label}</span>
+                    <em>{countQueueFilter(id)}</em>
+                  </button>
+                ))}
               </div>
             </div>
             <div className="project-choice-list" aria-label="Progetti in coda" aria-busy={requestSyncState.loading}>
@@ -2568,47 +2563,43 @@ export function AdminView({
             </div>
             {authLoading && <p style={{ color: "var(--color-muted)", marginTop: "0.5rem" }}>Carico utenti da Google Sheets...</p>}
             {authSectionTab === "utenti" ? (
-              <table className="auth-users-table" style={{ width: "100%", borderCollapse: "collapse", marginTop: "1rem" }}>
+              <table className="auth-users-table">
                 <thead>
-                  <tr style={{ textAlign: "left", borderBottom: "1px solid var(--color-border)" }}>
-                    <th style={{ padding: "0.5rem 0.75rem" }}>Nome</th>
-                    <th style={{ padding: "0.5rem 0.75rem" }}>Email</th>
-                    <th style={{ padding: "0.5rem 0.75rem" }}>Ruolo</th>
-                    <th style={{ padding: "0.5rem 0.75rem" }}>Expert ID</th>
-                    <th style={{ padding: "0.5rem 0.75rem" }}>Stato</th>
-                    <th style={{ padding: "0.5rem 0.75rem" }}>Azioni</th>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Email</th>
+                    <th>Ruolo</th>
+                    <th>Expert ID</th>
+                    <th>Stato</th>
+                    <th>Azioni</th>
                   </tr>
                 </thead>
                 <tbody>
                   {authUsers.map((user) => (
-                    <tr key={user.id} style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
-                      <td style={{ padding: "0.5rem 0.75rem" }}><strong>{user.displayName}</strong></td>
-                      <td style={{ padding: "0.5rem 0.75rem" }}><em>{user.email}</em></td>
-                      <td style={{ padding: "0.5rem 0.75rem" }}>
+                    <tr key={user.id}>
+                      <td><strong>{user.displayName}</strong></td>
+                      <td><em>{user.email}</em></td>
+                      <td>
                         <span className={`role-title-badge role-${user.actualRole.toLowerCase()}`}>{user.actualRole}</span>
                       </td>
-                      <td style={{ padding: "0.5rem 0.75rem" }}>{user.expertId ?? "—"}</td>
-                      <td style={{ padding: "0.5rem 0.75rem" }}>
-                        <span style={{ color: user.disabled ? "var(--color-error)" : "var(--color-success)" }}>
+                      <td>{user.expertId ?? "—"}</td>
+                      <td>
+                        <span className={`user-status-badge ${user.disabled ? "disabled" : "active"}`}>
                           {user.disabled ? "Disabilitato" : "Attivo"}
                         </span>
                       </td>
-                      <td style={{ padding: "0.5rem 0.75rem" }}>
-                        <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", flexWrap: "wrap" }}>
-                          <button
-                            type="button"
-                            className="app-button app-button-secondary"
-                            style={{ fontSize: "0.78rem", padding: "0.3rem 0.7rem" }}
+                      <td>
+                        <div className="table-actions">
+                          <ActionIconButton
+                            variant="neutral"
                             onClick={() => openEditAuthModal(user)}
                             disabled={inviteBusy}
-                            aria-label={`Modifica ${user.displayName}`}
+                            label={`Modifica ${user.displayName}`}
                           >
-                            <Settings2 size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="app-button"
-                            style={{ fontSize: "0.78rem", padding: "0.3rem 0.7rem" }}
+                            <Settings2 size={15} />
+                          </ActionIconButton>
+                          <ActionIconButton
+                            variant={user.disabled ? "success" : "danger"}
                             onClick={() => void updateAuthUser(user.id, {
                               email: user.email,
                               actualRole: user.actualRole,
@@ -2618,10 +2609,10 @@ export function AdminView({
                               disabled: !user.disabled,
                             }).then(() => refreshAuthData()).then(() => notify(user.disabled ? "Utente riattivato" : "Utente disabilitato", user.email)).catch((error: unknown) => notify("Aggiornamento non riuscito", error instanceof Error ? error.message : "Impossibile aggiornare l'utente."))}
                             disabled={inviteBusy}
-                            aria-label={user.disabled ? `Riattiva ${user.displayName}` : `Disabilita ${user.displayName}`}
+                            label={user.disabled ? `Riattiva ${user.displayName}` : `Disabilita ${user.displayName}`}
                           >
-                            {user.disabled ? <Check size={14} /> : <X size={14} />}
-                          </button>
+                            {user.disabled ? <Check size={15} /> : <X size={15} />}
+                          </ActionIconButton>
                         </div>
                       </td>
                     </tr>
@@ -2635,62 +2626,56 @@ export function AdminView({
                     Nessuna richiesta di accesso in attesa.
                   </p>
                 ) : (
-                  <table className="auth-users-table auth-requests-table" style={{ width: "100%", borderCollapse: "collapse", marginTop: "1rem" }}>
+                  <table className="auth-users-table auth-requests-table">
                     <thead>
-                      <tr style={{ textAlign: "left", borderBottom: "1px solid var(--color-border)" }}>
-                        <th style={{ padding: "0.5rem 0.75rem" }}>Email</th>
-                        <th style={{ padding: "0.5rem 0.75rem" }}>Ruolo</th>
-                        <th style={{ padding: "0.5rem 0.75rem" }}>Codice</th>
-                        <th style={{ padding: "0.5rem 0.75rem" }}>Stato</th>
-                        <th style={{ padding: "0.5rem 0.75rem", textAlign: "right" }}>Azioni</th>
+                      <tr>
+                        <th>Email</th>
+                        <th>Ruolo</th>
+                        <th>Codice</th>
+                        <th>Stato</th>
+                        <th>Azioni</th>
                       </tr>
                     </thead>
                     <tbody>
                       {accessRequests.map((req) => (
-                        <tr key={req.id} style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
-                          <td style={{ padding: "0.5rem 0.75rem" }}>
+                        <tr key={req.id}>
+                          <td>
                             <strong>{req.email}</strong>
-                            <small style={{ display: "block", color: "var(--color-muted)", marginTop: "0.2rem" }}>
+                            <small>
                               {req.requestedRole ? `${req.requestedRole} · ` : ""}
                               {req.refCode ? `ref: ${req.refCode}` : "accesso diretto"}
                             </small>
                           </td>
-                          <td style={{ padding: "0.5rem 0.75rem" }}>
+                          <td>
                             <span className={`role-title-badge role-${(req.requestedRole ?? "Brand").toLowerCase()}`}>{req.requestedRole ?? "Brand"}</span>
                           </td>
-                          <td style={{ padding: "0.5rem 0.75rem" }}>
-                            <span>{req.codeStatus ? req.codeStatus : "pending"}</span>
-                            <small style={{ display: "block", color: "var(--color-muted)", marginTop: "0.2rem" }}>
-                              {req.sendMail === false ? "mail disattivata" : "mail attiva"}
-                            </small>
+                          <td>
+                            <span>{req.codeStatus ?? "pending"}</span>
+                            <small>{req.sendMail === false ? "mail disattivata" : "mail attiva"}</small>
                           </td>
-                          <td style={{ padding: "0.5rem 0.75rem" }}>
-                            <span style={{ color: req.status === "rejected" ? "var(--color-error)" : req.status === "approved" ? "var(--color-success)" : "var(--color-muted)" }}>
+                          <td>
+                            <span className={`user-status-badge ${req.status === "approved" ? "active" : req.status === "rejected" ? "disabled" : ""}`}>
                               {req.status}
                             </span>
                           </td>
-                          <td style={{ padding: "0.5rem 0.75rem" }}>
-                            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-                              <button
-                                type="button"
-                                className="app-button app-button-primary"
-                                style={{ fontSize: "0.8rem", padding: "0.3rem 0.75rem" }}
+                          <td>
+                            <div className="table-actions">
+                              <ActionIconButton
+                                variant="success"
                                 onClick={() => void handleReviewAccessRequest(req, "approved")}
                                 disabled={inviteBusy}
-                                aria-label={`Approva ${req.email}`}
+                                label={`Approva ${req.email}`}
                               >
-                                <Check size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                className="app-button"
-                                style={{ fontSize: "0.8rem", padding: "0.3rem 0.75rem" }}
+                                <Check size={15} />
+                              </ActionIconButton>
+                              <ActionIconButton
+                                variant="danger"
                                 onClick={() => void handleReviewAccessRequest(req, "rejected")}
                                 disabled={inviteBusy}
-                                aria-label={`Rifiuta ${req.email}`}
+                                label={`Rifiuta ${req.email}`}
                               >
-                                <X size={14} />
-                              </button>
+                                <X size={15} />
+                              </ActionIconButton>
                             </div>
                           </td>
                         </tr>

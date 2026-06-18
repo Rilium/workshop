@@ -84,60 +84,88 @@ function euro(value: number) {
   return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(value);
 }
 
+const LOGO_URL = typeof window !== "undefined"
+  ? `${window.location.origin}/Logo.png`
+  : "https://workshop-rilium.vercel.app/Logo.png";
+
+function emailWrapper(inner: string) {
+  return `<!DOCTYPE html>
+<html lang="it">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FunniFin</title></head>
+<body style="margin:0;padding:0;background:#f0f9fb;font-family:Nunito,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f0f9fb;padding:32px 16px;">
+  <tr><td align="center">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 32px rgba(0,79,84,0.10);">
+      ${inner}
+      <tr><td style="padding:20px 32px 24px;background:#f8fcfc;border-top:1px solid #e0f2f4;text-align:center;">
+        <p style="margin:0;font-size:11px;color:#9ab0b2;line-height:1.6;">
+          FunniFin Workshop Planner &middot; Messaggio generato automaticamente.<br>
+          Non rispondere a questa email.
+        </p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
+}
+
 function buildEmailHtml(payload: WorkshopRequestEmailPayload) {
-  const rows = payload.workshops
-    .map(
-      (workshop) => `
-        <tr>
-          <td style="padding:12px;border-bottom:1px solid #e0e3e3;">
-            <strong style="color:#171d1d;">${workshop.title}</strong><br />
-            <span style="color:#747878;">${workshop.duration} · ${workshop.format} · ${workshop.date || "data da proporre"} ${workshop.time || ""}${workshop.custom ? " · su misura" : ""}</span>
-          </td>
-          <td align="right" style="padding:12px;border-bottom:1px solid #e0e3e3;color:#004f54;font-weight:800;">${euro(workshop.price)}</td>
-        </tr>`,
-    )
+  const workshopRows = payload.workshops
+    .map((workshop, i) => `
+      <tr>
+        <td style="padding:14px 16px;${i > 0 ? "border-top:1px solid #e8f4f6;" : ""}">
+          <strong style="display:block;color:#171d1d;font-size:14px;margin-bottom:3px;">${workshop.title}</strong>
+          <span style="color:#6b8a8c;font-size:12px;">${workshop.duration} &middot; ${workshop.format} &middot; ${workshop.date || "data da proporre"}${workshop.time ? " " + workshop.time : ""}${workshop.custom ? " &middot; su misura" : ""}</span>
+        </td>
+        <td align="right" style="padding:14px 16px;${i > 0 ? "border-top:1px solid #e8f4f6;" : ""}white-space:nowrap;">
+          <strong style="color:#004f54;font-size:15px;">${euro(workshop.price)}</strong>
+        </td>
+      </tr>`)
     .join("");
 
-  return `
-    <div style="margin:0;padding:24px;background:#f5fafb;font-family:Nunito,Arial,sans-serif;color:#171d1d;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:720px;margin:0 auto;background:#ffffff;border:1px solid #d4edf2;border-radius:24px;overflow:hidden;">
-        <tr>
-          <td style="padding:28px;background:#e8f8f9;">
-            <div style="width:48px;height:48px;border-radius:16px;background:#1cafb9;color:white;display:inline-block;text-align:center;line-height:48px;font-weight:900;font-size:26px;">F</div>
-            <h1 style="margin:16px 0 6px;font-size:28px;line-height:1.1;color:#004f54;">Richiesta workshop ricevuta</h1>
-            <p style="margin:0;color:#444748;">Recap del percorso FunniFin richiesto da ${payload.contact.company}.</p>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:24px;">
-            <h2 style="margin:0 0 12px;font-size:18px;color:#004f54;">Contatto</h2>
-            <p style="margin:0 0 18px;color:#444748;">
-              ${payload.contact.firstName} ${payload.contact.lastName}<br />
-              ${payload.contact.email} · ${payload.contact.phone}<br />
-              ${payload.contact.company}
-            </p>
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e0e3e3;border-radius:16px;overflow:hidden;">
-              ${rows}
-            </table>
-            <div style="margin-top:18px;padding:18px;border-radius:18px;background:#fff8dd;">
-              <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Subtotale</span><strong>${euro(payload.quote.gross)}</strong></div>
-              <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>${payload.quote.packageName}</span><strong style="color:#229763;">-${euro(payload.quote.discount)}</strong></div>
-              ${
-                payload.quote.promoDiscount
-                  ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Date promo</span><strong style="color:#229763;">-${euro(payload.quote.promoDiscount)}</strong></div>`
-                  : ""
-              }
-              ${
-                payload.quote.customTotal
-                  ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Su misura</span><strong>+${euro(payload.quote.customTotal)}</strong></div>`
-                  : ""
-              }
-              <div style="display:flex;justify-content:space-between;padding-top:12px;border-top:1px solid #f0a314;font-size:22px;color:#004f54;"><span>Totale</span><strong>${euro(payload.quote.total)} + IVA</strong></div>
-            </div>
-          </td>
-        </tr>
+  const quoteRows = [
+    `<tr><td style="padding:4px 0;color:#5a7a7c;font-size:13px;">Subtotale</td><td align="right" style="padding:4px 0;font-size:13px;color:#2a5254;">${euro(payload.quote.gross)}</td></tr>`,
+    `<tr><td style="padding:4px 0;color:#5a7a7c;font-size:13px;">${payload.quote.packageName}</td><td align="right" style="padding:4px 0;font-size:13px;color:#1a9e6a;font-weight:700;">−${euro(payload.quote.discount)}</td></tr>`,
+    payload.quote.promoDiscount ? `<tr><td style="padding:4px 0;color:#5a7a7c;font-size:13px;">Sconto date promo</td><td align="right" style="padding:4px 0;font-size:13px;color:#1a9e6a;font-weight:700;">−${euro(payload.quote.promoDiscount)}</td></tr>` : "",
+    payload.quote.customTotal ? `<tr><td style="padding:4px 0;color:#5a7a7c;font-size:13px;">Personalizzazione</td><td align="right" style="padding:4px 0;font-size:13px;color:#2a5254;">+${euro(payload.quote.customTotal)}</td></tr>` : "",
+  ].join("");
+
+  const inner = `
+    <tr><td style="padding:32px 32px 24px;background:linear-gradient(135deg,#003f44 0%,#0d8b94 100%);text-align:center;">
+      <img src="${LOGO_URL}" alt="FunniFin" height="44" style="display:block;margin:0 auto 20px;max-width:160px;object-fit:contain;" />
+      <h1 style="margin:0 0 8px;font-size:22px;line-height:1.2;color:#ffffff;font-weight:800;">Richiesta workshop ricevuta</h1>
+      <p style="margin:0;color:#a0dde4;font-size:14px;">La richiesta di <strong style="color:#ffffff;">${payload.contact.company}</strong> è stata ricevuta correttamente.</p>
+    </td></tr>
+    <tr><td style="padding:28px 32px 0;">
+      <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1cafb9;">Referente</p>
+      <p style="margin:0;font-size:14px;color:#2a4244;line-height:1.7;">
+        <strong>${payload.contact.firstName} ${payload.contact.lastName}</strong><br>
+        <a href="mailto:${payload.contact.email}" style="color:#1cafb9;">${payload.contact.email}</a> &middot; ${payload.contact.phone}<br>
+        ${payload.contact.company}
+      </p>
+    </td></tr>
+    <tr><td style="padding:20px 32px 0;">
+      <p style="margin:0 0 10px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1cafb9;">Workshop richiesti</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1.5px solid #cce8ec;border-radius:12px;overflow:hidden;background:#f8fcfc;">
+        ${workshopRows}
       </table>
-	    </div>`;
+    </td></tr>
+    <tr><td style="padding:16px 32px 28px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff8e1;border-radius:12px;padding:16px 20px;">
+        <tr><td>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            ${quoteRows}
+            <tr><td colspan="2" style="padding-top:10px;border-top:1.5px solid #f5c842;"></td></tr>
+            <tr>
+              <td style="padding-top:8px;font-size:16px;font-weight:800;color:#004f54;">Totale</td>
+              <td align="right" style="padding-top:8px;font-size:20px;font-weight:900;color:#004f54;">${euro(payload.quote.total)} <span style="font-size:12px;font-weight:600;color:#7a6a00;">+ IVA</span></td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    </td></tr>`;
+
+  return emailWrapper(inner);
 }
 
 function buildEmailText(payload: WorkshopRequestEmailPayload) {

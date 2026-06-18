@@ -2266,114 +2266,165 @@ function buildWorkflowSubject(payload) {
   return `FunniFin - ${labels[payload.phase] || "Aggiornamento progetto"} - ${payload.project.company}`;
 }
 
+var FUNNIFIN_LOGO_URL = "https://funnifin-workshop-planner.vercel.app/Logo.png";
+var FUNNIFIN_SITE_URL = "https://funnifin-workshop-planner.vercel.app";
+
+function emailBaseTemplate(innerRows) {
+  return "<!DOCTYPE html><html lang=\"it\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>FunniFin</title></head>" +
+  "<body style=\"margin:0;padding:0;background:#f0f9fb;font-family:Nunito,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;\">" +
+  "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#f0f9fb;padding:32px 16px;\"><tr><td align=\"center\">" +
+  "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:620px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 32px rgba(0,79,84,0.10);\">" +
+  innerRows +
+  "<tr><td style=\"padding:20px 32px 24px;background:#f8fcfc;border-top:1px solid #e0f2f4;text-align:center;\">" +
+  "<p style=\"margin:0;font-size:11px;color:#9ab0b2;line-height:1.6;\">FunniFin Workshop Planner &middot; Messaggio generato automaticamente.<br>Non rispondere a questa email.</p>" +
+  "</td></tr>" +
+  "</table></td></tr></table></body></html>";
+}
+
 function buildWorkflowEmailHtml(payload) {
   const copy = workflowCopy(payload);
-  const workshops = (payload.workshops || [])
-    .map((workshop) => `
-      <tr>
-        <td style="padding:12px;border-bottom:1px solid #e0e3e3;">
-          <strong style="color:#171d1d;">${escapeHtml(workshop.title)}</strong><br>
-          <span style="color:#747878;">${escapeHtml(workshop.date || "data da definire")} · ${escapeHtml(workshop.time || "")} · ${escapeHtml(workshop.duration)} · ${escapeHtml(workshop.format)}</span>
-        </td>
-        <td style="padding:12px;border-bottom:1px solid #e0e3e3;text-align:right;color:#004f54;font-family:Caveat,Nunito,Arial,sans-serif;font-size:24px;font-weight:700;">${escapeHtml(workshop.expertName || "da assegnare")}</td>
-      </tr>
-    `)
+
+  const workshopRows = (payload.workshops || [])
+    .map(function(w, i) {
+      var borderTop = i > 0 ? "border-top:1px solid #e0f2f4;" : "";
+      var expertLabel = w.expertName
+        ? "<span style=\"display:inline-block;padding:2px 10px;border-radius:20px;background:#e8f8f9;color:#004f54;font-size:11px;font-weight:700;\">" + escapeHtml(w.expertName) + "</span>"
+        : "<span style=\"color:#a0b8ba;font-size:11px;\">da assegnare</span>";
+      return "<tr>" +
+        "<td style=\"padding:13px 16px;" + borderTop + "\">" +
+          "<strong style=\"display:block;color:#171d1d;font-size:14px;margin-bottom:3px;\">" + escapeHtml(w.title) + "</strong>" +
+          "<span style=\"color:#6b8a8c;font-size:12px;\">" + escapeHtml(w.date || "data da definire") + (w.time ? " " + escapeHtml(w.time) : "") + " &middot; " + escapeHtml(w.duration) + " &middot; " + escapeHtml(w.format) + "</span>" +
+        "</td>" +
+        "<td align=\"right\" style=\"padding:13px 16px;" + borderTop + "vertical-align:middle;\">" + expertLabel + "</td>" +
+      "</tr>";
+    })
     .join("");
+
   const eventBlock = payload.event && (payload.event.htmlLink || payload.event.meetLink)
-    ? `
-      <div style="margin-top:18px;padding:16px;border-radius:18px;background:#e8f8f9;">
-        <strong style="display:block;margin-bottom:8px;color:#004f54;">Evento ${payload.event.mode === "tentative" ? "provvisorio" : "definitivo"}</strong>
-        ${payload.event.htmlLink ? `<a style="color:#15969e;font-weight:800;" href="${payload.event.htmlLink}">Apri evento Calendar</a><br>` : ""}
-        ${payload.event.meetLink ? `<a style="color:#15969e;font-weight:800;" href="${payload.event.meetLink}">Apri Google Meet</a>` : ""}
-      </div>
-    `
+    ? "<tr><td style=\"padding:0 32px 20px;\">" +
+        "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#e8f8f9;border-radius:12px;padding:16px 20px;\">" +
+          "<tr><td>" +
+            "<p style=\"margin:0 0 10px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1cafb9;\">Evento " + (payload.event.mode === "tentative" ? "provvisorio" : "confermato") + "</p>" +
+            (payload.event.htmlLink ? "<a href=\"" + payload.event.htmlLink + "\" style=\"display:inline-block;margin-bottom:6px;color:#004f54;font-weight:700;font-size:13px;\">&#128197; Apri in Google Calendar</a><br>" : "") +
+            (payload.event.meetLink ? "<a href=\"" + payload.event.meetLink + "\" style=\"color:#004f54;font-weight:700;font-size:13px;\">&#127909; Partecipa con Google Meet</a>" : "") +
+          "</td></tr>" +
+        "</table>" +
+      "</td></tr>"
     : "";
 
-  return `
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@700&display=swap');
-    </style>
-    <div style="margin:0;padding:24px;background:#f5fafb;font-family:Nunito,Arial,sans-serif;color:#171d1d;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:720px;margin:0 auto;background:#ffffff;border:1px solid #d4edf2;border-radius:24px;overflow:hidden;">
-        <tr>
-          <td style="padding:28px;background:#e8f8f9;">
-            <div style="width:48px;height:48px;border-radius:16px;background:#1cafb9;color:white;display:inline-block;text-align:center;line-height:48px;font-weight:900;font-size:26px;">F</div>
-            <h1 style="margin:16px 0 6px;font-size:28px;line-height:1.1;color:#004f54;">${escapeHtml(copy.title)}</h1>
-            <p style="margin:0;color:#444748;">${escapeHtml(copy.subtitle)}</p>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:24px;">
-            <h2 style="margin:0 0 12px;font-size:18px;color:#004f54;">${escapeHtml(payload.project.company)}</h2>
-            <p style="margin:0 0 18px;color:#444748;">
-              Referente: ${escapeHtml(payload.project.manager)} · ${escapeHtml(payload.project.email)}<br>
-              Stato: ${escapeHtml(payload.project.status)} · Preventivo: ${escapeHtml(String(payload.project.quoteTotal))} EUR + IVA
-            </p>
-            <div style="margin:0 0 18px;padding:16px;border-radius:18px;background:#fff8dd;color:#444748;">
-              ${escapeHtml(copy.body)}
-              ${payload.note ? `<br><br><strong>Nota:</strong> ${escapeHtml(payload.note)}` : ""}
-            </div>
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e0e3e3;border-radius:16px;overflow:hidden;">
-              ${workshops}
-            </table>
-            ${eventBlock}
-          </td>
-        </tr>
-      </table>
-    </div>`;
+  const ctaBlock = payload.actionUrl
+    ? "<tr><td align=\"center\" style=\"padding:0 32px 24px;\">" +
+        "<a href=\"" + payload.actionUrl + "\" style=\"display:inline-block;padding:12px 28px;background:#004f54;color:#ffffff;border-radius:100px;font-size:14px;font-weight:700;text-decoration:none;\">" +
+          (payload.actionLabel || "Apri il progetto") + " &rarr;" +
+        "</a>" +
+      "</td></tr>"
+    : "";
+
+  var headerGradient = copy.accent === "warning"
+    ? "linear-gradient(135deg,#7a4a00 0%,#c47e00 100%)"
+    : copy.accent === "success"
+    ? "linear-gradient(135deg,#005a3a 0%,#0d9e6a 100%)"
+    : "linear-gradient(135deg,#003f44 0%,#0d8b94 100%)";
+
+  var innerRows =
+    "<tr><td style=\"padding:32px 32px 24px;background:" + headerGradient + ";text-align:center;\">" +
+      "<img src=\"" + FUNNIFIN_LOGO_URL + "\" alt=\"FunniFin\" height=\"44\" style=\"display:block;margin:0 auto 20px;max-width:160px;object-fit:contain;\" />" +
+      "<h1 style=\"margin:0 0 8px;font-size:22px;line-height:1.2;color:#ffffff;font-weight:800;\">" + escapeHtml(copy.title) + "</h1>" +
+      "<p style=\"margin:0;color:#a0dde4;font-size:14px;\">" + escapeHtml(copy.subtitle) + "</p>" +
+    "</td></tr>" +
+
+    "<tr><td style=\"padding:24px 32px 0;\">" +
+      "<p style=\"margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1cafb9;\">Progetto</p>" +
+      "<p style=\"margin:0 0 6px;font-size:16px;font-weight:800;color:#004f54;\">" + escapeHtml(payload.project.company) + "</p>" +
+      "<p style=\"margin:0;font-size:13px;color:#5a7a7c;line-height:1.6;\">" +
+        "Referente: " + escapeHtml(payload.project.manager) + " &middot; <a href=\"mailto:" + escapeHtml(payload.project.email) + "\" style=\"color:#1cafb9;\">" + escapeHtml(payload.project.email) + "</a><br>" +
+        "Preventivo: <strong style=\"color:#004f54;\">" + escapeHtml(String(payload.project.quoteTotal)) + " EUR + IVA</strong>" +
+      "</p>" +
+    "</td></tr>" +
+
+    "<tr><td style=\"padding:16px 32px 0;\">" +
+      "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#fff8e1;border-radius:12px;padding:14px 18px;\">" +
+        "<tr><td style=\"font-size:13px;color:#5a5200;line-height:1.7;\">" +
+          escapeHtml(copy.body) +
+          (payload.note ? "<br><br><strong>Nota:</strong> " + escapeHtml(payload.note) : "") +
+        "</td></tr>" +
+      "</table>" +
+    "</td></tr>" +
+
+    "<tr><td style=\"padding:16px 32px " + (ctaBlock || eventBlock ? "0" : "28px") + ";\">" +
+      "<p style=\"margin:0 0 10px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1cafb9;\">Workshop</p>" +
+      "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border:1.5px solid #cce8ec;border-radius:12px;overflow:hidden;background:#f8fcfc;\">" +
+        workshopRows +
+      "</table>" +
+    "</td></tr>" +
+
+    eventBlock +
+    ctaBlock;
+
+  return emailBaseTemplate(innerRows);
 }
 
 function workflowCopy(payload) {
-  const map = {
+  var map = {
     request_received: {
-      title: "Richiesta workshop ricevuta",
-      subtitle: "FunniFin ha preso in carico la richiesta.",
-      body: "Il team verifica workshop, prezzo, date e fattibilita operativa.",
+      title: "Richiesta ricevuta",
+      subtitle: "FunniFin ha preso in carico la richiesta di workshop.",
+      body: "Il team verificherà workshop, preventivo, date e fattibilità operativa. Riceverai aggiornamenti a ogni avanzamento del progetto.",
+      accent: "default",
     },
     request_updated: {
-      title: "Richiesta workshop aggiornata",
-      subtitle: "FunniFin ha modificato la configurazione operativa.",
-      body: "Il team ha aggiornato workshop, date o preventivo della richiesta. La versione attuale e quella riportata qui sotto.",
+      title: "Richiesta aggiornata",
+      subtitle: "La configurazione operativa è stata modificata.",
+      body: "Workshop, date o preventivo sono stati aggiornati dal team FunniFin. Trovi la versione attuale qui sotto.",
+      accent: "default",
     },
     dates_approved: {
-      title: "Date approvate",
-      subtitle: "Le date proposte sono state validate.",
-      body: "Il progetto puo avanzare verso la selezione degli esperti compatibili.",
+      title: "Date approvate ✓",
+      subtitle: "Le date proposte sono state validate dal team.",
+      body: "Il progetto avanza verso la selezione degli esperti. Riceverai una notifica non appena l'esperto sarà assegnato.",
+      accent: "success",
     },
     date_change_requested: {
-      title: "Serve una modifica alle date",
-      subtitle: "Una o piu date richiedono una nuova proposta.",
-      body: "FunniFin ha richiesto una modifica prima di aprire le candidature agli esperti.",
+      title: "Modifica date richiesta",
+      subtitle: "Una o più date richiedono una nuova proposta.",
+      body: "FunniFin ha richiesto una variazione prima di aprire le candidature agli esperti. Contatta il tuo referente per concordare le nuove date.",
+      accent: "warning",
     },
     candidacies_open: {
-      title: "Candidature esperti aperte",
-      subtitle: "Gli esperti compatibili possono candidarsi.",
-      body: "FunniFin raccogliera le disponibilita e procedera con l'assegnazione.",
+      title: "Selezione esperti avviata",
+      subtitle: "Gli esperti compatibili sono stati invitati a candidarsi.",
+      body: "FunniFin raccoglierà le disponibilità e ti notificherà non appena l'esperto sarà assegnato.",
+      accent: "default",
     },
     expert_assigned: {
-      title: "Esperto assegnato",
+      title: "Esperto assegnato ✓",
       subtitle: "Il workshop ha un esperto incaricato.",
-      body: "L'esperto riceve date, contesto cliente e materiali necessari alla preparazione.",
+      body: "L'esperto riceverà date, brief cliente e materiali necessari alla preparazione. Ti aggiorneremo quando il materiale sarà pronto per la revisione.",
+      accent: "success",
     },
     brand_review: {
       title: "Revisione brand avviata",
-      subtitle: "Il materiale passa al controllo qualita.",
-      body: "Brand/design puo revisionare, richiedere modifiche o approvare la versione.",
+      subtitle: "Il materiale è in fase di controllo qualità.",
+      body: "Il team brand/design può revisionare, richiedere modifiche o approvare la versione del deck. Ti notificheremo al termine della revisione.",
+      accent: "default",
     },
     final_approval: {
       title: "Approvazione finale",
-      subtitle: "La versione finale e pronta per il controllo conclusivo.",
-      body: "FunniFin e cliente possono validare la versione finale prima della conferma evento.",
+      subtitle: "La versione finale è pronta per il controllo conclusivo.",
+      body: "FunniFin e il cliente possono ora validare la versione finale prima della conferma dell'evento. Contattaci per qualsiasi richiesta di modifica.",
+      accent: "default",
     },
     event_tentative: {
       title: "Evento provvisorio creato",
-      subtitle: "La data e stata bloccata a calendario.",
-      body: "L'evento resta provvisorio fino alla conferma finale.",
+      subtitle: "La data è stata bloccata a calendario.",
+      body: "L'evento è stato creato come provvisorio. Resta in attesa della conferma finale — ti invieremo l'aggiornamento non appena l'evento sarà confermato.",
+      accent: "default",
     },
     event_confirmed: {
-      title: "Evento confermato",
-      subtitle: "Il workshop e confermato a calendario.",
-      body: "L'evento contiene invitati, link Meet e riferimenti ai materiali.",
+      title: "Evento confermato 🎉",
+      subtitle: "Il workshop è ufficialmente confermato a calendario.",
+      body: "L'evento include tutti gli invitati, il link Meet e i riferimenti ai materiali. Ci vediamo presto!",
+      accent: "success",
     },
   };
   return map[payload.phase] || map.request_received;

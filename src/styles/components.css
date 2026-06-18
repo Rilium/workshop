@@ -650,12 +650,14 @@ button svg {
 .ff-stepper-card {
   position: relative;
   z-index: 1;
+  width: 100%;
   border: 1.5px solid var(--brand);
   border-top-color: var(--brand);
   border-radius: 0 var(--radius-md) var(--radius-md) var(--radius-md);
   margin-top: 0;
   padding: 24px;
   background: var(--white);
+  box-sizing: border-box;
 }
 
 .ff-stepper-eyebrow {
