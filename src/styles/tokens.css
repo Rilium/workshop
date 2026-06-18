@@ -11,6 +11,7 @@
   --accent-gold: #F5CF45;
   --accent-amber: #F0A314;
   --accent-pink: #e4175e;
+  --accent-pink-dark: #d84d82;
   --neutral-900: #171d1d;
   --neutral-800: #444748;
   --neutral-600: #747878;
@@ -129,6 +130,51 @@
   --space-5: var(--sp-5);
   --font-body: var(--font-ui);
   --font-weight-xbold: var(--fw-xbold);
+
+  /* ── Stato: warning ───────────────────────────────────────────────────── */
+  --color-warning-bg:     #fff8dd;
+  --color-warning-text:   #8c6500;
+  --color-warning-border: #f0c040;
+
+  /* ── Stato: error ─────────────────────────────────────────────────────── */
+  --color-error-bg:     #fce4ec;
+  --color-error-text:   #c62828;
+  --color-error-border: #ffd2df;
+
+  /* ── Stato: success ───────────────────────────────────────────────────── */
+  --color-success-bg:     #e9f7ef;
+  --color-success-text:   #17633b;
+  --color-success-border: #a8e6c2;
+
+  /* ── Superfici tinte (near-white con tinta brand o rosa) ──────────────── */
+  --color-surface-tinted:  #f7fbfa;
+  --color-surface-pink:    #fff0f5;
+  --color-surface-pink-2:  #ffe3ec;
+  --color-surface-amber:   #fff4d6;
+
+  /* ── Impersonation banner ─────────────────────────────────────────────── */
+  --color-impersonation-bg:     #fff3cd;
+  --color-impersonation-border: #ffc107;
+  --color-impersonation-text:   #856404;
+  --color-impersonation-back-bg: #ffffff;
+  --color-impersonation-back-hover: #ffc107;
+  --color-impersonation-back-hover-text: #212529;
+
+  /* ── Surface glass (sfondo semitrasparente per barre, dropdown, toast) ── */
+  --surface-glass:        rgba(255, 255, 255, 0.92);
+  --surface-glass-strong: rgba(255, 255, 255, 0.96);
+  --surface-glass-heavy:  rgba(255, 255, 255, 0.98);
+  --surface-glass-subtle: rgba(255, 255, 255, 0.72);
+
+  /* ── Gradienti strutturali ─────────────────────────────────────────────── */
+  --gradient-topbar-fade: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.78) 76%, rgba(255,255,255,0));
+  --gradient-bottombar-fade: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,0.42) 52%, rgba(255,255,255,0.84));
+  --gradient-modal-footer: linear-gradient(180deg, rgba(255,255,255,0.4), var(--white) 36%);
+  --gradient-brand-card: linear-gradient(135deg, rgba(232,249,247,0.95), rgba(255,255,255,0.95));
+  --gradient-upload-stripes: repeating-linear-gradient(135deg, #ffffff, #ffffff 12px, #f4fbfa 12px, #f4fbfa 24px);
+
+  /* ── Backdrop modale ───────────────────────────────────────────────────── */
+  --modal-backdrop-bg: rgba(0, 0, 0, 0.5);
 }
 
 /* ─── Dark mode token overrides ──────────────────────────────────────────── */
@@ -166,8 +212,46 @@ html[data-theme="dark"] {
 
   --chip-auto-bg: #0d2e30; --chip-auto-text: #7de2ea;
   --chip-finanza-bg: #0d2e30; --chip-finanza-text: #1cafb9;
+  --accent-pink-dark: #f06090;
   --chip-fiscale-bg: #2a1020; --chip-fiscale-text: #f06090;
   --chip-guida-bg: #2a1e10; --chip-guida-text: #c89060;
+
+  --color-warning-bg:     #2a2010;
+  --color-warning-text:   #e0b040;
+  --color-warning-border: #7a5010;
+
+  --color-error-bg:     #2a1020;
+  --color-error-text:   #f06080;
+  --color-error-border: #6a1040;
+
+  --color-success-bg:     #0d2a18;
+  --color-success-text:   #4dd890;
+  --color-success-border: #1a5030;
+
+  --color-surface-tinted:  #1a2424;
+  --color-surface-pink:    #2a1420;
+  --color-surface-pink-2:  #231018;
+  --color-surface-amber:   #2a1e08;
+
+  --color-impersonation-bg:     #2a1e08;
+  --color-impersonation-border: #7a5010;
+  --color-impersonation-text:   #e0b040;
+  --color-impersonation-back-bg: #1e2828;
+  --color-impersonation-back-hover: #7a5010;
+  --color-impersonation-back-hover-text: #e0b040;
+
+  --surface-glass:        rgba(20, 28, 28, 0.92);
+  --surface-glass-strong: rgba(20, 28, 28, 0.96);
+  --surface-glass-heavy:  rgba(26, 38, 38, 0.98);
+  --surface-glass-subtle: rgba(20, 28, 28, 0.72);
+
+  --gradient-topbar-fade: linear-gradient(180deg, rgba(20,28,28,0.96), rgba(20,28,28,0.78) 76%, rgba(20,28,28,0));
+  --gradient-bottombar-fade: linear-gradient(180deg, rgba(20,28,28,0), rgba(20,28,28,0.42) 52%, rgba(20,28,28,0.84));
+  --gradient-modal-footer: linear-gradient(180deg, rgba(26,38,38,0.4), #1e2828 36%);
+  --gradient-brand-card: linear-gradient(135deg, rgba(13,46,48,0.95), rgba(26,38,38,0.95));
+  --gradient-upload-stripes: repeating-linear-gradient(135deg, #1e2828, #1e2828 12px, #141c1c 12px, #141c1c 24px);
+
+  --modal-backdrop-bg: rgba(0, 0, 0, 0.72);
 }
 
 html[data-theme="dark"] body {

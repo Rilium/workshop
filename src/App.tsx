@@ -163,6 +163,7 @@ function AppInner() {
     reopenNotification,
     markNotificationRead,
     markVisibleNotificationsRead,
+    markAllNotificationsRead,
     clearClosedNotifications,
   } = useToasts(role);
   const { selections, toggleWorkshop, addWorkshops, updateSelection } = useWorkshopSelection(workshops, notify);
@@ -387,6 +388,7 @@ function AppInner() {
             onReopenNotification={reopenNotification}
             onMarkRead={markNotificationRead}
             onMarkVisibleRead={markVisibleNotificationsRead}
+            onMarkAllRead={markAllNotificationsRead}
             onAction={runNotificationAction}
             onClearClosed={() => {
               const r = role as import("./types/domain").AppNotificationRole;

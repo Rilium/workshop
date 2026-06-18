@@ -40,14 +40,14 @@
   place-items: center;
   border: 1px solid #ffd2df;
   border-radius: 50%;
-  background: #fff0f5;
+  background: var(--color-surface-pink);
   color: var(--accent-pink);
   padding: 0;
 }
 
 .remove-icon-btn:hover {
   border-color: var(--accent-pink);
-  background: #ffe3ec;
+  background: var(--color-surface-pink-2);
 }
 
 .remove-icon-btn.compact {
@@ -128,7 +128,7 @@
   place-items: center;
   text-align: center;
   gap: 12px;
-  background: repeating-linear-gradient(135deg, #ffffff, #ffffff 12px, #f4fbfa 12px, #f4fbfa 24px);
+  background: var(--gradient-upload-stripes);
 }
 
 .asset-upload-trigger {
@@ -265,7 +265,7 @@
   padding: 10px 12px;
   border: 1px solid rgba(28, 175, 185, 0.26);
   border-radius: var(--radius-md);
-  background: #f7fbfa;
+  background: var(--color-surface-tinted);
   color: var(--color-muted);
   font-weight: var(--fw-bold);
 }
@@ -287,7 +287,7 @@
   gap: 8px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
-  background: #f7fbfa;
+  background: var(--color-surface-tinted);
   color: var(--color-ink);
   padding: 9px 12px;
   font-weight: 900;
@@ -329,13 +329,13 @@
 }
 
 .review-status-badge.changes_requested {
-  background: #fff0f5;
+  background: var(--color-surface-pink);
   color: var(--accent-pink);
 }
 
 .review-status-badge.approved {
-  background: #ebfbef;
-  color: #229763;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
 }
 
 .review-status-badge.archived {

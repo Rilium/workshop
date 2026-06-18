@@ -353,7 +353,7 @@
   place-items: center;
   border: 1px solid transparent;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.86);
+  background: var(--surface-glass-subtle);
   color: var(--neutral-500);
   cursor: pointer;
 }
@@ -361,7 +361,7 @@
 .project-choice-delete:hover,
 .project-choice-delete:focus-visible {
   border-color: rgba(239, 111, 155, 0.32);
-  background: #fff7fa;
+  background: var(--color-surface-pink);
   color: var(--accent-pink);
 }
 
@@ -463,18 +463,18 @@
 }
 
 .project-choice-card.today .queue-date-badge {
-  background: #fff4d6;
-  color: #7a4b00;
+  background: var(--color-surface-amber);
+  color: var(--color-warning-text);
 }
 
 .project-choice-card.late .queue-date-badge {
-  background: #ffe6e1;
-  color: #8b1e13;
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
 }
 
 .project-choice-card.soon .queue-date-badge {
-  background: #e9f7ef;
-  color: #17633b;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
 }
 
 .project-choice-card.calendar .queue-date-badge {
@@ -1358,8 +1358,8 @@
 
 .date-review-list article.change_requested,
 .date-review-list article.rejected {
-  border-color: #ffd2df;
-  background: #fff0f5;
+  border-color: var(--color-error-border);
+  background: var(--color-surface-pink);
 }
 
 .date-review-list article > div:first-child,
@@ -1522,7 +1522,7 @@
   gap: 10px;
   padding: 12px;
   border-radius: var(--radius-md);
-  background: #f5faf9;
+  background: var(--color-surface-tinted);
   border: 1px solid transparent;
 }
 
@@ -1741,7 +1741,7 @@
   gap: 4px;
   padding: 12px;
   border-radius: var(--radius-md);
-  background: #f7fbfa;
+  background: var(--color-surface-tinted);
 }
 
 .caveat-value {
@@ -1784,7 +1784,7 @@
   padding: var(--sp-4);
   border: 1px solid var(--brand-mid);
   border-radius: var(--radius-xl);
-  background: linear-gradient(135deg, rgba(232, 249, 247, 0.95), rgba(255, 255, 255, 0.95));
+  background: var(--gradient-brand-card);
   box-shadow: var(--brand-shadow-card);
 }
 
@@ -1866,7 +1866,7 @@
   position: sticky;
   bottom: 0;
   z-index: 1;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), var(--white) 36%);
+  background: var(--gradient-modal-footer);
   backdrop-filter: blur(10px);
 }
 
@@ -1889,7 +1889,7 @@
 }
 
 .request-delete-confirm-btn:hover {
-  background: #d84d82;
+  background: var(--accent-pink-dark);
 }
 
 .auth-users-table {
@@ -1963,7 +1963,7 @@
 }
 
 .user-status-badge.disabled {
-  background: #fff0f5;
+  background: var(--color-surface-pink);
   color: var(--accent-pink);
 }
 
@@ -2078,12 +2078,12 @@
 
 .google-health-hero.error {
   border-color: rgba(239, 111, 155, 0.32);
-  background: #fff7fa;
+  background: var(--color-surface-pink);
 }
 
 .google-health-hero.cache {
   border-color: rgba(245, 207, 69, 0.68);
-  background: #fffdf0;
+  background: var(--color-warning-bg);
 }
 
 .google-health-copy {
@@ -2170,7 +2170,7 @@
 }
 
 .google-health-card.missing .google-health-card-head {
-  background: #fff7fa;
+  background: var(--color-surface-pink);
   color: var(--accent-pink);
 }
 
@@ -2482,7 +2482,7 @@
 }
 
 .catalog-status.hidden {
-  background: #fff0f5;
+  background: var(--color-surface-pink);
   color: var(--accent-pink);
 }
 
@@ -2754,7 +2754,7 @@
 
 .inline-status-card.warning {
   border-color: rgba(239, 111, 155, 0.32);
-  background: #fff7fa;
+  background: var(--color-surface-pink);
   color: var(--neutral-800);
 }
 
@@ -2799,7 +2799,7 @@
 .precheck-list .missing,
 .modal-warning {
   border: 1px solid #ffd2df;
-  background: #fff0f5;
+  background: var(--color-surface-pink);
   color: var(--accent-pink);
 }
 
@@ -2900,7 +2900,7 @@
   gap: 4px;
   padding: var(--sp-2);
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--surface-glass-subtle);
 }
 
 .price-preview-card span {

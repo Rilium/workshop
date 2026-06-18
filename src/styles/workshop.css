@@ -207,7 +207,7 @@
   width: fit-content;
   padding: 5px 9px;
   background: var(--color-amber-soft);
-  color: #9a6411;
+  color: var(--color-warning-text);
   font-size: 0.78rem;
   font-weight: 900;
 }
@@ -988,7 +988,7 @@
 .workshop-price {
   flex: 0 0 auto;
   border-radius: var(--radius-pill);
-  background: #fff8dd;
+  background: var(--color-warning-bg);
   color: var(--neutral-900);
   padding: 7px 10px;
   font-size: var(--text-sm);
@@ -1252,7 +1252,7 @@
   gap: 2px;
   padding: 8px 10px;
   border-radius: var(--radius-md);
-  background: #f7fbfa;
+  background: var(--color-surface-tinted);
 }
 
 .quote-strip span {
@@ -1282,7 +1282,7 @@
 
 .line .good,
 .saving {
-  color: #229763;
+  color: var(--color-success-text);
 }
 
 .total-line {
@@ -1297,7 +1297,7 @@
 
 .saving {
   border-radius: var(--radius-md);
-  background: #ebfbef;
+  background: var(--color-success-bg);
   padding: 10px;
   font-weight: 900;
 }

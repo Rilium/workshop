@@ -476,16 +476,16 @@ function withMailActionForRole(payload, role) {
 function mailDataCell(label, value, href, topBorder) {
   var safeValue = escapeHtml(value || "-");
   var content = href
-    ? "<a href=\"" + escapeHtml(href) + "\" style=\"color:#004f54;text-decoration:none;font-weight:800;\">" + safeValue + "</a>"
+    ? "<a href=\"" + escapeHtml(href) + "\" style=\"color:#1cafb9;text-decoration:none;font-weight:800;\">" + safeValue + "</a>"
     : safeValue;
-  return "<td width=\"50%\" style=\"width:50%;padding:10px 12px;" + (topBorder ? "border-top:1px solid #e0f2f4;" : "") + "vertical-align:top;\">" +
-    "<span style=\"display:block;margin:0 0 4px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6b8a8c;font-weight:800;\">" + escapeHtml(label) + "</span>" +
+  return "<td width=\"50%\" style=\"width:50%;padding:10px 12px;" + (topBorder ? "border-top:1px solid #dde0e3;" : "") + "vertical-align:top;\">" +
+    "<span style=\"display:block;margin:0 0 4px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8c9096;font-weight:800;\">" + escapeHtml(label) + "</span>" +
     "<strong style=\"display:block;color:#171d1d;font-size:14px;line-height:1.35;font-weight:800;word-break:break-word;\">" + content + "</strong>" +
   "</td>";
 }
 
 function mailDataGrid(rows) {
-  return "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border:1px solid #cce8ec;border-radius:12px;overflow:hidden;background:#ffffff;\">" +
+  return "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border:1px solid #dde0e3;border-radius:12px;overflow:hidden;background:#ffffff;\">" +
     rows.map(function(row, rowIndex) {
       return "<tr>" + row.map(function(item) {
         return mailDataCell(item.label, item.value, item.href, rowIndex > 0);
@@ -2526,12 +2526,12 @@ var FUNNIFIN_SITE_URL = "https://funnifin-workshop-planner.vercel.app";
 
 function emailBaseTemplate(innerRows) {
   return "<!DOCTYPE html><html lang=\"it\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>FunniFin</title></head>" +
-  "<body style=\"margin:0;padding:0;background:#f5fafb;font-family:Nunito,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;\">" +
-  "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#f5fafb;padding:32px 16px;\"><tr><td align=\"center\">" +
-  "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:640px;background:#ffffff;border:1px solid #d4edf2;border-radius:18px;overflow:hidden;box-shadow:0 14px 38px rgba(0,79,84,0.10);\">" +
+  "<body style=\"margin:0;padding:0;background:#f0f1f3;font-family:Nunito,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;\">" +
+  "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#f0f1f3;padding:32px 16px;\"><tr><td align=\"center\">" +
+  "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:640px;background:#ffffff;border:1px solid #dde0e3;border-radius:20px;overflow:hidden;box-shadow:0 12px 40px rgba(172,175,185,0.18);\">" +
   innerRows +
-  "<tr><td style=\"padding:20px 32px 24px;background:#f8fcfc;border-top:1px solid #e0f2f4;text-align:center;\">" +
-  "<p style=\"margin:0;font-size:11px;color:#7b9698;line-height:1.6;\">FunniFin Workshop Planner<br>Email di servizio inviata per seguire la richiesta workshop.</p>" +
+  "<tr><td style=\"padding:20px 32px 24px;background:#f7f8f9;border-top:1px solid #dde0e3;text-align:center;\">" +
+  "<p style=\"margin:0;font-size:11px;color:#8c9096;line-height:1.6;\">FunniFin Workshop Planner &middot; Email di servizio richiesta workshop.</p>" +
   "</td></tr>" +
   "</table></td></tr></table></body></html>";
 }
@@ -2555,52 +2555,52 @@ function buildWorkflowEmailHtml(payload) {
 
   const workshopRows = (payload.workshops || [])
     .map(function(w, i) {
-      var borderTop = i > 0 ? "border-top:1px solid #e0f2f4;" : "";
+      var borderTop = i > 0 ? "border-top:1px solid #dde0e3;" : "";
       var expertLabel = w.expertName
-        ? "<span style=\"display:inline-block;padding:3px 10px;border-radius:20px;background:#e8f8f9;color:#004f54;font-size:11px;font-weight:700;\">" + escapeHtml(w.expertName) + "</span>"
-        : "<span style=\"display:inline-block;padding:3px 10px;border-radius:20px;background:#f5fafb;color:#6b8a8c;font-size:11px;font-weight:700;\">in assegnazione</span>";
+        ? "<span style=\"display:inline-block;padding:3px 10px;border-radius:20px;background:rgba(28,175,185,0.12);color:#1cafb9;font-size:11px;font-weight:700;\">" + escapeHtml(w.expertName) + "</span>"
+        : "<span style=\"display:inline-block;padding:3px 10px;border-radius:20px;background:#f0f1f3;color:#8c9096;font-size:11px;font-weight:700;\">da assegnare</span>";
       return "<tr>" +
         "<td style=\"padding:15px 16px;" + borderTop + "\">" +
           "<strong style=\"display:block;color:#171d1d;font-size:15px;line-height:1.35;margin-bottom:6px;\">" + escapeHtml(w.title) + "</strong>" +
-          "<span style=\"display:inline-block;margin-right:6px;padding:3px 9px;border-radius:999px;background:#e8f8f9;color:#004f54;font-size:11px;font-weight:700;\">" + escapeHtml(w.duration) + "</span>" +
-          "<span style=\"display:inline-block;margin-right:6px;padding:3px 9px;border-radius:999px;background:#f5fafb;color:#5a7a7c;font-size:11px;font-weight:700;\">" + escapeHtml(w.format) + "</span>" +
-          "<span style=\"color:#6b8a8c;font-size:12px;\">" + escapeHtml(w.date || "data da concordare") + (w.time ? " &middot; " + escapeHtml(w.time) : "") + "</span>" +
+          "<span style=\"display:inline-block;margin-right:6px;padding:3px 9px;border-radius:999px;background:rgba(28,175,185,0.12);color:#1cafb9;font-size:11px;font-weight:700;\">" + escapeHtml(w.duration) + "</span>" +
+          "<span style=\"display:inline-block;margin-right:6px;padding:3px 9px;border-radius:999px;background:#f0f1f3;color:#747878;font-size:11px;font-weight:700;\">" + escapeHtml(w.format) + "</span>" +
+          "<span style=\"color:#8c9096;font-size:12px;\">" + escapeHtml(w.date || "data da concordare") + (w.time ? " &middot; " + escapeHtml(w.time) : "") + "</span>" +
         "</td>" +
         "<td align=\"right\" style=\"padding:15px 16px;" + borderTop + "vertical-align:middle;\">" + expertLabel + "</td>" +
       "</tr>";
     })
-    .join("") || "<tr><td style=\"padding:15px 16px;color:#6b8a8c;font-size:13px;\">I workshop saranno aggiunti al riepilogo appena disponibili.</td></tr>";
+    .join("") || "<tr><td style=\"padding:15px 16px;color:#8c9096;font-size:13px;\">I workshop saranno aggiunti al riepilogo appena disponibili.</td></tr>";
 
   const eventBlock = payload.event && (payload.event.htmlLink || payload.event.meetLink)
     ? "<tr><td style=\"padding:0 32px 20px;\">" +
-        "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#e8f8f9;border:1px solid #cce8ec;border-radius:12px;padding:16px 20px;\">" +
+        "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:rgba(28,175,185,0.10);border:1px solid rgba(28,175,185,0.28);border-radius:12px;padding:16px 20px;\">" +
           "<tr><td>" +
             "<p style=\"margin:0 0 10px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1cafb9;\">Evento " + (payload.event.mode === "tentative" ? "in attesa di conferma" : "confermato") + "</p>" +
-            (payload.event.htmlLink ? "<a href=\"" + payload.event.htmlLink + "\" style=\"display:inline-block;margin-bottom:6px;color:#004f54;font-weight:700;font-size:13px;\">Apri in Google Calendar</a><br>" : "") +
-            (payload.event.meetLink ? "<a href=\"" + payload.event.meetLink + "\" style=\"color:#004f54;font-weight:700;font-size:13px;\">Apri Google Meet</a>" : "") +
+            (payload.event.htmlLink ? "<a href=\"" + payload.event.htmlLink + "\" style=\"display:inline-block;margin-bottom:6px;color:#1cafb9;font-weight:700;font-size:13px;\">Apri in Google Calendar</a><br>" : "") +
+            (payload.event.meetLink ? "<a href=\"" + payload.event.meetLink + "\" style=\"color:#1cafb9;font-weight:700;font-size:13px;\">Apri Google Meet</a>" : "") +
           "</td></tr>" +
         "</table>" +
       "</td></tr>"
     : "";
 
   const ctaBlock = payload.actionUrl
-    ? "<tr><td align=\"center\" style=\"padding:0 32px 24px;\">" +
-        "<a href=\"" + payload.actionUrl + "\" style=\"display:inline-block;padding:12px 26px;background:#004f54;color:#ffffff;border-radius:999px;font-size:14px;font-weight:800;text-decoration:none;\">" +
+    ? "<tr><td align=\"center\" style=\"padding:4px 32px 28px;\">" +
+        "<a href=\"" + payload.actionUrl + "\" style=\"display:inline-block;padding:13px 28px;background:#acafb9;color:#ffffff;border-radius:999px;font-size:14px;font-weight:800;text-decoration:none;letter-spacing:.02em;\">" +
           escapeHtml(payload.actionLabel || "Apri il progetto") +
         "</a>" +
       "</td></tr>"
     : "";
 
-  var headerGradient = copy.accent === "warning"
-    ? "#7a5c00"
+  var headerBg = copy.accent === "warning"
+    ? "#b8860b"
     : copy.accent === "success"
-    ? "#005a3a"
-    : "#004f54";
-  var subtitleColor = copy.accent === "warning" ? "#fff2c2" : copy.accent === "success" ? "#cdf5e6" : "#c8f0f3";
+    ? "#1a7a4a"
+    : "#acafb9";
+  var subtitleColor = "rgba(255,255,255,0.82)";
 
   var innerRows =
-    "<tr><td style=\"padding:32px 32px 26px;background:" + headerGradient + ";text-align:center;\">" +
-      "<img src=\"" + FUNNIFIN_LOGO_URL + "\" alt=\"FunniFin\" height=\"44\" style=\"display:block;margin:0 auto 18px;max-width:160px;object-fit:contain;\" />" +
+    "<tr><td style=\"padding:36px 32px 28px;background:" + headerBg + ";text-align:center;\">" +
+      "<img src=\"" + FUNNIFIN_LOGO_URL + "\" alt=\"FunniFin\" height=\"48\" style=\"display:block;margin:0 auto 20px;max-width:180px;object-fit:contain;\" />" +
       "<h1 style=\"margin:0 0 10px;font-size:24px;line-height:1.18;color:#ffffff;font-weight:800;\">" + escapeHtml(copy.title) + "</h1>" +
       "<p style=\"margin:0 auto;color:" + subtitleColor + ";font-size:14px;line-height:1.6;max-width:440px;\">" + escapeHtml(copy.subtitle) + "</p>" +
     "</td></tr>" +
@@ -2611,9 +2611,9 @@ function buildWorkflowEmailHtml(payload) {
     "</td></tr>" +
 
     "<tr><td style=\"padding:16px 32px 0;\">" +
-      "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#fff8dd;border:1px solid #f5cf45;border-radius:12px;padding:16px 20px;\">" +
-        "<tr><td style=\"font-size:13px;color:#5a5200;line-height:1.7;\">" +
-          "<strong style=\"display:block;margin-bottom:6px;color:#7a5c00;\">Cosa succede ora</strong>" +
+      "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:rgba(28,175,185,0.10);border:1px solid rgba(28,175,185,0.28);border-radius:12px;padding:16px 20px;\">" +
+        "<tr><td style=\"font-size:13px;color:#444748;line-height:1.7;\">" +
+          "<strong style=\"display:block;margin-bottom:6px;color:#171d1d;\">Cosa succede ora</strong>" +
           escapeHtml(copy.body) +
           (payload.note ? "<br><br><strong>Nota:</strong> " + escapeHtml(payload.note) : "") +
         "</td></tr>" +
@@ -2622,7 +2622,7 @@ function buildWorkflowEmailHtml(payload) {
 
     "<tr><td style=\"padding:16px 32px " + (ctaBlock || eventBlock ? "0" : "28px") + ";\">" +
       "<p style=\"margin:0 0 10px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1cafb9;\">Workshop collegati</p>" +
-      "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border:1px solid #cce8ec;border-radius:12px;overflow:hidden;background:#ffffff;\">" +
+      "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border:1px solid #dde0e3;border-radius:12px;overflow:hidden;background:#ffffff;\">" +
         workshopRows +
       "</table>" +
     "</td></tr>" +
