@@ -255,7 +255,12 @@ export function AdminActionModal({
         : modal.type === "price"
           ? "Modifica regola prezzo"
           : "Conferma evento";
-  const showNotification = modal.type === "confirm_event";
+  const dateApprovalCompletesAll =
+    modal.type === "date" &&
+    modal.decision === "approved" &&
+    rows.length > 0 &&
+    rows.every((item) => (item.workshop.id === modal.workshopId ? "approved" : item.approval) === "approved");
+  const showNotification = modal.type !== "price" && !(modal.type === "date" && modal.decision === "approved" && !dateApprovalCompletesAll);
   const showImpact = true;
   const normalizedDiscount = Math.min(100, Math.max(0, Number(draftRule.discountPercent) || 0));
   const normalizedMin = Math.max(1, Number(draftRule.min) || 1);
@@ -265,18 +270,18 @@ export function AdminActionModal({
   const pricePreviewTotal = Math.round(pricePreviewGross * (1 - normalizedDiscount / 100));
   const selectedRecipients = notification.recipients.map((role) => `${recipientLabels[role]} · ${role === "client" ? project.email : recipientEmails[role] || SECRET_SETTINGS.google.email.testRecipients[role]}`);
   const emailImpact = notification.send && selectedRecipients.length > 0
-    ? `Email: parte alla conferma verso ${selectedRecipients.join(" / ")}.`
-    : "Email: non parte nessuna email alla conferma.";
+    ? `Email: al click inviamo un aggiornamento a ${selectedRecipients.join(" / ")}.`
+    : "Email: al click salvi solo l'azione, senza inviare messaggi.";
   const calendarGuestImpact = notification.addClientToCalendar
-    ? `Calendar: il cliente ${project.email} viene aggiunto come ospite del meeting.`
-    : "Calendar: il cliente non viene aggiunto come ospite del meeting.";
+    ? `Calendar: il cliente ${project.email} viene aggiunto tra gli invitati.`
+    : "Calendar: l'evento resta interno, senza invitare il cliente.";
   const workflowImpact = (() => {
     if (modal.type === "edit_request") {
       return [
-        `Richiesta: salva ${editedRecords.length} workshop, riallinea il preventivo a ${money(editedQuoteTotal)} + IVA e imposta la fase "${statusLabel[requestPhase]}".`,
+        `Richiesta: salva ${editedRecords.length} workshop, aggiorna il preventivo a ${money(editedQuoteTotal)} + IVA e mostra "${statusLabel[requestPhase]}".`,
         emailImpact,
-        "Calendario: non crea eventi e non approva date; aggiorna solo la richiesta cliente.",
-        "Audit: la modifica viene scritta nel registro reale e resta tracciata.",
+        "Calendario: non crea eventi; aggiorna solo il riepilogo della richiesta.",
+        "Registro: la modifica viene salvata nello storico del progetto.",
       ];
     }
     if (modal.type === "date") {
@@ -287,32 +292,32 @@ export function AdminActionModal({
       return [
         `Stato: ${modal.decision === "approved" ? (completesAllDates ? "tutte le date risultano approvate" : "approva solo questa data") : modal.decision === "change_requested" ? "chiede una nuova proposta data" : "marca la proposta come rifiutata"}.`,
         emailImpact,
-        "Calendario: non crea eventi; la conferma finale avviene solo nello step Conferma.",
-        "Catalogo/Drive: non cambia catalogo ne slide, usa solo il workshop gia selezionato.",
+        "Calendario: non crea ancora l'evento; la creazione avviene nella conferma finale.",
+        "Materiali: non cambia catalogo o slide, usa solo il workshop già scelto.",
       ];
     }
     if (modal.type === "expert") {
       return [
         `Stato: ${modal.mode === "reassign" ? "riapre la candidatura e rimuove l'esperto" : `assegna ${modal.expertName || "l'esperto selezionato"} al workshop scelto`}.`,
         emailImpact,
-        "Calendario: non crea eventi e non invita l'esperto a calendario in questa fase.",
-        "Catalogo/Drive: mantiene nomi workshop e slide operative gia collegate al catalogo.",
+        "Calendario: non invita ancora l'esperto; l'evento si prepara più avanti.",
+        "Materiali: mantiene workshop e slide già collegati.",
       ];
     }
     if (modal.type === "open_candidacies") {
       return [
-        "Stato: apre il progetto agli esperti compatibili dentro l'app.",
-        "Email: non parte nessuna email in questa fase.",
-        "Area esperto: la vista Opportunita legge il progetto aperto dal registro.",
-        "Dopo il click: l'esperto conferma la candidatura in app, senza notifiche email automatiche.",
+        "Stato: rende il progetto visibile agli esperti compatibili.",
+        emailImpact,
+        "Area esperto: gli esperti vedono l'opportunità e possono candidarsi.",
+        "Dopo il click: l'esperto conferma disponibilità e interesse in app.",
       ];
     }
     if (modal.type === "brand_handoff") {
       return [
-        "Stato: porta il progetto in revisione brand.",
+        "Stato: manda il progetto alla revisione brand.",
         emailImpact,
-        "Calendario: non crea eventi; la revisione brand precede la conferma finale.",
-        "Catalogo/Drive: usa le slide operative collegate e passa i deck al flusso brand.",
+        "Calendario: non crea eventi; prima si chiude la revisione dei materiali.",
+        "Materiali: passa al team brand i deck collegati al progetto.",
       ];
     }
     if (modal.type === "confirm_event") {
@@ -320,8 +325,8 @@ export function AdminActionModal({
         `Stato: crea un evento ${notification.eventMode === "tentative" ? "provvisorio" : "definitivo"} e aggiorna il progetto.`,
         emailImpact,
         calendarGuestImpact,
-        `Calendario: crea evento Google Calendar ${notification.eventMode === "tentative" ? "provvisorio" : "confermato"} con Meet e workshop collegati.`,
-        "Catalogo/Drive: collega materiali e presentazioni operative gia mappate, senza rinominare il catalogo.",
+        `Calendario: crea un evento Google Calendar ${notification.eventMode === "tentative" ? "in bozza" : "confermato"} con Meet e workshop collegati.`,
+        "Materiali: collega presentazioni e deck finale già approvati.",
       ];
     }
     if (modal.type === "price") {
@@ -329,7 +334,7 @@ export function AdminActionModal({
         `Prezzi: salva "${draftRule.name || rule.name}" per ${normalizedMin}-${normalizedMax >= 99 ? "6+" : normalizedMax} workshop.`,
         draftRule.specialQuote ? "Preventivo: il cliente vede il percorso senza il prezzo calcolato in automatico." : `Preventivo: esempio ${pricePreviewCount} workshop passa da ${money(pricePreviewGross)} a ${money(pricePreviewTotal)}.`,
         "Email: non invia comunicazioni.",
-        "Catalogo: non modifica workshop o slide, cambia solo la regola commerciale applicata.",
+        "Catalogo: non modifica workshop o slide, cambia solo la regola prezzo.",
       ];
     }
     return [];
@@ -351,7 +356,7 @@ export function AdminActionModal({
           {modal.type === "edit_request" && (
             <div className="modal-stack">
               <p>
-                Correggi la richiesta cliente da FunniFin: puoi aggiungere o togliere workshop, modificare formato, durata, date e totale prima di procedere.
+                Aggiorna la richiesta prima di procedere: puoi cambiare workshop, formato, durata, date e totale.
               </p>
               <div className="request-edit-summary">
                 <Info label="Cliente" value={project.company} />
@@ -464,17 +469,17 @@ export function AdminActionModal({
           )}
           {modal.type === "open_candidacies" && (
             <div className="modal-stack">
-              <p>Apre la candidatura nella vista Esperto. Nessuna email parte in questa fase.</p>
+              <p>Rende visibile il progetto agli esperti compatibili. L'invio mail resta facoltativo.</p>
               <div className="modal-points single">
                 <Info label="Esperti compatibili" value={`${expertCount} profili compatibili/test`} />
-                <Info label="CTA in app" value="Mi candido" />
-                <Info label="Link" value="Apre il planner in ruolo Esperto sulla lista opportunita" />
+                <Info label="Azione in app" value="Mi candido" />
+                <Info label="Dove appare" value="Area Esperto, lista opportunità" />
               </div>
               <div className="candidate-confirm-card">
                 <span className="workshop-badge">Area esperto</span>
-                <strong>Nuove opportunita FunniFin per {project.company}</strong>
+                <strong>Nuove opportunità FunniFin per {project.company}</strong>
                 <p>
-                  La vista Esperto mostra workshop disponibili, date proposte e bottone “Mi candido”. L'esperto conferma la candidatura senza invii email automatici.
+                  L'esperto vede workshop, date proposte e pulsante “Mi candido”. Da lì conferma disponibilità e interesse.
                 </p>
               </div>
             </div>
@@ -482,7 +487,7 @@ export function AdminActionModal({
           {modal.type === "confirm_event" && (
             <div className="modal-stack">
               <p>
-                Conferma finale: crea il record evento, collega Meet e materiali e porta il progetto in stato confermato.
+                Crea l'evento, collega Meet e materiali, poi porta il progetto verso la conferma finale.
               </p>
               <div className="precheck-list">
                 {eventPrechecks.map((item) => (
@@ -504,7 +509,7 @@ export function AdminActionModal({
           )}
           {modal.type === "brand_handoff" && (
             <div className="modal-stack">
-              <p>Passa i materiali al team brand/design e avvisa chi deve revisionare.</p>
+              <p>Passa i materiali al team brand per l'ultima revisione prima della conferma.</p>
               <div className="modal-points single">
                 <Info label="Cliente" value={project.company} />
                 <Info label="Workshop" value={`${rows.length} deck collegati`} />
@@ -514,7 +519,7 @@ export function AdminActionModal({
           )}
           {modal.type === "price" && rule && (
             <div className="modal-stack">
-              <p>Configura una regola commerciale reale: nome, quantita coperta, sconto e comportamento del preventivo cliente.</p>
+              <p>Configura una regola prezzo: nome, quantità di workshop, sconto e modalità mostrata nel preventivo.</p>
               <div className="pricing-editor-grid">
                 <label>
                   Nome regola
@@ -576,8 +581,8 @@ export function AdminActionModal({
           {showImpact && (
             <div className="workflow-impact-panel" aria-label="Cosa succede alla conferma">
               <div>
-                <strong>Prima di confermare</strong>
-                <span>Effetti reali su email, calendario, catalogo e stato progetto.</span>
+                <strong>Prima del click</strong>
+                <span>Riepilogo chiaro di cosa verrà salvato, inviato o creato.</span>
               </div>
               <ul>
                 {workflowImpact.map((item) => (
@@ -688,12 +693,19 @@ export const recipientLabels: Record<WorkflowNotificationRecipientRole, string> 
   brand: "Brand",
 };
 
+const recipientDescriptions: Record<WorkflowNotificationRecipientRole, string> = {
+  client: "referente azienda",
+  funnifin: "team interno",
+  expert: "docente o consulente",
+  brand: "revisione materiali",
+};
+
 export function getDefaultNotificationChoice(modal: AdminActionModalState, rows: AdminProjectWorkshopRow[] = []): NotificationChoice {
   if (modal.type === "edit_request") {
     return {
       send: false,
       recipients: ["client", "funnifin"],
-      note: "FunniFin ha aggiornato workshop e preventivo della richiesta.",
+      note: "Abbiamo aggiornato il riepilogo della richiesta con workshop, date o preventivo.",
     };
   }
   if (modal.type === "date") {
@@ -705,38 +717,38 @@ export function getDefaultNotificationChoice(modal: AdminActionModalState, rows:
       send: false,
       recipients: completesAllDates ? ["client", "funnifin"] : ["funnifin"],
       note: completesAllDates
-        ? "Tutte le date sono state approvate da FunniFin."
+        ? "Le date proposte sono state approvate e possiamo passare alla scelta degli esperti."
         : modal.decision === "change_requested"
-          ? "Richiesta modifica interna: il cliente non viene avvisato automaticamente."
-          : "Approvazione interna: il cliente verra avvisato quando tutte le date saranno approvate.",
+          ? "Serve una nuova proposta di data o fascia oraria per questo workshop."
+          : "Questa data è stata approvata; il cliente verrà aggiornato quando tutte le date saranno complete.",
     };
   }
   if (modal.type === "expert") {
     return {
       send: false,
       recipients: ["funnifin"],
-      note: modal.mode === "reassign" ? "Il workshop torna in assegnazione." : "Assegnazione registrata internamente nel progetto.",
+      note: modal.mode === "reassign" ? "Il workshop torna disponibile per una nuova assegnazione." : "Esperto assegnato al workshop selezionato.",
     };
   }
   if (modal.type === "open_candidacies") {
     return {
       send: false,
       recipients: ["expert"],
-      note: "Nuove opportunita aperte: clicca su Mi candido per confermare disponibilita e interesse.",
+      note: "Nuova opportunità disponibile: apri l'area Esperto e conferma disponibilità e interesse.",
     };
   }
   if (modal.type === "brand_handoff") {
     return {
       send: false,
       recipients: ["brand", "funnifin"],
-      note: "Materiali pronti per revisione brand.",
+      note: "I materiali sono pronti per la revisione brand.",
     };
   }
   if (modal.type === "confirm_event") {
     return {
       send: false,
       recipients: ["client", "funnifin"],
-      note: "Evento creato a calendario con materiali collegati.",
+      note: "Evento creato a calendario con workshop, Meet e materiali collegati.",
       eventMode: "tentative",
       addClientToCalendar: true,
     };
@@ -753,6 +765,16 @@ export function NotificationController({
   modalType: AdminActionModalState["type"];
   onChange: (choice: NotificationChoice) => void;
 }) {
+  const selectedRecipients = choice.recipients.map((role) => recipientLabels[role]).join(", ");
+  const notificationTitle = choice.send
+    ? modalType === "confirm_event"
+      ? "Mail finale attiva"
+      : "Mail di aggiornamento attiva"
+    : "Mail disattivata";
+  const notificationBody = choice.send
+    ? `Partirà verso: ${selectedRecipients || "scegli almeno un destinatario"}.`
+    : "L'azione verrà salvata senza inviare messaggi.";
+
   const toggleRecipient = (role: WorkflowNotificationRecipientRole) => {
     onChange({
       ...choice,
@@ -762,10 +784,19 @@ export function NotificationController({
 
   return (
     <div className="notification-controller">
+      <div className="notification-controller-copy">
+        <span className={choice.send ? "active" : ""}>
+          <Send size={16} />
+        </span>
+        <div>
+          <strong>{notificationTitle}</strong>
+          <p>{notificationBody}</p>
+        </div>
+      </div>
       <div className="notification-controller-head">
         <label className="toggle-line">
           <input type="checkbox" checked={choice.send} onChange={(event) => onChange({ ...choice, send: event.target.checked })} />
-          <span>{modalType === "confirm_event" ? "Invia email finale" : "Invia email di aggiornamento"}</span>
+          <span>{modalType === "confirm_event" ? "Invia conferma finale" : "Invia aggiornamento"}</span>
         </label>
         {modalType === "confirm_event" && (
           <div className="event-mode-switch" aria-label="Tipo evento calendario">
@@ -779,7 +810,7 @@ export function NotificationController({
                 className={choice.eventMode === mode ? "active" : ""}
                 onClick={() => onChange({ ...choice, eventMode: mode as "tentative" | "confirmed" })}
               >
-                {label}
+                {mode === "tentative" ? "Bozza calendario" : label}
               </button>
             ))}
           </div>
@@ -805,12 +836,15 @@ export function NotificationController({
             onClick={() => toggleRecipient(role)}
           >
             {choice.recipients.includes(role) ? <Check size={15} /> : <Plus size={15} />}
-            {recipientLabels[role]}
+            <span>
+              <strong>{recipientLabels[role]}</strong>
+              <small>{recipientDescriptions[role]}</small>
+            </span>
           </button>
         ))}
       </div>
       <label className="notification-note">
-        Nota email
+        Messaggio aggiuntivo
         <textarea value={choice.note} disabled={!choice.send} onChange={(event) => onChange({ ...choice, note: event.target.value })} rows={2} />
       </label>
     </div>

@@ -1,4 +1,5 @@
 import { SECRET_SETTINGS } from "./secretSettings";
+import { allowLocalFallbacks, appendSessionParams, withSessionPayload } from "./authTransport";
 
 export type AssetDraftFolder = {
   source: "google-drive" | "mock";
@@ -56,7 +57,7 @@ async function postAppsScript(scriptUrl: string, body: unknown) {
 
 export async function createAssetDraftFolder(clientName: string): Promise<AssetDraftFolder> {
   const scriptUrl = getScriptUrl();
-  if (!scriptUrl) {
+  if (!scriptUrl && allowLocalFallbacks()) {
     return {
       source: "mock",
       id: `mock_assets_${Date.now().toString(36)}`,
@@ -64,9 +65,11 @@ export async function createAssetDraftFolder(clientName: string): Promise<AssetD
       url: "",
     };
   }
+  if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
   const url = new URL(scriptUrl);
   url.searchParams.set("action", "createAssetDraftFolder");
+  appendSessionParams(url);
   url.searchParams.set("clientName", clientName);
   const response = await fetch(url.toString());
   if (!response.ok) throw new Error("Creazione cartella asset non riuscita");
@@ -84,12 +87,12 @@ export async function uploadAssetFiles(folderId: string, files: File[]): Promise
     const data = await fileToBase64(file);
     await postAppsScript(scriptUrl, {
       action: "uploadAssetFile",
-      payload: {
+      payload: withSessionPayload({
         folderId,
         fileName: file.name,
         mimeType: file.type || "application/octet-stream",
         data,
-      },
+      }),
     });
   }
 
@@ -102,6 +105,7 @@ export async function deleteAssetDraftFolder(folderId?: string) {
 
   const url = new URL(scriptUrl);
   url.searchParams.set("action", "deleteAssetDraftFolder");
+  appendSessionParams(url);
   url.searchParams.set("folderId", folderId);
   await fetch(url.toString(), { mode: "no-cors", keepalive: true }).catch(() => {});
 }

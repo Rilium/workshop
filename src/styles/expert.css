@@ -623,7 +623,53 @@
   padding: var(--sp-4);
   border: 1px solid var(--brand-mid);
   border-radius: var(--radius-lg);
-  background: var(--brand-light);
+  background: linear-gradient(180deg, var(--white), var(--brand-light));
+  box-shadow: var(--brand-shadow-card);
+}
+
+.notification-controller-copy {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: var(--sp-3);
+  align-items: center;
+  padding: var(--sp-3);
+  border: 1px solid var(--brand-mid);
+  border-radius: var(--radius-md);
+  background: var(--white);
+}
+
+.notification-controller-copy > span {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--neutral-100);
+  color: var(--neutral-600);
+}
+
+.notification-controller-copy > span.active {
+  background: var(--brand);
+  color: var(--white);
+}
+
+.notification-controller-copy > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.notification-controller-copy strong {
+  color: var(--neutral-900);
+  font-size: var(--text-body);
+}
+
+.notification-controller-copy p {
+  margin: 0;
+  color: var(--neutral-600);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
 }
 
 .notification-controller-head {
@@ -669,11 +715,43 @@
   white-space: nowrap;
 }
 
+.recipient-grid button {
+  min-height: 48px;
+  padding: 6px 12px;
+}
+
+.recipient-grid button > span {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+  text-align: left;
+}
+
+.recipient-grid button strong,
+.recipient-grid button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recipient-grid button strong {
+  font-size: var(--text-sm);
+}
+
+.recipient-grid button small {
+  color: var(--neutral-600);
+  font-size: 10px;
+  font-weight: var(--fw-bold);
+}
+
 .event-mode-switch button.active,
 .recipient-grid button.active {
   border-color: var(--brand);
   background: var(--brand);
   color: var(--white);
+}
+
+.recipient-grid button.active small {
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .recipient-grid[aria-disabled="true"] button,

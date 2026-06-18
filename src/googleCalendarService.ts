@@ -1,4 +1,5 @@
 import { SECRET_SETTINGS } from "./secretSettings";
+import { allowLocalFallbacks, withSessionPayload } from "./authTransport";
 
 export type CalendarSlot = {
   time: string;
@@ -83,7 +84,7 @@ export async function getWorkshopAvailability(params: {
     SECRET_SETTINGS.google.env.appScriptDeploymentUrl
   ];
 
-  if (!scriptUrl) {
+  if (!scriptUrl && allowLocalFallbacks()) {
     return {
       source: "mock",
       slots: DEFAULT_SLOTS.map((time) => ({
@@ -96,6 +97,7 @@ export async function getWorkshopAvailability(params: {
       })),
     };
   }
+  if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
   const url = new URL(scriptUrl);
   url.searchParams.set("action", "freeBusy");
@@ -135,7 +137,7 @@ export async function createWorkshopCalendarEvent(payload: CalendarEventPayload)
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({
         action: "createCalendarEvent",
-        payload,
+        payload: withSessionPayload(payload),
       }),
     });
     if (!response.ok) throw new Error("Calendar event request failed");

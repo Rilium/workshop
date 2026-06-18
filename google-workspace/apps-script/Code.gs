@@ -46,6 +46,7 @@ function authorizeFunniFinSetup() {
   getRequestEventsSheet();
   getAuthUsersSheet();
   getAccessRequestsSheet();
+  getAuthSessionsSheet();
   getCatalogTopicsSheet();
   getCatalogWorkshopsSheet();
   getPricingRulesSheet();
@@ -82,48 +83,62 @@ function handleGet(event) {
     return jsonResponse(handleFreeBusy(event.parameter));
   }
   if (action === "calendarLookup") {
+    requireFunniFinSession(event.parameter);
     return jsonResponse(lookupCalendars(event.parameter));
   }
   if (action === "driveFolder") {
+    requireSession(event.parameter, ["FunniFin", "Brand", "Esperto"]);
     return jsonResponse(listDriveFolder(event.parameter));
   }
   if (action === "brandPresentations") {
+    requireSession(event.parameter, ["FunniFin", "Brand"]);
     return jsonResponse(listBrandPresentations(event.parameter));
   }
   if (action === "listWorkshopRequests") {
+    requireSession(event.parameter, ["FunniFin", "Esperto", "Brand"]);
     return jsonResponse(listWorkshopRequests(event.parameter));
   }
   if (action === "listCatalogConfig") {
+    requireFunniFinSession(event.parameter);
     return jsonResponse(listCatalogConfig());
   }
   if (action === "listCatalogWorkshops") {
+    requireFunniFinSession(event.parameter);
     return jsonResponse(listCatalogWorkshops());
   }
   if (action === "listPricingRules") {
+    requireFunniFinSession(event.parameter);
     return jsonResponse(listPricingRules());
   }
   if (action === "listExperts") {
+    requireSession(event.parameter, ["FunniFin", "Esperto"]);
     return jsonResponse(listExperts());
   }
   if (action === "listWorkspaceSettings") {
+    requireFunniFinSession(event.parameter);
     return jsonResponse(listWorkspaceSettings());
   }
   if (action === "listAuthUsers") {
+    requireFunniFinSession(event.parameter);
     return jsonResponse(listAuthUsers());
   }
   if (action === "listAccessRequests") {
+    requireFunniFinSession(event.parameter);
     return jsonResponse(listAccessRequests());
   }
   if (action === "googleHealth") {
+    requireFunniFinSession(event.parameter);
     return jsonResponse(getGoogleHealth(event.parameter));
   }
   if (action === "listAdminConfig") {
+    requireFunniFinSession(event.parameter);
     return jsonResponse(listAdminConfig());
   }
   if (action === "createAssetDraftFolder") {
     return jsonResponse(createAssetDraftFolder(event.parameter));
   }
   if (action === "deleteAssetDraftFolder") {
+    requireSession(event.parameter, ["FunniFin", "Esperto", "Brand"]);
     return jsonResponse(deleteAssetDraftFolder(event.parameter));
   }
   return jsonResponse({
@@ -147,36 +162,46 @@ function handlePost(event) {
     return jsonResponse(createWorkshopRequest(body.payload || {}));
   }
   if (body.action === "updateWorkshopRequest") {
+    requireSession(body.payload || {}, ["FunniFin", "Esperto", "Brand"]);
     return jsonResponse(updateWorkshopRequest(body.payload || {}));
   }
   if (body.action === "updateCatalogTopic") {
+    requireFunniFinSession(body.payload || {});
     return jsonResponse(updateCatalogTopic(body.payload || {}));
   }
   if (body.action === "updateCatalogWorkshop") {
+    requireFunniFinSession(body.payload || {});
     return jsonResponse(updateCatalogWorkshop(body.payload || {}));
   }
   if (body.action === "updatePricingRule") {
+    requireFunniFinSession(body.payload || {});
     return jsonResponse(updatePricingRule(body.payload || {}));
   }
   if (body.action === "updateExpert") {
+    requireFunniFinSession(body.payload || {});
     return jsonResponse(updateExpert(body.payload || {}));
   }
   if (body.action === "deleteExpert") {
+    requireFunniFinSession(body.payload || {});
     return jsonResponse(deleteExpert(body.payload || {}));
   }
   if (body.action === "updateWorkspaceSetting") {
+    requireFunniFinSession(body.payload || {});
     return jsonResponse(updateWorkspaceSetting(body.payload || {}));
   }
   if (body.action === "seedAdminConfig") {
+    requireFunniFinSessionOrSetupSecret(body.payload || {});
     return jsonResponse(seedAdminConfig(body.payload || {}));
   }
   if (body.action === "createCalendarEvent") {
+    requireFunniFinSession(body.payload || {});
     return jsonResponse(createCalendarEvent(body.payload));
   }
   if (body.action === "sendWorkshopRequestEmail") {
     return jsonResponse(sendWorkshopRequestEmail(body));
   }
   if (body.action === "sendWorkflowNotification") {
+    requireSession(body.payload || {}, ["FunniFin", "Esperto", "Brand"]);
     return jsonResponse(sendWorkflowNotification(body.payload));
   }
   if (body.action === "requestLoginCode") {
@@ -186,12 +211,15 @@ function handlePost(event) {
     return jsonResponse(verifyLoginCode(body.payload || {}));
   }
   if (body.action === "reviewAccessRequest") {
+    requireFunniFinSession(body.payload || {});
     return jsonResponse(reviewAccessRequest(body.payload || {}));
   }
   if (body.action === "updateAuthUser") {
+    requireFunniFinSession(body.payload || {});
     return jsonResponse(updateAuthUser(body.payload || {}));
   }
   if (body.action === "ensurePresentationStructure") {
+    requireFunniFinSession(body.payload || {});
     return jsonResponse(ensurePresentationStructure(body.payload || {}));
   }
   if (body.action === "uploadAssetFile") {
@@ -373,15 +401,22 @@ function sendWorkflowNotification(payload) {
   }
 
   const subject = buildWorkflowSubject(payload);
-  const html = buildWorkflowEmailHtml(payload);
-  MailApp.sendEmail({
-    to: recipients.join(","),
-    subject,
-    body: payload.text || buildWorkflowEmailText(payload),
-    htmlBody: html,
-    name: payload.fromName || getSettingValue("mail.fromName", "FunniFin Workshop Planner"),
+  const roles = Array.isArray(payload.recipientLabels) ? payload.recipientLabels : [];
+  const sentRecipients = [];
+
+  recipients.forEach(function(recipient, index) {
+    const role = roles[index] || "";
+    const rolePayload = withMailActionForRole(payload, role);
+    MailApp.sendEmail({
+      to: recipient,
+      subject,
+      body: buildWorkflowEmailText(rolePayload),
+      htmlBody: buildWorkflowEmailHtml(rolePayload),
+      name: payload.fromName || getSettingValue("mail.fromName", "FunniFin Workshop Planner"),
+    });
+    sentRecipients.push(recipient);
   });
-  return { sent: true, subject, recipients };
+  return { sent: true, subject, recipients: sentRecipients };
 }
 
 function stripHtml(html) {
@@ -403,7 +438,60 @@ function stripHtml(html) {
     .trim();
 }
 
+function formatMailMoney(value) {
+  const amount = Number(value || 0);
+  return amount.toLocaleString("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+}
+
+function appUrlForRole(role) {
+  if (role === "funnifin") return FUNNIFIN_SITE_URL + "#funnifin";
+  if (role === "expert") return FUNNIFIN_SITE_URL + "#esperto-candidature";
+  if (role === "brand") return FUNNIFIN_SITE_URL + "#brand";
+  return FUNNIFIN_SITE_URL + "#login";
+}
+
+function appActionLabelForRole(role) {
+  if (role === "funnifin") return "Apri la console FunniFin";
+  if (role === "expert") return "Apri l'area Esperto";
+  if (role === "brand") return "Apri l'area Brand";
+  return "Apri FunniFin";
+}
+
+function withMailActionForRole(payload, role) {
+  const next = Object.assign({}, payload);
+  if (role && role !== "client") {
+    next.actionUrl = payload.actionUrl || appUrlForRole(role);
+    next.actionLabel = payload.actionLabel || appActionLabelForRole(role);
+  } else if (role === "client") {
+    next.actionUrl = "";
+    next.actionLabel = "";
+  }
+  return next;
+}
+
+function mailDataCell(label, value, href, topBorder) {
+  var safeValue = escapeHtml(value || "-");
+  var content = href
+    ? "<a href=\"" + escapeHtml(href) + "\" style=\"color:#004f54;text-decoration:none;font-weight:800;\">" + safeValue + "</a>"
+    : safeValue;
+  return "<td width=\"50%\" style=\"width:50%;padding:10px 12px;" + (topBorder ? "border-top:1px solid #e0f2f4;" : "") + "vertical-align:top;\">" +
+    "<span style=\"display:block;margin:0 0 4px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6b8a8c;font-weight:800;\">" + escapeHtml(label) + "</span>" +
+    "<strong style=\"display:block;color:#171d1d;font-size:14px;line-height:1.35;font-weight:800;word-break:break-word;\">" + content + "</strong>" +
+  "</td>";
+}
+
+function mailDataGrid(rows) {
+  return "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border:1px solid #cce8ec;border-radius:12px;overflow:hidden;background:#ffffff;\">" +
+    rows.map(function(row, rowIndex) {
+      return "<tr>" + row.map(function(item) {
+        return mailDataCell(item.label, item.value, item.href, rowIndex > 0);
+      }).join("") + "</tr>";
+    }).join("") +
+  "</table>";
+}
+
 function buildWorkflowEmailText(payload) {
+  const copy = workflowCopy(payload);
   const workshops = (payload.workshops || [])
     .map(function (workshop) {
       return [
@@ -416,13 +504,16 @@ function buildWorkflowEmailText(payload) {
     })
     .join("\n");
   return [
-    buildWorkflowSubject(payload),
+    copy.title,
+    copy.subtitle,
     "",
     "Progetto: " + (payload.project && payload.project.company ? payload.project.company : ""),
     "Referente: " + (payload.project && payload.project.manager ? payload.project.manager : ""),
     "Email: " + (payload.project && payload.project.email ? payload.project.email : ""),
-    "Stato: " + (payload.project && payload.project.status ? payload.project.status : ""),
-    "Preventivo: " + (payload.project && payload.project.quoteTotal ? payload.project.quoteTotal : 0) + " EUR + IVA",
+    "Punto del percorso: " + (payload.project && payload.project.status ? payload.project.status : ""),
+    "Preventivo: " + formatMailMoney(payload.project && payload.project.quoteTotal ? payload.project.quoteTotal : 0) + " + IVA",
+    "",
+    copy.body,
     "",
     "Workshop:",
     workshops,
@@ -1191,7 +1282,16 @@ const ACCESS_REQUEST_HEADERS = [
   "payloadJson",
 ];
 
-const AUTH_CODE_TTL_MINUTES = 10;
+const AUTH_SESSION_HEADERS = [
+  "token",
+  "userId",
+  "email",
+  "actualRole",
+  "createdAt",
+  "expiresAt",
+  "revokedAt",
+  "payloadJson",
+];
 
 function getAuthUsersSheet() {
   const spreadsheet = getRequestsSpreadsheet();
@@ -1204,6 +1304,13 @@ function getAccessRequestsSheet() {
   const spreadsheet = getRequestsSpreadsheet();
   const sheet = getOrCreateSheet(spreadsheet, "AccessRequests", ACCESS_REQUEST_HEADERS);
   ensureHeaderRow(sheet, ACCESS_REQUEST_HEADERS);
+  return sheet;
+}
+
+function getAuthSessionsSheet() {
+  const spreadsheet = getRequestsSpreadsheet();
+  const sheet = getOrCreateSheet(spreadsheet, "AuthSessions", AUTH_SESSION_HEADERS);
+  ensureHeaderRow(sheet, AUTH_SESSION_HEADERS);
   return sheet;
 }
 
@@ -1231,7 +1338,7 @@ function listAuthUsers() {
 function listAccessRequests() {
   const sheet = getAccessRequestsSheet();
   const rows = sheet.getDataRange().getValues();
-  const requests = rows.length <= 1 ? [] : rows.slice(1).map(rowToAccessRequest).filter(Boolean).sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")));
+  const requests = rows.length <= 1 ? [] : rows.slice(1).map(rowToAccessRequest).filter(Boolean).sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""))).map(publicAccessRequest);
   return {
     ok: true,
     source: "google-sheet",
@@ -1244,6 +1351,9 @@ function requestLoginCode(payload) {
   if (!email) throw new Error("Missing email");
 
   seedAuthUsersIfNeeded();
+  if (payload.requestedRole) {
+    requireFunniFinSession(payload);
+  }
   const usersSheet = getAuthUsersSheet();
   const requestsSheet = getAccessRequestsSheet();
   const rows = usersSheet.getDataRange().getValues();
@@ -1286,12 +1396,12 @@ function requestLoginCode(payload) {
       source: "google-sheet",
       sent: true,
       pending: true,
-      request,
+      request: publicAccessRequest(request),
     };
   }
 
-  const code = buildAuthCode();
-  const expiresAt = new Date(now.getTime() + AUTH_CODE_TTL_MINUTES * 60 * 1000);
+  const existingCodeRequest = findLatestAccessRequestWithCodeByEmail(email, requestsSheet);
+  const code = existingCodeRequest && existingCodeRequest.code ? existingCodeRequest.code : buildAuthCode();
   const request = appendAccessRequest({
     email,
     requestedRole: String(payload.requestedRole || issuingUser?.actualRole || ""),
@@ -1299,7 +1409,7 @@ function requestLoginCode(payload) {
     sendMail,
     code,
     codeStatus: sendMail ? "sent" : "queued",
-    codeExpiresAt: expiresAt.toISOString(),
+    codeExpiresAt: "",
     reviewedAt: formatTimestamp(now),
     reviewedBy: String(payload.invitedBy || "FunniFin"),
     verifiedAt: "",
@@ -1324,7 +1434,7 @@ function requestLoginCode(payload) {
     source: "google-sheet",
     sent: true,
     pending: false,
-    request,
+    request: publicAccessRequest(request),
     user: issuingUser || rowToAuthUser(findAuthUserRowByEmail(email, usersSheet)) || null,
   };
 }
@@ -1337,15 +1447,15 @@ function verifyLoginCode(payload) {
 
   seedAuthUsersIfNeeded();
   const usersSheet = getAuthUsersSheet();
-  const request = findLatestAccessRequestByEmail(email, getAccessRequestsSheet());
+  const request = findAccessRequestByEmailAndCode(email, code, getAccessRequestsSheet());
   const user = rowToAuthUser(findAuthUserRowByEmail(email, usersSheet));
 
   if (!user || user.disabled) {
-    throw new Error("Codice non valido o scaduto.");
+    throw new Error("Codice non valido.");
   }
 
-  if (!request || String(request.code || "") !== code || new Date(request.codeExpiresAt || "") < new Date()) {
-    throw new Error("Codice non valido o scaduto.");
+  if (!request) {
+    throw new Error("Codice non valido.");
   }
 
   const verified = Object.assign({}, request, {
@@ -1363,6 +1473,7 @@ function verifyLoginCode(payload) {
     effectiveRole: user.actualRole,
     user: user,
   };
+  saveAuthSession(session);
 
   return {
     ok: true,
@@ -1408,10 +1519,10 @@ function reviewAccessRequest(payload) {
       };
       upsertSheetRow(usersSheet, AUTH_USER_HEADERS, invitedUser.id, authUserToRow(invitedUser));
     }
-    const code = buildAuthCode();
+    const code = next.code || buildAuthCode();
     next.code = code;
     next.codeStatus = next.sendMail === false ? "queued" : "sent";
-    next.codeExpiresAt = new Date(now.getTime() + AUTH_CODE_TTL_MINUTES * 60 * 1000).toISOString();
+    next.codeExpiresAt = "";
     if (next.sendMail !== false) {
       MailApp.sendEmail({
         to: next.email,
@@ -1434,7 +1545,7 @@ function reviewAccessRequest(payload) {
   return {
     ok: true,
     source: "google-sheet",
-    request: next,
+    request: publicAccessRequest(next),
     user: user,
     codeSent: next.status === "approved" && next.sendMail !== false,
   };
@@ -1471,6 +1582,24 @@ function findLatestAccessRequestByEmail(email, sheet) {
   return requests.sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))[0];
 }
 
+function findLatestAccessRequestWithCodeByEmail(email, sheet) {
+  const rows = sheet.getDataRange().getValues();
+  const requests = rows.length <= 1 ? [] : rows.slice(1).map(rowToAccessRequest).filter(Boolean).filter((request) => {
+    return String(request.email || "").toLowerCase() === email && String(request.code || "").trim();
+  });
+  if (!requests.length) return null;
+  return requests.sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))[0];
+}
+
+function findAccessRequestByEmailAndCode(email, code, sheet) {
+  const rows = sheet.getDataRange().getValues();
+  const requests = rows.length <= 1 ? [] : rows.slice(1).map(rowToAccessRequest).filter(Boolean).filter((request) => {
+    return String(request.email || "").toLowerCase() === email && String(request.code || "").trim() === String(code || "").trim();
+  });
+  if (!requests.length) return null;
+  return requests.sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))[0];
+}
+
 function findAuthUserRowByEmail(email, sheet) {
   const rows = sheet.getDataRange().getValues();
   const target = String(email || "").toLowerCase();
@@ -1481,6 +1610,89 @@ function findAuthUserRowByEmail(email, sheet) {
     }
   }
   return null;
+}
+
+function saveAuthSession(session) {
+  const sheet = getAuthSessionsSheet();
+  upsertSheetRow(sheet, AUTH_SESSION_HEADERS, session.token, authSessionToRow(session));
+}
+
+function authSessionToRow(session) {
+  const user = session.user || {};
+  return [
+    sheetText(session.token),
+    sheetText(session.userId),
+    sheetText(user.email || session.email || ""),
+    sheetText(user.actualRole || session.actualRole || ""),
+    sheetText(session.createdAt || ""),
+    sheetText(session.expiresAt || ""),
+    sheetText(session.revokedAt || ""),
+    sheetText(JSON.stringify(session)),
+  ];
+}
+
+function rowToAuthSession(row) {
+  try {
+    if (!row) return null;
+    const payload = row[7] ? JSON.parse(row[7]) : {};
+    return {
+      token: String(row[0] || payload.token || ""),
+      userId: String(row[1] || payload.userId || ""),
+      email: String(row[2] || payload.email || payload.user?.email || ""),
+      actualRole: String(row[3] || payload.actualRole || payload.user?.actualRole || ""),
+      createdAt: String(row[4] || payload.createdAt || ""),
+      expiresAt: String(row[5] || payload.expiresAt || ""),
+      revokedAt: String(row[6] || payload.revokedAt || ""),
+      user: payload.user,
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+function findAuthSessionByToken(token) {
+  const target = String(token || "");
+  if (!target) return null;
+  const rows = getAuthSessionsSheet().getDataRange().getValues();
+  for (let index = 1; index < rows.length; index += 1) {
+    const session = rowToAuthSession(rows[index]);
+    if (session && session.token === target) return session;
+  }
+  return null;
+}
+
+function requireFunniFinSession(source) {
+  return requireSession(source, ["FunniFin"]);
+}
+
+function requireFunniFinSessionOrSetupSecret(source) {
+  const setupSecret = PropertiesService.getScriptProperties().getProperty("SETUP_SECRET") || "";
+  const providedSecret = String((source && source.setupSecret) || "");
+  if (setupSecret && providedSecret && setupSecret === providedSecret) {
+    return { setupSecret: true };
+  }
+  return requireFunniFinSession(source);
+}
+
+function requireSession(source, allowedRoles) {
+  const token = String((source && (source.sessionToken || source.token)) || "");
+  const session = findAuthSessionByToken(token);
+  if (!session || session.revokedAt) throw new Error("Sessione non valida.");
+  if (session.expiresAt && new Date(session.expiresAt).getTime() < Date.now()) throw new Error("Sessione scaduta.");
+
+  const user = rowToAuthUser(findAuthUserRowByEmail(session.email, getAuthUsersSheet()));
+  if (!user || user.disabled) throw new Error("Utente non autorizzato.");
+  if (allowedRoles && allowedRoles.length && allowedRoles.indexOf(user.actualRole) === -1) {
+    throw new Error("Permessi insufficienti.");
+  }
+  return { session, user };
+}
+
+function publicAccessRequest(request) {
+  if (!request) return request;
+  const copy = Object.assign({}, request);
+  if (copy.code) copy.code = "";
+  return copy;
 }
 
 function findAuthUserRowById(userId, sheet) {
@@ -1627,30 +1839,43 @@ function rowToAccessRequest(row) {
 
 function buildAuthInviteText(payload) {
   return [
-    "Invito FunniFin",
+    "Il tuo accesso FunniFin è pronto",
     "",
+    `Benvenuto, ${payload.displayName || payload.email}`,
     `Ciao ${payload.displayName || payload.email},`,
-    `il tuo accesso è stato preparato per il ruolo ${payload.requestedRole || "utente"}.`,
+    `abbiamo preparato il tuo accesso${payload.requestedRole ? ` come ${payload.requestedRole}` : ""}.`,
     "",
     `Email: ${payload.email}`,
     `Codice: ${payload.code}`,
     "",
-    "Inserisci questo codice nella schermata di accesso FunniFin.",
+    "Apri FunniFin e inserisci il codice nella schermata di accesso:",
+    FUNNIFIN_SITE_URL + "#login",
   ].join("\n");
 }
 
 function buildAuthInviteHtml(payload) {
+  const displayName = escapeHtml(payload.displayName || payload.email);
+  const requestedRole = payload.requestedRole ? " come " + escapeHtml(payload.requestedRole) : "";
+  const email = escapeHtml(payload.email);
+  const code = escapeHtml(payload.code);
+  const appUrl = FUNNIFIN_SITE_URL + "#login";
   return [
-    '<div style="margin:0;padding:24px;background:#f5fafb;font-family:Nunito,Arial,sans-serif;color:#171d1d;">',
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #d4edf2;border-radius:24px;overflow:hidden;">',
-    '<tr><td style="padding:28px;background:#e8f8f9;">',
-    '<h1 style="margin:0;font-size:28px;line-height:1.1;color:#004f54;">Invito FunniFin</h1>',
-    `<p style="margin:12px 0 0;color:#444748;">Ciao ${payload.displayName || payload.email}, il tuo accesso per ${payload.requestedRole || "utente"} è pronto.</p>`,
+    '<div style="margin:0;padding:32px 16px;background:#f5fafb;font-family:Nunito,Arial,sans-serif;color:#171d1d;">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #d4edf2;border-radius:18px;overflow:hidden;box-shadow:0 14px 38px rgba(0,79,84,0.10);">',
+    '<tr><td style="padding:32px;background:#004f54;text-align:center;">',
+    `<p style="margin:0 0 8px;font-family:Caveat,cursive;font-size:38px;line-height:1;color:#1cafb9;font-weight:700;">Benvenuto, ${displayName}</p>`,
+    '<h1 style="margin:0;font-size:24px;line-height:1.18;color:#fff;">Il tuo accesso FunniFin è pronto</h1>',
+    `<p style="margin:12px auto 0;color:#c8f0f3;font-size:14px;line-height:1.6;max-width:440px;">Ciao ${displayName}, abbiamo preparato il tuo accesso${requestedRole}.</p>`,
     '</td></tr>',
     '<tr><td style="padding:24px;">',
-    `<p style="margin:0 0 12px;color:#444748;">Email: <strong>${payload.email}</strong></p>`,
-    `<div style="padding:18px;border-radius:18px;background:#fff8dd;font-size:22px;color:#004f54;font-weight:800;letter-spacing:0.15em;text-align:center;">${payload.code}</div>`,
-    '<p style="margin:12px 0 0;color:#444748;">Inserisci questo codice nella schermata di accesso FunniFin.</p>',
+    `<p style="margin:0 0 12px;color:#444748;font-size:14px;line-height:1.6;">Usa questa email per entrare: <strong>${email}</strong></p>`,
+    `<div style="padding:18px;border-radius:14px;background:#fff8dd;border:1px solid #f5cf45;font-size:24px;color:#004f54;font-weight:800;letter-spacing:0.14em;text-align:center;">${code}</div>`,
+    '<p style="margin:14px 0 0;color:#444748;font-size:14px;line-height:1.6;">Apri FunniFin e inserisci il codice nella schermata di accesso. Il codice serve solo per completare questo accesso.</p>',
+    `<p style="margin:18px 0 0;text-align:center;"><a href="${appUrl}" style="display:inline-block;padding:12px 26px;background:#004f54;color:#ffffff;border-radius:999px;font-size:14px;font-weight:800;text-decoration:none;">Apri FunniFin</a></p>`,
+    `<p style="margin:12px 0 0;color:#7b9698;font-size:12px;line-height:1.5;text-align:center;">Se il bottone non funziona, copia questo link:<br><a href="${appUrl}" style="color:#1cafb9;">${appUrl}</a></p>`,
+    '</td></tr>',
+    '<tr><td style="padding:18px 24px;background:#f8fcfc;border-top:1px solid #e0f2f4;text-align:center;">',
+    '<p style="margin:0;color:#7b9698;font-size:11px;line-height:1.6;">FunniFin Workshop Planner<br>Email di servizio inviata per gestire gli accessi.</p>',
     '</td></tr>',
     '</table>',
     '</div>',
@@ -2241,7 +2466,7 @@ function buildEventDescription(payload) {
   return [
     `Cliente: ${payload.company}`,
     `Referente: ${payload.manager} - ${payload.managerEmail} - ${payload.managerPhone}`,
-    `Preventivo: ${payload.quoteTotal} EUR + IVA`,
+    `Preventivo: ${formatMailMoney(payload.quoteTotal)} + IVA`,
     "",
     "Workshop:",
     workshops,
@@ -2271,42 +2496,58 @@ var FUNNIFIN_SITE_URL = "https://funnifin-workshop-planner.vercel.app";
 
 function emailBaseTemplate(innerRows) {
   return "<!DOCTYPE html><html lang=\"it\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>FunniFin</title></head>" +
-  "<body style=\"margin:0;padding:0;background:#f0f9fb;font-family:Nunito,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;\">" +
-  "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#f0f9fb;padding:32px 16px;\"><tr><td align=\"center\">" +
-  "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:620px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 32px rgba(0,79,84,0.10);\">" +
+  "<body style=\"margin:0;padding:0;background:#f5fafb;font-family:Nunito,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;\">" +
+  "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#f5fafb;padding:32px 16px;\"><tr><td align=\"center\">" +
+  "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:640px;background:#ffffff;border:1px solid #d4edf2;border-radius:18px;overflow:hidden;box-shadow:0 14px 38px rgba(0,79,84,0.10);\">" +
   innerRows +
   "<tr><td style=\"padding:20px 32px 24px;background:#f8fcfc;border-top:1px solid #e0f2f4;text-align:center;\">" +
-  "<p style=\"margin:0;font-size:11px;color:#9ab0b2;line-height:1.6;\">FunniFin Workshop Planner &middot; Messaggio generato automaticamente.<br>Non rispondere a questa email.</p>" +
+  "<p style=\"margin:0;font-size:11px;color:#7b9698;line-height:1.6;\">FunniFin Workshop Planner<br>Email di servizio inviata per seguire la richiesta workshop.</p>" +
   "</td></tr>" +
   "</table></td></tr></table></body></html>";
 }
 
 function buildWorkflowEmailHtml(payload) {
   const copy = workflowCopy(payload);
+  const requesterGrid = mailDataGrid([
+    [
+      { label: "Nome", value: payload.project.manager || "Referente" },
+      { label: "Azienda", value: payload.project.company || "-" },
+    ],
+    [
+      { label: "Email", value: payload.project.email || "-", href: payload.project.email ? "mailto:" + payload.project.email : "" },
+      { label: "Telefono", value: payload.project.phone || "-" },
+    ],
+    [
+      { label: "Preventivo", value: formatMailMoney(payload.project.quoteTotal) + " + IVA" },
+      { label: "Stato", value: payload.project.status || "-" },
+    ],
+  ]);
 
   const workshopRows = (payload.workshops || [])
     .map(function(w, i) {
       var borderTop = i > 0 ? "border-top:1px solid #e0f2f4;" : "";
       var expertLabel = w.expertName
-        ? "<span style=\"display:inline-block;padding:2px 10px;border-radius:20px;background:#e8f8f9;color:#004f54;font-size:11px;font-weight:700;\">" + escapeHtml(w.expertName) + "</span>"
-        : "<span style=\"color:#a0b8ba;font-size:11px;\">da assegnare</span>";
+        ? "<span style=\"display:inline-block;padding:3px 10px;border-radius:20px;background:#e8f8f9;color:#004f54;font-size:11px;font-weight:700;\">" + escapeHtml(w.expertName) + "</span>"
+        : "<span style=\"display:inline-block;padding:3px 10px;border-radius:20px;background:#f5fafb;color:#6b8a8c;font-size:11px;font-weight:700;\">in assegnazione</span>";
       return "<tr>" +
-        "<td style=\"padding:13px 16px;" + borderTop + "\">" +
-          "<strong style=\"display:block;color:#171d1d;font-size:14px;margin-bottom:3px;\">" + escapeHtml(w.title) + "</strong>" +
-          "<span style=\"color:#6b8a8c;font-size:12px;\">" + escapeHtml(w.date || "data da definire") + (w.time ? " " + escapeHtml(w.time) : "") + " &middot; " + escapeHtml(w.duration) + " &middot; " + escapeHtml(w.format) + "</span>" +
+        "<td style=\"padding:15px 16px;" + borderTop + "\">" +
+          "<strong style=\"display:block;color:#171d1d;font-size:15px;line-height:1.35;margin-bottom:6px;\">" + escapeHtml(w.title) + "</strong>" +
+          "<span style=\"display:inline-block;margin-right:6px;padding:3px 9px;border-radius:999px;background:#e8f8f9;color:#004f54;font-size:11px;font-weight:700;\">" + escapeHtml(w.duration) + "</span>" +
+          "<span style=\"display:inline-block;margin-right:6px;padding:3px 9px;border-radius:999px;background:#f5fafb;color:#5a7a7c;font-size:11px;font-weight:700;\">" + escapeHtml(w.format) + "</span>" +
+          "<span style=\"color:#6b8a8c;font-size:12px;\">" + escapeHtml(w.date || "data da concordare") + (w.time ? " &middot; " + escapeHtml(w.time) : "") + "</span>" +
         "</td>" +
-        "<td align=\"right\" style=\"padding:13px 16px;" + borderTop + "vertical-align:middle;\">" + expertLabel + "</td>" +
+        "<td align=\"right\" style=\"padding:15px 16px;" + borderTop + "vertical-align:middle;\">" + expertLabel + "</td>" +
       "</tr>";
     })
-    .join("");
+    .join("") || "<tr><td style=\"padding:15px 16px;color:#6b8a8c;font-size:13px;\">I workshop saranno aggiunti al riepilogo appena disponibili.</td></tr>";
 
   const eventBlock = payload.event && (payload.event.htmlLink || payload.event.meetLink)
     ? "<tr><td style=\"padding:0 32px 20px;\">" +
-        "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#e8f8f9;border-radius:12px;padding:16px 20px;\">" +
+        "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#e8f8f9;border:1px solid #cce8ec;border-radius:12px;padding:16px 20px;\">" +
           "<tr><td>" +
-            "<p style=\"margin:0 0 10px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1cafb9;\">Evento " + (payload.event.mode === "tentative" ? "provvisorio" : "confermato") + "</p>" +
-            (payload.event.htmlLink ? "<a href=\"" + payload.event.htmlLink + "\" style=\"display:inline-block;margin-bottom:6px;color:#004f54;font-weight:700;font-size:13px;\">&#128197; Apri in Google Calendar</a><br>" : "") +
-            (payload.event.meetLink ? "<a href=\"" + payload.event.meetLink + "\" style=\"color:#004f54;font-weight:700;font-size:13px;\">&#127909; Partecipa con Google Meet</a>" : "") +
+            "<p style=\"margin:0 0 10px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1cafb9;\">Evento " + (payload.event.mode === "tentative" ? "in attesa di conferma" : "confermato") + "</p>" +
+            (payload.event.htmlLink ? "<a href=\"" + payload.event.htmlLink + "\" style=\"display:inline-block;margin-bottom:6px;color:#004f54;font-weight:700;font-size:13px;\">Apri in Google Calendar</a><br>" : "") +
+            (payload.event.meetLink ? "<a href=\"" + payload.event.meetLink + "\" style=\"color:#004f54;font-weight:700;font-size:13px;\">Apri Google Meet</a>" : "") +
           "</td></tr>" +
         "</table>" +
       "</td></tr>"
@@ -2314,37 +2555,35 @@ function buildWorkflowEmailHtml(payload) {
 
   const ctaBlock = payload.actionUrl
     ? "<tr><td align=\"center\" style=\"padding:0 32px 24px;\">" +
-        "<a href=\"" + payload.actionUrl + "\" style=\"display:inline-block;padding:12px 28px;background:#004f54;color:#ffffff;border-radius:100px;font-size:14px;font-weight:700;text-decoration:none;\">" +
-          (payload.actionLabel || "Apri il progetto") + " &rarr;" +
+        "<a href=\"" + payload.actionUrl + "\" style=\"display:inline-block;padding:12px 26px;background:#004f54;color:#ffffff;border-radius:999px;font-size:14px;font-weight:800;text-decoration:none;\">" +
+          escapeHtml(payload.actionLabel || "Apri il progetto") +
         "</a>" +
       "</td></tr>"
     : "";
 
   var headerGradient = copy.accent === "warning"
-    ? "linear-gradient(135deg,#7a4a00 0%,#c47e00 100%)"
+    ? "#7a5c00"
     : copy.accent === "success"
-    ? "linear-gradient(135deg,#005a3a 0%,#0d9e6a 100%)"
-    : "linear-gradient(135deg,#003f44 0%,#0d8b94 100%)";
+    ? "#005a3a"
+    : "#004f54";
+  var subtitleColor = copy.accent === "warning" ? "#fff2c2" : copy.accent === "success" ? "#cdf5e6" : "#c8f0f3";
 
   var innerRows =
-    "<tr><td style=\"padding:32px 32px 24px;background:" + headerGradient + ";text-align:center;\">" +
-      "<img src=\"" + FUNNIFIN_LOGO_URL + "\" alt=\"FunniFin\" height=\"44\" style=\"display:block;margin:0 auto 20px;max-width:160px;object-fit:contain;\" />" +
-      "<h1 style=\"margin:0 0 8px;font-size:22px;line-height:1.2;color:#ffffff;font-weight:800;\">" + escapeHtml(copy.title) + "</h1>" +
-      "<p style=\"margin:0;color:#a0dde4;font-size:14px;\">" + escapeHtml(copy.subtitle) + "</p>" +
+    "<tr><td style=\"padding:32px 32px 26px;background:" + headerGradient + ";text-align:center;\">" +
+      "<img src=\"" + FUNNIFIN_LOGO_URL + "\" alt=\"FunniFin\" height=\"44\" style=\"display:block;margin:0 auto 18px;max-width:160px;object-fit:contain;\" />" +
+      "<h1 style=\"margin:0 0 10px;font-size:24px;line-height:1.18;color:#ffffff;font-weight:800;\">" + escapeHtml(copy.title) + "</h1>" +
+      "<p style=\"margin:0 auto;color:" + subtitleColor + ";font-size:14px;line-height:1.6;max-width:440px;\">" + escapeHtml(copy.subtitle) + "</p>" +
     "</td></tr>" +
 
-    "<tr><td style=\"padding:24px 32px 0;\">" +
-      "<p style=\"margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1cafb9;\">Progetto</p>" +
-      "<p style=\"margin:0 0 6px;font-size:16px;font-weight:800;color:#004f54;\">" + escapeHtml(payload.project.company) + "</p>" +
-      "<p style=\"margin:0;font-size:13px;color:#5a7a7c;line-height:1.6;\">" +
-        "Referente: " + escapeHtml(payload.project.manager) + " &middot; <a href=\"mailto:" + escapeHtml(payload.project.email) + "\" style=\"color:#1cafb9;\">" + escapeHtml(payload.project.email) + "</a><br>" +
-        "Preventivo: <strong style=\"color:#004f54;\">" + escapeHtml(String(payload.project.quoteTotal)) + " EUR + IVA</strong>" +
-      "</p>" +
+    "<tr><td style=\"padding:26px 32px 0;\">" +
+      "<p style=\"margin:0 0 10px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1cafb9;\">Dati richiedente</p>" +
+      requesterGrid +
     "</td></tr>" +
 
     "<tr><td style=\"padding:16px 32px 0;\">" +
-      "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#fff8e1;border-radius:12px;padding:14px 18px;\">" +
+      "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#fff8dd;border:1px solid #f5cf45;border-radius:12px;padding:16px 20px;\">" +
         "<tr><td style=\"font-size:13px;color:#5a5200;line-height:1.7;\">" +
+          "<strong style=\"display:block;margin-bottom:6px;color:#7a5c00;\">Cosa succede ora</strong>" +
           escapeHtml(copy.body) +
           (payload.note ? "<br><br><strong>Nota:</strong> " + escapeHtml(payload.note) : "") +
         "</td></tr>" +
@@ -2352,8 +2591,8 @@ function buildWorkflowEmailHtml(payload) {
     "</td></tr>" +
 
     "<tr><td style=\"padding:16px 32px " + (ctaBlock || eventBlock ? "0" : "28px") + ";\">" +
-      "<p style=\"margin:0 0 10px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1cafb9;\">Workshop</p>" +
-      "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border:1.5px solid #cce8ec;border-radius:12px;overflow:hidden;background:#f8fcfc;\">" +
+      "<p style=\"margin:0 0 10px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1cafb9;\">Workshop collegati</p>" +
+      "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border:1px solid #cce8ec;border-radius:12px;overflow:hidden;background:#ffffff;\">" +
         workshopRows +
       "</table>" +
     "</td></tr>" +
@@ -2368,62 +2607,62 @@ function workflowCopy(payload) {
   var map = {
     request_received: {
       title: "Richiesta ricevuta",
-      subtitle: "FunniFin ha preso in carico la richiesta di workshop.",
-      body: "Il team verificherà workshop, preventivo, date e fattibilità operativa. Riceverai aggiornamenti a ogni avanzamento del progetto.",
+      subtitle: "Abbiamo preso in carico la richiesta di workshop.",
+      body: "Verifichiamo workshop, preventivo e date proposte. Se manca qualcosa, ti scriviamo noi; altrimenti riceverai il prossimo aggiornamento appena il percorso avanza.",
       accent: "default",
     },
     request_updated: {
       title: "Richiesta aggiornata",
-      subtitle: "La configurazione operativa è stata modificata.",
-      body: "Workshop, date o preventivo sono stati aggiornati dal team FunniFin. Trovi la versione attuale qui sotto.",
+      subtitle: "Abbiamo aggiornato il riepilogo del percorso.",
+      body: "Workshop, date o preventivo sono stati ritoccati dal team FunniFin. Qui sotto trovi la versione più recente da tenere come riferimento.",
       accent: "default",
     },
     dates_approved: {
-      title: "Date approvate ✓",
-      subtitle: "Le date proposte sono state validate dal team.",
-      body: "Il progetto avanza verso la selezione degli esperti. Riceverai una notifica non appena l'esperto sarà assegnato.",
+      title: "Date approvate",
+      subtitle: "Le date proposte vanno bene.",
+      body: "Possiamo passare alla scelta degli esperti più adatti. Ti aggiorniamo quando avremo completato l'assegnazione.",
       accent: "success",
     },
     date_change_requested: {
-      title: "Modifica date richiesta",
-      subtitle: "Una o più date richiedono una nuova proposta.",
-      body: "FunniFin ha richiesto una variazione prima di aprire le candidature agli esperti. Contatta il tuo referente per concordare le nuove date.",
+      title: "Serve una nuova data",
+      subtitle: "Una o più date non sono disponibili.",
+      body: "Prima di andare avanti abbiamo bisogno di una nuova proposta di data o fascia oraria. Il referente FunniFin ti aiuta a trovare l'opzione migliore.",
       accent: "warning",
     },
     candidacies_open: {
-      title: "Selezione esperti avviata",
-      subtitle: "Gli esperti compatibili sono stati invitati a candidarsi.",
-      body: "FunniFin raccoglierà le disponibilità e ti notificherà non appena l'esperto sarà assegnato.",
+      title: "Stiamo scegliendo gli esperti",
+      subtitle: "Gli esperti compatibili possono confermare disponibilità e interesse.",
+      body: "Raccogliamo le disponibilità e abbiniamo ogni workshop alla persona più adatta. Ti avvisiamo appena l'assegnazione è pronta.",
       accent: "default",
     },
     expert_assigned: {
-      title: "Esperto assegnato ✓",
-      subtitle: "Il workshop ha un esperto incaricato.",
-      body: "L'esperto riceverà date, brief cliente e materiali necessari alla preparazione. Ti aggiorneremo quando il materiale sarà pronto per la revisione.",
+      title: "Esperto assegnato",
+      subtitle: "Il workshop ha una persona incaricata.",
+      body: "L'esperto riceve date, brief e materiali utili alla preparazione. Il prossimo passaggio è la revisione dei contenuti.",
       accent: "success",
     },
     brand_review: {
-      title: "Revisione brand avviata",
-      subtitle: "Il materiale è in fase di controllo qualità.",
-      body: "Il team brand/design può revisionare, richiedere modifiche o approvare la versione del deck. Ti notificheremo al termine della revisione.",
+      title: "Materiali in revisione",
+      subtitle: "Il deck passa al controllo brand.",
+      body: "Il team brand verifica tono, impaginazione e coerenza dei materiali. Se servono ritocchi li raccogliamo prima della conferma finale.",
       accent: "default",
     },
     final_approval: {
       title: "Approvazione finale",
-      subtitle: "La versione finale è pronta per il controllo conclusivo.",
-      body: "FunniFin e il cliente possono ora validare la versione finale prima della conferma dell'evento. Contattaci per qualsiasi richiesta di modifica.",
+      subtitle: "La versione finale è pronta per l'ultimo controllo.",
+      body: "Prima della conferma a calendario puoi fare l'ultimo giro di verifica. Se qualcosa non torna, segnaliamolo ora così lo sistemiamo prima dell'evento.",
       accent: "default",
     },
     event_tentative: {
-      title: "Evento provvisorio creato",
+      title: "Evento creato in bozza",
       subtitle: "La data è stata bloccata a calendario.",
-      body: "L'evento è stato creato come provvisorio. Resta in attesa della conferma finale — ti invieremo l'aggiornamento non appena l'evento sarà confermato.",
+      body: "Abbiamo creato un evento provvisorio per tenere libera la data. La conferma definitiva arriverà dopo l'ultimo controllo sui materiali.",
       accent: "default",
     },
     event_confirmed: {
-      title: "Evento confermato 🎉",
+      title: "Evento confermato",
       subtitle: "Il workshop è ufficialmente confermato a calendario.",
-      body: "L'evento include tutti gli invitati, il link Meet e i riferimenti ai materiali. Ci vediamo presto!",
+      body: "L'invito contiene data, partecipanti, link Meet se previsto e riferimenti ai materiali. Ora il workshop è pronto per essere svolto.",
       accent: "success",
     },
   };

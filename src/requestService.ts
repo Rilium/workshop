@@ -1,4 +1,5 @@
 import { SECRET_SETTINGS } from "./secretSettings";
+import { allowLocalFallbacks, appendSessionParams, withSessionPayload } from "./authTransport";
 
 export type RequestProjectStatus =
   | "draft_cliente"
@@ -178,6 +179,7 @@ export async function createWorkshopRequest(payload: CreateWorkshopRequestPayloa
     const result = await postAppsScript<{ request: WorkshopRequestRecord }>(body);
     return result.request;
   } catch (error) {
+    if (!allowLocalFallbacks()) throw error;
     await postAppsScriptOpaque(body).catch(() => {});
     return buildRequestRecord(id, payload);
   }
@@ -189,6 +191,7 @@ export async function listWorkshopRequests(): Promise<WorkshopRequestRecord[]> {
 
   const url = new URL(scriptUrl);
   url.searchParams.set("action", "listWorkshopRequests");
+  appendSessionParams(url);
 
   try {
     const response = await fetch(url.toString());
@@ -209,7 +212,7 @@ export async function updateWorkshopRequest(
 ): Promise<WorkshopRequestRecord> {
   const result = await postAppsScript<{ request: WorkshopRequestRecord }>({
     action: "updateWorkshopRequest",
-    payload: { requestId, patch, event },
+    payload: withSessionPayload({ requestId, patch, event }),
   });
   return result.request;
 }

@@ -172,12 +172,30 @@ function AppInner() {
   };
 
   useEffect(() => {
-    if (window.location.hash === "#esperto-candidature") {
-      if (currentUser?.actualRole === "Esperto") {
-        window.scrollTo({ top: 0, behavior: "smooth" });
+    const handleHashIntent = () => {
+      const hash = window.location.hash;
+      const reservedHash = hash === "#login" || hash === "#funnifin" || hash === "#brand" || hash === "#esperto-candidature";
+      if (!currentUser && reservedHash) {
+        setShowLogin(true);
+        return;
       }
-    }
-  }, [currentUser]);
+      if (!currentUser) return;
+      if (currentUser.actualRole === "FunniFin") {
+        if (hash === "#funnifin" && role !== "FunniFin") switchEffectiveRole("FunniFin");
+        if (hash === "#brand") {
+          if (role !== "Brand") switchEffectiveRole("Brand");
+          setBrandFilter("Revisioni");
+        }
+        if (hash === "#esperto-candidature" && role !== "Esperto") switchEffectiveRole("Esperto");
+      }
+      if (hash === "#brand" && currentUser.actualRole === "Brand") setBrandFilter("Revisioni");
+      if (hash === "#esperto-candidature") window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    handleHashIntent();
+    window.addEventListener("hashchange", handleHashIntent);
+    return () => window.removeEventListener("hashchange", handleHashIntent);
+  }, [currentUser, role, switchEffectiveRole]);
 
   useEffect(() => {
     if (!loading && currentUser && showLogin) {

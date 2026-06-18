@@ -3,7 +3,7 @@
  *
  * Login invite-only gestito da FunniFin:
  * - invito/credenziali scritti su Google Sheet via Apps Script
- * - codice OTP generato dal backend
+ * - codice di accesso generato dal backend
  * - sessione persistita in localStorage
  *
  * In assenza del backend Google, mantiene un fallback locale per non bloccare la UI.
@@ -11,6 +11,7 @@
 import type { AuthRole, AuthSession, AuthUser, AccessRequest } from "./types/auth";
 import type { Role } from "./types/domain";
 import { SECRET_SETTINGS } from "./secretSettings";
+import { AUTH_SESSION_KEY, allowLocalFallbacks, appendSessionParams, withSessionPayload } from "./authTransport";
 
 export type RequestLoginCodeOptions = {
   sendMail?: boolean;
@@ -91,11 +92,8 @@ export const SEED_USERS: AuthUser[] = [
 ];
 
 const NOTIFICATION_ONLY_EMAILS = ["rinaldi.rilio+1@gmail.com", "rinaldi.rilio+2@gmail.com"];
-const SESSION_KEY = "funnifin_auth_session";
 const SESSION_DURATION_MS = 365 * 24 * 60 * 60 * 1000;
-const DEFAULT_CODE_TTL_MS = 10 * 60 * 1000;
 
-const pendingOtps = new Map<string, { otp: string; expiresAt: number }>();
 const localAuthUsers = new Map<string, AuthUser>(SEED_USERS.map((user) => [user.email.toLowerCase(), user]));
 const localAccessRequests = new Map<string, AccessRequest>();
 
@@ -123,6 +121,7 @@ async function getAppsScript<T>(action: string, params?: Record<string, string>)
 
   const url = new URL(scriptUrl);
   url.searchParams.set("action", action);
+  appendSessionParams(url);
   Object.entries(params ?? {}).forEach(([key, value]) => {
     url.searchParams.set(key, value);
   });
@@ -147,7 +146,12 @@ async function postAppsScript<T>(action: string, payload: unknown): Promise<T | 
     const response = await fetch(scriptUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action, payload }),
+      body: JSON.stringify({
+        action,
+        payload: payload && typeof payload === "object" && !Array.isArray(payload)
+          ? withSessionPayload(payload as Record<string, unknown>)
+          : payload,
+      }),
     });
     if (!response.ok) throw new Error(`Salvataggio ${action} non riuscito`);
     const result = (await response.json().catch(() => null)) as ScriptResponse<T> | null;
@@ -180,7 +184,7 @@ function buildSession(user: AuthUser, previousRole?: Role | null): AuthSession {
 }
 
 function storeSession(session: AuthSession) {
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
 }
 
 function upsertLocalAccessRequest(request: AccessRequest) {
@@ -245,16 +249,15 @@ function localRequestLoginCode(email: string, options: RequestLoginCodeOptions):
   const issuingUser = findLocalUserByEmail(normalizedEmail);
 
   if (canIssueCode || options.requestedRole) {
-    const otp = buildLocalCode();
-    const expiresAt = Date.now() + DEFAULT_CODE_TTL_MS;
-    pendingOtps.set(normalizedEmail, { otp, expiresAt });
+    const existingRequest = getLatestLocalAccessRequest(normalizedEmail);
+    const reusableCode = existingRequest?.status === "approved" && existingRequest.code ? existingRequest.code : buildLocalCode();
     const request = buildLocalAccessRequest(normalizedEmail, {
       status: "approved",
       sendMail,
       requestedRole: options.requestedRole || issuingUser?.actualRole,
-      code: otp,
+      code: reusableCode,
       codeStatus: sendMail ? "sent" : "queued",
-      codeExpiresAt: new Date(expiresAt).toISOString(),
+      codeExpiresAt: "",
       reviewedAt: new Date().toISOString(),
       reviewedBy: options.invitedBy || "FunniFin",
       refCode: options.refCode,
@@ -282,26 +285,22 @@ function localRequestLoginCode(email: string, options: RequestLoginCodeOptions):
 
 function localVerifyLoginCode(email: string, code: string): AuthSession {
   const normalizedEmail = normalizeEmail(email);
-  const entry = pendingOtps.get(normalizedEmail);
   const user = findLocalUserByEmail(normalizedEmail);
+  const request = getLatestLocalAccessRequest(normalizedEmail);
 
   if (!user || user.disabled) {
-    throw new Error("Codice non valido o scaduto.");
+    throw new Error("Codice non valido.");
   }
 
-  if (!entry || entry.otp !== code.trim() || Date.now() > entry.expiresAt) {
-    throw new Error("Codice non valido o scaduto.");
+  if (!request || String(request.code || "").trim() !== code.trim()) {
+    throw new Error("Codice non valido.");
   }
 
-  pendingOtps.delete(normalizedEmail);
-  const request = getLatestLocalAccessRequest(normalizedEmail);
-  if (request) {
-    upsertLocalAccessRequest({
-      ...request,
-      codeStatus: "verified",
-      verifiedAt: new Date().toISOString(),
-    });
-  }
+  upsertLocalAccessRequest({
+    ...request,
+    codeStatus: "verified",
+    verifiedAt: new Date().toISOString(),
+  });
 
   const session = buildSession(user);
   storeSession(session);
@@ -334,10 +333,8 @@ function localReviewAccessRequest(requestId: string, options: ReviewAccessReques
         disabled: false,
       });
     }
-    const otp = buildLocalCode();
-    next.code = otp;
-    next.codeExpiresAt = new Date(Date.now() + DEFAULT_CODE_TTL_MS).toISOString();
-    pendingOtps.set(normalizeEmail(next.email), { otp, expiresAt: Date.now() + DEFAULT_CODE_TTL_MS });
+    next.code = next.code || buildLocalCode();
+    next.codeExpiresAt = "";
   } else {
     next.code = "";
     next.codeExpiresAt = "";
@@ -361,10 +358,12 @@ export async function requestLoginCode(email: string, options: RequestLoginCodeO
       ...options,
     });
     if (result) return result;
-  } catch {
+  } catch (error) {
+    if (!allowLocalFallbacks()) throw error;
     // fallback locale sotto
   }
 
+  if (!allowLocalFallbacks()) throw new Error("Backend auth non configurato.");
   return localRequestLoginCode(normalizedEmail, options);
 }
 
@@ -385,9 +384,10 @@ export async function verifyLoginCode(email: string, code: string): Promise<Auth
       storeSession(result.session);
       return result.session;
     }
-    throw new Error("Codice non valido o scaduto.");
+    throw new Error("Codice non valido.");
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
+    if (!allowLocalFallbacks()) throw error;
     if (/connessione google/i.test(message)) {
       return localVerifyLoginCode(normalizedEmail, code);
     }
@@ -407,10 +407,12 @@ export async function reviewAccessRequest(
       ...options,
     });
     if (result) return result;
-  } catch {
+  } catch (error) {
+    if (!allowLocalFallbacks()) throw error;
     // fallback locale
   }
 
+  if (!allowLocalFallbacks()) throw new Error("Backend auth non configurato.");
   return localReviewAccessRequest(requestId, options);
 }
 
@@ -418,7 +420,8 @@ export async function listAuthUsers(): Promise<AuthUser[]> {
   try {
     const result = await getAppsScript<{ users?: AuthUser[] }>("listAuthUsers");
     return result?.users ?? [...localAuthUsers.values()];
-  } catch {
+  } catch (error) {
+    if (!allowLocalFallbacks()) throw error;
     return [...localAuthUsers.values()];
   }
 }
@@ -427,7 +430,8 @@ export async function listAccessRequests(): Promise<AccessRequest[]> {
   try {
     const result = await getAppsScript<{ requests?: AccessRequest[] }>("listAccessRequests");
     return result?.requests ?? Array.from(localAccessRequests.values());
-  } catch {
+  } catch (error) {
+    if (!allowLocalFallbacks()) throw error;
     return Array.from(localAccessRequests.values());
   }
 }
@@ -460,20 +464,22 @@ export async function updateAuthUser(userId: string, patch: UpdateAuthUserOption
       ...patch,
     });
     if (result?.user) return result;
-  } catch {
+  } catch (error) {
+    if (!allowLocalFallbacks()) throw error;
     // fallback locale
   }
 
+  if (!allowLocalFallbacks()) throw new Error("Backend auth non configurato.");
   return localUpdateAuthUser(userId, patch);
 }
 
 export function getStoredSession(): AuthSession | null {
   try {
-    const raw = localStorage.getItem(SESSION_KEY);
+    const raw = localStorage.getItem(AUTH_SESSION_KEY);
     if (!raw) return null;
     const session: AuthSession = JSON.parse(raw);
     if (new Date(session.expiresAt) < new Date()) {
-      localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(AUTH_SESSION_KEY);
       return null;
     }
     return session;
@@ -486,7 +492,7 @@ export function setSessionEffectiveRole(role: Role): void {
   const session = getStoredSession();
   if (!session) return;
   const updated: AuthSession = { ...session, effectiveRole: role };
-  localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
+  localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(updated));
 }
 
 export function getUserFromSession(session: AuthSession): AuthUser | null {
@@ -495,5 +501,5 @@ export function getUserFromSession(session: AuthSession): AuthUser | null {
 }
 
 export function logout(): void {
-  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(AUTH_SESSION_KEY);
 }

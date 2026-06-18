@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test:e2e": "node tests/e2e/funnifin-smoke.mjs",
     "preview": "vite preview",
     "google:seed": "node google-workspace/seed-google-admin.mjs",
     "clasp:login": "clasp login",
@@ -13,7 +14,7 @@
     "clasp:push": "clasp push",
     "clasp:push:force": "clasp push --force",
     "clasp:deploy": "clasp deploy",
-    "clasp:deploy:live": "clasp deploy -i AKfycbwXQMSe_qXk_PwnK55oA0K-qEGmAjDkrqdBavgF_pi2LfKWiEx0e1t__iIiS4Xt5KVL -d \"Update FunniFin backend\""
+    "clasp:deploy:live": "clasp redeploy AKfycbzmHPssNXvYq18YFNaCAPtHLc9NI3FFF3Ulvjrb6fQFQa2A75t12sADrZqxCfPXGZLu -d \"Update FunniFin backend\""
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",

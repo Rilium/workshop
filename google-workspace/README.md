@@ -13,6 +13,7 @@
    - `REQUEST_SPREADSHEET_ID`: opzionale. Se non lo imposti, lo script usa lo spreadsheet creato per il progetto: `1g0BWyyVw6Fz5krVc1Edd-iTlmYS2CQVUdMgk78veBPs`.
    - `EXPERT_CALENDAR_IDS`: lista separata da virgole degli ID calendario esperti.
    - `INTERNAL_RECIPIENT`: `rinaldi.rilio@gmail.com`.
+   - `SETUP_SECRET`: stringa privata usata solo da `npm run google:seed` per il seed iniziale senza sessione browser.
 6. Deploy > New deployment > Web app:
    - Execute as: **Me**.
    - Who has access: **Anyone with the link** per test, oppure dominio Workspace quando disponibile.
@@ -25,6 +26,9 @@ Imposta almeno:
 
 ```bash
 VITE_APPS_SCRIPT_DEPLOYMENT_URL=https://script.google.com/macros/s/XXX/exec
+VITE_ALLOW_LOCAL_FALLBACKS=false
+VITE_STRICT_GOOGLE_BACKEND=true
+ADMIN_SETUP_SECRET=stesso-valore-di-SETUP_SECRET
 VITE_FUNNIFIN_CALENDAR_ID=c3ee95ee617eaacb9155f9c0deff2e226eb78f1c2ab2dca6a972523682928da1@group.calendar.google.com
 VITE_SLIDES_TEMPLATE_FOLDER_ID=1KAI-xet3nfj15gv9fdRNS4Gg0DPI8tJG
 ```
@@ -48,22 +52,24 @@ Poi redeploy.
   - Brand: `rinaldi.rilio+4@gmail.com`
 - FunniFin: la conferma evento puo creare un evento Calendar `provvisorio` o `definitivo`; il titolo diventa `[PROVVISORIO] ...` o `[CONFERMATO] ...`.
 
-Per controllare che lo script veda i calendari, apri:
+Le azioni admin ora richiedono una sessione FunniFin valida. Per testarle a mano prendi `sessionToken` dal localStorage dopo il login FunniFin e aggiungilo alla query.
+
+Per controllare che lo script veda i calendari:
 
 ```text
-https://script.google.com/macros/s/XXX/exec?action=calendarLookup&all=1
+https://script.google.com/macros/s/XXX/exec?action=calendarLookup&all=1&sessionToken=TOKEN
 ```
 
 Per controllare che legga la cartella presentazioni:
 
 ```text
-https://script.google.com/macros/s/XXX/exec?action=driveFolder&folderId=1KAI-xet3nfj15gv9fdRNS4Gg0DPI8tJG
+https://script.google.com/macros/s/XXX/exec?action=driveFolder&folderId=1KAI-xet3nfj15gv9fdRNS4Gg0DPI8tJG&sessionToken=TOKEN
 ```
 
 Per controllare il registro richieste:
 
 ```text
-https://script.google.com/macros/s/XXX/exec?action=listWorkshopRequests
+https://script.google.com/macros/s/XXX/exec?action=listWorkshopRequests&sessionToken=TOKEN
 ```
 
 Per creare nella root vuota le sottocartelle operative, fai una POST allo stesso URL con:
@@ -72,6 +78,7 @@ Per creare nella root vuota le sottocartelle operative, fai una POST allo stesso
 {
   "action": "ensurePresentationStructure",
   "payload": {
+    "sessionToken": "TOKEN",
     "folderId": "1KAI-xet3nfj15gv9fdRNS4Gg0DPI8tJG"
   }
 }
@@ -81,7 +88,7 @@ Google raccomanda di creare un Meet univoco per ogni evento tramite `conferenceD
 
 ## Seed iniziale admin
 
-Dopo aver caricato `apps-script/Code.gs` e creato un nuovo deploy Apps Script, popola o riallinea tutti i fogli operativi con:
+Dopo aver caricato `apps-script/Code.gs`, impostato `SETUP_SECRET` nelle Script properties e creato un nuovo deploy Apps Script, popola o riallinea tutti i fogli operativi con:
 
 ```bash
 npm run google:seed

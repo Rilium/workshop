@@ -104,7 +104,7 @@ export function LoginView({ onClose }: { onClose?: () => void }) {
           <form className="login-form" onSubmit={handleCodeSubmit}>
             {info && <p className="login-info">{info}</p>}
             <p className="login-description">
-              Inserisci il codice di accesso per <strong>{email}</strong>.
+              Inserisci il codice di accesso gia ricevuto per <strong>{email}</strong>.
             </p>
             <label className="login-label" htmlFor="login-code">
               <ShieldCheck size={16} />
@@ -153,11 +153,8 @@ export function LoginView({ onClose }: { onClose?: () => void }) {
               disabled={resending}
             >
               <RefreshCw size={13} />
-              {resending ? "Invio…" : "Non hai il codice? Richiedine uno nuovo"}
+              {resending ? "Invio…" : "Non hai il codice? Invialo via email"}
             </button>
-            <p className="login-dev-hint">
-              <em>Phase 1 – codice demo: <strong>123456</strong></em>
-            </p>
           </form>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { SECRET_SETTINGS } from "./secretSettings";
+import { appendSessionParams, withSessionPayload } from "./authTransport";
 
 export type CatalogTopicConfig = {
   id: string;
@@ -114,6 +115,7 @@ async function getAppsScript<T>(action: string, params?: Record<string, string>)
 
   const url = new URL(scriptUrl);
   url.searchParams.set("action", action);
+  appendSessionParams(url);
   Object.entries(params ?? {}).forEach(([key, value]) => {
     url.searchParams.set(key, value);
   });
@@ -138,7 +140,12 @@ async function postAppsScript<T>(action: string, payload: unknown): Promise<T> {
     const response = await fetch(scriptUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action, payload }),
+      body: JSON.stringify({
+        action,
+        payload: payload && typeof payload === "object" && !Array.isArray(payload)
+          ? withSessionPayload(payload as Record<string, unknown>)
+          : payload,
+      }),
     });
     if (!response.ok) throw new Error(`Salvataggio ${action} non riuscito`);
     const result = (await response.json().catch(() => null)) as (T & { ok?: boolean; error?: string }) | null;

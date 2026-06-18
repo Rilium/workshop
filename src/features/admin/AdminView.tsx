@@ -66,10 +66,10 @@ import { AdminFlowStepper } from "./components/AdminFlowStepper";
 import { AdminSectionNav } from "./components/AdminSectionNav";
 import { CatalogEditModal } from "./components/CatalogEditModal";
 import { ExpertProfileModal } from "./components/ExpertProfileModal";
+import { readCachedGoogleHealth, writeCachedGoogleHealth } from "./adminHealthCache";
 import { getWorkshopSelectionPrice } from "../../utils/workshop";
 import { updateAuthUser } from "../../authService";
 
-const GOOGLE_HEALTH_CACHE_KEY = "funnifin.googleHealth.v1";
 type AdminQueueFilter = "tutti" | "oggi" | "da-fissare" | "produzione" | "in-calendario" | "chiusi";
 type QueueCardTone = "neutral" | "today" | "late" | "soon" | "calendar" | "closed";
 
@@ -103,24 +103,6 @@ function formatQueueDate(date: Date | null, now = new Date()) {
   const label = new Intl.DateTimeFormat("it-IT", { weekday: "short", day: "numeric", month: "short" }).format(date);
   const distance = dayOffset < 0 ? `${Math.abs(dayOffset)} gg fa` : `tra ${dayOffset} gg`;
   return { label, distance, dayOffset };
-}
-
-function readCachedGoogleHealth() {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(GOOGLE_HEALTH_CACHE_KEY);
-    if (!raw) return null;
-    const health = JSON.parse(raw) as GoogleHealth;
-    return health?.source === "google-workspace" && health.spreadsheet?.id ? { ...health, cached: true } : null;
-  } catch (error) {
-    window.localStorage.removeItem(GOOGLE_HEALTH_CACHE_KEY);
-    return null;
-  }
-}
-
-function writeCachedGoogleHealth(health: GoogleHealth | null) {
-  if (typeof window === "undefined" || !health) return;
-  window.localStorage.setItem(GOOGLE_HEALTH_CACHE_KEY, JSON.stringify(health));
 }
 
 export function AdminView({
@@ -799,7 +781,6 @@ export function AdminView({
     choice: NotificationChoice,
     event?: WorkflowNotificationPayload["event"],
   ) => {
-    if (phase !== "event_confirmed") return;
     if (!choice.send || choice.recipients.length === 0) return;
     try {
       const result = await sendWorkflowNotification({
@@ -1024,8 +1005,8 @@ export function AdminView({
         eventMode === "tentative" ? "Evento provvisorio creato" : "Evento confermato",
         `Evento ${eventRecord.id} creato con Meet${eventMode === "confirmed" && calendarDeckUrl ? " e link deck finale" : ""}.`,
       );
-      if (choice && eventMode === "confirmed") {
-        await sendPhaseNotification("event_confirmed", choice, {
+      if (choice) {
+        await sendPhaseNotification(eventMode === "tentative" ? "event_tentative" : "event_confirmed", choice, {
           mode: eventMode,
           id: eventRecord.id,
           htmlLink: eventRecord.htmlLink,
@@ -2728,7 +2709,7 @@ export function AdminView({
                     </li>
                     <li>
                       <Check size={16} />
-                      <span>{authModalMode === "create" ? "Codice OTP generato da FunniFin" : "Modifiche immediatamente salvate"}</span>
+                      <span>{authModalMode === "create" ? "Codice di accesso generato da FunniFin" : "Modifiche immediatamente salvate"}</span>
                     </li>
                     <li>
                       <Check size={16} />

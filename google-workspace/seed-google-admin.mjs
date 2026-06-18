@@ -19,14 +19,17 @@ const env = Object.fromEntries(
 
 const scriptUrl = env.VITE_APPS_SCRIPT_DEPLOYMENT_URL;
 if (!scriptUrl) throw new Error("Missing VITE_APPS_SCRIPT_DEPLOYMENT_URL");
+const setupSecret = env.ADMIN_SETUP_SECRET || env.VITE_ADMIN_SETUP_SECRET || "";
+if (!setupSecret) throw new Error("Missing ADMIN_SETUP_SECRET or VITE_ADMIN_SETUP_SECRET");
 
-const appSource = fs.readFileSync("src/App.tsx", "utf8");
-const topicsLiteral = appSource.match(/const topics: Topic\[\] = (\[[\s\S]*?\n\]);/)?.[1];
-const rulesLiteral = appSource.match(/const initialRules: PricingRule\[\] = (\[[\s\S]*?\n\]);/)?.[1];
-const expertsLiteral = appSource.match(/const experts = (\[[\s\S]*?\n\]);/)?.[1];
-const workshopsLiteral = appSource.match(/const workshops: Workshop\[\] = (\[[\s\S]*?\n\]);/)?.[1];
+const catalogSource = fs.readFileSync("src/data/catalog.ts", "utf8");
+const pricingSource = fs.readFileSync("src/data/pricing.ts", "utf8");
+const topicsLiteral = catalogSource.match(/export const topics: Topic\[\] = (\[[\s\S]*?\n\]);/)?.[1];
+const rulesLiteral = pricingSource.match(/export const initialRules: PricingRule\[\] = (\[[\s\S]*?\n\]);/)?.[1];
+const expertsLiteral = catalogSource.match(/export const experts = (\[[\s\S]*?\n\]);/)?.[1];
+const workshopsLiteral = catalogSource.match(/export const workshops: Workshop\[\] = (\[[\s\S]*?\n\]);/)?.[1];
 if (!topicsLiteral || !rulesLiteral || !expertsLiteral || !workshopsLiteral) {
-  throw new Error("Cannot parse seed data from src/App.tsx");
+  throw new Error("Cannot parse seed data from src/data");
 }
 
 const topics = Function(`return ${topicsLiteral};`)();
@@ -119,6 +122,7 @@ const settings = [
 ];
 
 const seed = await post("seedAdminConfig", {
+  setupSecret,
   catalogTopics: topics.map((topic) => ({
     id: topic.id,
     title: topic.title,
