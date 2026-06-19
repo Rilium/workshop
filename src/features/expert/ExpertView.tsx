@@ -542,7 +542,9 @@ export function ExpertView({
               {expertDeckError && <em>{expertDeckError}</em>}
               <div className="expert-upload-actions">
                 <label className={`app-btn app-btn-secondary asset-upload-trigger ${expertDeckUploading ? "app-btn-loading" : ""}`} aria-busy={expertDeckUploading || undefined}>
-                  {expertDeckUploading && <Loader2 className="app-btn-spinner" size={16} aria-hidden="true" />}
+                  <span className="app-btn-icon-slot" aria-hidden={!expertDeckUploading}>
+                    {expertDeckUploading ? <Loader2 className="app-btn-spinner" size={16} aria-hidden="true" /> : <span className="app-btn-spinner-placeholder" />}
+                  </span>
                   Carica file
                   <input
                     className="asset-file-input"

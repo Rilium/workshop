@@ -2664,7 +2664,9 @@ export function AdminView({
                 }));
               }}
               onClose={() => setCatalogModalTopicId(null)}
+              saving={catalogSaving}
               onSave={() => {
+                setCatalogSaving(true);
                 const draft = catalogEdits[catalogModalTopicId];
                 void updateCatalogTopic({
                   id: catalogModalTopicId,
@@ -2690,7 +2692,8 @@ export function AdminView({
                   .catch((error) => {
                     notify("Catalogo non salvato", error instanceof Error ? error.message : "Google Sheets non disponibile.");
                     setCatalogModalTopicId(null);
-                  });
+                  })
+                  .finally(() => setCatalogSaving(false));
               }}
             />
           )}
@@ -2870,6 +2873,8 @@ export function AdminView({
               onDelete={() => deleteExpertProfile(selectedExpertProfile.id)}
               onChange={(patch) => updateExpertProfile(selectedExpertProfile.id, patch)}
               onSave={() => saveExpertProfile(selectedExpertProfile)}
+              saving={expertProfileSaving}
+              deleting={expertProfileDeleting}
             />
           )}
         </>

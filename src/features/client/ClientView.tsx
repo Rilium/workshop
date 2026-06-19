@@ -968,7 +968,9 @@ export function ClientView({
                   event.target.value = "";
                 }}
               />
-              {uploadingAssets && <Loader2 className="app-btn-spinner" size={16} aria-hidden="true" />}
+              <span className="app-btn-icon-slot" aria-hidden={!uploadingAssets}>
+                {uploadingAssets ? <Loader2 className="app-btn-spinner" size={16} aria-hidden="true" /> : <span className="app-btn-spinner-placeholder" />}
+              </span>
               Carica materiali
             </label>
             {assetFolder && (
