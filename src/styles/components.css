@@ -97,10 +97,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   padding: 10px 15px;
   border-radius: var(--radius-pill);
   font-weight: var(--font-weight-xbold);
+  line-height: 1.15;
   white-space: nowrap;
 }
 
@@ -119,7 +120,13 @@
   height: 16px;
   display: inline-grid;
   place-items: center;
+  flex: 0 0 16px;
   color: currentColor;
+}
+
+.app-btn svg,
+.app-btn-icon-slot svg {
+  display: block;
 }
 
 .app-btn-size-small .app-btn-icon-slot {

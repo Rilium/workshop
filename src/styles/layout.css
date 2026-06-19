@@ -907,6 +907,9 @@ h3 {
 
 .bottom-action-buttons .app-btn {
   width: auto;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 
 .bottom-action-buttons .bottom-back-btn {
@@ -921,6 +924,7 @@ h3 {
 
 .bottom-action-buttons .bottom-back-btn svg {
   flex: 0 0 auto;
+  display: block;
 }
 
 /* ─── Bottom bar: project info (left slot, Operativo tab) ─── */
