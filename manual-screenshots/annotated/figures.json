@@ -1,0 +1,275 @@
+[
+  {
+    "file": "fig-01-login-area-riservata.png",
+    "title": "Accesso area riservata",
+    "legend": [
+      "1 Campo email abilitata.",
+      "2 Codice a 6 cifre inviato/validato da FunniFin.",
+      "3 Azione di ingresso o richiesta codice."
+    ]
+  },
+  {
+    "file": "fig-02-cliente-partenza-vuota.png",
+    "title": "Cliente - partenza senza preselezioni",
+    "legend": [
+      "1 Stepper del percorso pubblico.",
+      "2 Stato iniziale: nessun interesse o tema preselezionato.",
+      "3 Bottom bar fisso con CTA disabilitata finche mancano scelte.",
+      "4 Accesso area riservata separato dal flusso Cliente."
+    ]
+  },
+  {
+    "file": "fig-03-cliente-stepper-e-stato.png",
+    "title": "Cliente - stepper superiore",
+    "legend": [
+      "1 Step corrente.",
+      "2 Step successivi del percorso.",
+      "3 Navigazione guidata: ogni step abilita azioni coerenti."
+    ]
+  },
+  {
+    "file": "fig-04-cliente-interessi-temi.png",
+    "title": "Cliente - interessi e temi",
+    "legend": [
+      "1 Card interesse selezionabile.",
+      "2 Pannello temi collegati.",
+      "3 Comando per continuare verso consigliati/catalogo."
+    ]
+  },
+  {
+    "file": "fig-05-cliente-filtri-temi.png",
+    "title": "Cliente - dettaglio temi",
+    "legend": [
+      "1 Lista temi derivati dagli interessi.",
+      "2 Singolo tema attivabile/rimuovibile.",
+      "3 Le modifiche aggiornano consigli e catalogo."
+    ]
+  },
+  {
+    "file": "fig-06-cliente-workshop-preventivo.png",
+    "title": "Cliente - workshop e preventivo",
+    "legend": [
+      "1 Workshop selezionati/percorso.",
+      "2 Catalogo filtrabile.",
+      "3 Preventivo aggiornato in tempo reale.",
+      "4 CTA nel bottom sheet fisso."
+    ]
+  },
+  {
+    "file": "fig-07-cliente-catalogo-card.png",
+    "title": "Cliente - card workshop",
+    "legend": [
+      "1 Titolo e classificazione del workshop.",
+      "2 Durata/formato/prezzo esposti nella card.",
+      "3 Aggiunta o rimozione dal percorso."
+    ]
+  },
+  {
+    "file": "fig-08-cliente-prezzo-sconti.png",
+    "title": "Cliente - prezzo e sconti",
+    "legend": [
+      "1 Totale preventivo corrente.",
+      "2 Soglie/sconti o note commerciali.",
+      "3 Azione primaria sempre raggiungibile nel footer fisso."
+    ]
+  },
+  {
+    "file": "fig-09-cliente-date-picker.png",
+    "title": "Cliente - scelta date",
+    "legend": [
+      "1 Mese corrente dinamico, non hardcoded.",
+      "2 Navigazione mese precedente/successivo.",
+      "3 Griglia date selezionabile.",
+      "4 Conferma o chiusura della proposta."
+    ]
+  },
+  {
+    "file": "fig-10-cliente-date-picker-closeup.png",
+    "title": "Cliente - dettagli calendario",
+    "legend": [
+      "1 Comandi mese.",
+      "2 Comando Adesso: usa la data corrente del browser.",
+      "3 Giorno selezionato/available.",
+      "4 Pulsanti di conferma e annullamento."
+    ]
+  },
+  {
+    "file": "fig-11-bottom-sheet-fisso.png",
+    "title": "Bottom action bar / fixed bottom sheet",
+    "legend": [
+      "1 Contesto operativo dello step.",
+      "2 Dettaglio o conteggio selezioni.",
+      "3 Back/secondaria quando previste.",
+      "4 CTA primaria; se disabilitata mostra hint sotto."
+    ]
+  },
+  {
+    "file": "fig-12-bottom-sheet-disabled.png",
+    "title": "Bottom sheet disabilitato",
+    "legend": [
+      "1 Riepilogo stato non pronto.",
+      "2 Messaggio/hint operativo.",
+      "3 CTA non cliccabile finche mancano prerequisiti."
+    ]
+  },
+  {
+    "file": "fig-13-funnifin-coda.png",
+    "title": "FunniFin - coda operativa",
+    "legend": [
+      "1 Ruolo attivo e impersonificazione.",
+      "2 Moduli sistema/health.",
+      "3 Filtri coda progetti.",
+      "4 Azione primaria nel footer."
+    ]
+  },
+  {
+    "file": "fig-14-funnifin-moduli-sistema.png",
+    "title": "FunniFin - moduli sistema",
+    "legend": [
+      "1 Richieste cliente.",
+      "2 Catalogo vendibile.",
+      "3 Regole prezzo.",
+      "4 Google backend e utenti/mail."
+    ]
+  },
+  {
+    "file": "fig-15-funnifin-coda-progetti.png",
+    "title": "FunniFin - coda progetti",
+    "legend": [
+      "1 Card progetto con stato e totale.",
+      "2 Ricerca per azienda/referente.",
+      "3 Filtri Oggi/Da fissare/Produzione/Chiusi."
+    ]
+  },
+  {
+    "file": "fig-16-centro-notifiche.png",
+    "title": "Centro notifiche",
+    "legend": [
+      "1 Bell/badge ruolo riservato.",
+      "2 Tab Da fare, Recenti, Critiche, Chiuse.",
+      "3 Filtri per priorita/categoria.",
+      "4 Azioni: apri progetto/verifica/archivia."
+    ]
+  },
+  {
+    "file": "fig-17-notifiche-tabs-filtri.png",
+    "title": "Notifiche - tab e filtri",
+    "legend": [
+      "1 Tab con conteggi per stato.",
+      "2 Chip filtro Tutte/Critiche/Task/Mail/Sistema.",
+      "3 La lista cambia senza uscire dal pannello."
+    ]
+  },
+  {
+    "file": "fig-18-notifiche-azioni.png",
+    "title": "Notifiche - singola notifica",
+    "legend": [
+      "1 Priorita e categoria visiva.",
+      "2 Titolo/corpo della notifica.",
+      "3 Azione contestuale con routing.",
+      "4 Archivia/Riapri senza cancellare storico."
+    ]
+  },
+  {
+    "file": "fig-19-google-backend.png",
+    "title": "Google backend",
+    "legend": [
+      "1 Stato Google Sheets.",
+      "2 Stato Drive/materiali.",
+      "3 Calendar/Meet.",
+      "4 MailApp, quota e destinatari."
+    ]
+  },
+  {
+    "file": "fig-20-mail-backend-closeup.png",
+    "title": "Mail backend",
+    "legend": [
+      "1 Configurazione MailApp e quota.",
+      "2 Errori o stato invio.",
+      "3 Link/verifica impostazioni Google."
+    ]
+  },
+  {
+    "file": "fig-21-esperto-dashboard.png",
+    "title": "Esperto - dashboard",
+    "legend": [
+      "1 Ruolo Esperto attivo.",
+      "2 Opportunita/candidature.",
+      "3 Incarichi o deck da gestire.",
+      "4 Bottom bar con azione primaria."
+    ]
+  },
+  {
+    "file": "fig-22-esperto-candidature-closeup.png",
+    "title": "Esperto - candidatura",
+    "legend": [
+      "1 Workshop disponibile o assegnato.",
+      "2 Dettagli data/formato/materiali.",
+      "3 Invio candidatura o upload deck."
+    ]
+  },
+  {
+    "file": "fig-23-brand-dashboard.png",
+    "title": "Brand - revisione materiali",
+    "legend": [
+      "1 Ruolo Brand attivo.",
+      "2 Coda progetti in revisione.",
+      "3 Deck/versioni e stato review.",
+      "4 Bottom bar e azione finale."
+    ]
+  },
+  {
+    "file": "fig-24-brand-azioni-deck.png",
+    "title": "Brand - azioni deck",
+    "legend": [
+      "1 Tab Revisioni/Da correggere/Approvate/Storico.",
+      "2 Deck selezionato.",
+      "3 Approva o richiedi modifiche.",
+      "4 Abilita deck per Calendar quando definitivo."
+    ]
+  },
+  {
+    "file": "fig-25-email-richiesta-cliente.png",
+    "title": "Email richiesta cliente",
+    "legend": [
+      "1 Invio Cliente.",
+      "2 Apps Script action sendWorkshopRequestEmail.",
+      "3 Destinatari cliente + FunniFin CC.",
+      "4 Fallback demo/opaque documentato.",
+      "5 Presa in carico FunniFin."
+    ]
+  },
+  {
+    "file": "fig-26-email-workflow.png",
+    "title": "Email workflow",
+    "legend": [
+      "1 Modale operativa FunniFin.",
+      "2 Toggle notifica e destinatari.",
+      "3 sendWorkflowNotification.",
+      "4 Invio/fallback.",
+      "5 Notifica persistente per ruoli coinvolti."
+    ]
+  },
+  {
+    "file": "fig-27-notifiche-matrice.png",
+    "title": "Matrice notifiche",
+    "legend": [
+      "1 Toast locale.",
+      "2 Notifica persistente con audience.",
+      "3 Scoping utente/email.",
+      "4 Lettura automatica.",
+      "5 Action routing."
+    ]
+  },
+  {
+    "file": "fig-28-test-copertura.png",
+    "title": "Copertura test",
+    "legend": [
+      "1 Build.",
+      "2 E2E locale.",
+      "3 E2E live.",
+      "4 Regressioni manuali.",
+      "5 Deep check notifiche."
+    ]
+  }
+]
