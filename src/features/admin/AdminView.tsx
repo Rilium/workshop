@@ -91,6 +91,7 @@ const queueSortOptions: Array<{ id: AdminQueueSort; label: string }> = [
   { id: "date_vicine", label: "Date più vicine" },
   { id: "date_lontane", label: "Date più lontane" },
 ];
+const USER_MANUAL_URL = "/FunniFin_Manuale_Utente.docx";
 
 function notificationRoleFromRecipient(role: WorkflowNotificationRecipientRole): AppNotificationRole | null {
   if (role === "funnifin") return "FunniFin";
@@ -1498,6 +1499,13 @@ export function AdminView({
       icon: <Settings2 size={18} />,
     },
     {
+      id: "Manuale",
+      title: "Manuale utente",
+      meta: "DOCX v2.2",
+      body: "Guida FunniFin con flussi, notifiche, mail e atlante UI annotato.",
+      icon: <BookOpen size={18} />,
+    },
+    {
       id: "Utenti",
       title: "Utenti e inviti",
       meta: `${authUsers.length} utenti`,
@@ -1544,6 +1552,16 @@ export function AdminView({
           label: googleHealthLoading ? "Controllo Google..." : "Ricarica stato Google",
           disabled: googleHealthLoading,
           action: () => refreshGoogleHealth({ refresh: true }),
+        };
+      }
+      if (adminTab === "Manuale") {
+        return {
+          label: "Apri manuale",
+          disabled: false,
+          action: () => {
+            window.open(USER_MANUAL_URL, "_blank", "noopener,noreferrer");
+            notify("Manuale utente", "Aperto il manuale FunniFin v2.2 in una nuova scheda.");
+          },
         };
       }
       if (adminTab === "Utenti") {
@@ -1684,6 +1702,14 @@ export function AdminView({
         title: googleHealth ? "Workspace connesso" : googleHealthLoading ? "Controllo in corso" : googleHealthError ? "Errore verifica" : "Verifica non eseguita",
         detail: googleHealth?.checkedAt ? `${googleHealth.checkedAt} · ${googleHealthStatusLabel}` : googleHealthError || "Sheets, Calendar, Drive e MailApp",
         meta: googleHealth ? `${googleHealth.spreadsheet.requests} richieste` : googleHealthStatusLabel,
+      };
+    }
+    if (adminTab === "Manuale") {
+      return {
+        eyebrow: "Manuale utente",
+        title: "FunniFin Manuale v2.2",
+        detail: "Flussi Cliente, FunniFin, Esperto, Brand, notifiche, mail e atlante UI",
+        meta: "DOCX",
       };
     }
     return {
@@ -2895,6 +2921,44 @@ export function AdminView({
           </div>
         </>
       )}
+
+      {adminTab === "Manuale" && (
+        <>
+          <SectionTitle
+            title="Manuale utente"
+            icon={<BookOpen size={20} />}
+            meta="DOCX v2.2"
+            actions={
+              <a className="app-btn app-btn-primary" href={USER_MANUAL_URL} target="_blank" rel="noreferrer">
+                <ExternalLink size={16} />
+                Apri manuale
+              </a>
+            }
+          />
+          <div className="pricing-console">
+            <div className="pricing-hero-card auth-invite-card auth-invite-card--compact">
+              <div>
+                <span className="eyebrow">Guida operativa FunniFin</span>
+                <strong>Manuale completo consultabile dagli utenti FunniFin</strong>
+                <em>
+                  Include flusso Cliente end-to-end, console FunniFin, Esperto, Brand, fixed bottom sheet,
+                  centro notifiche, tipi di mail, destinatari, fallback backend e atlante UI con pallini numerati.
+                </em>
+              </div>
+              <div className="auth-invite-actions">
+                <a className="app-btn app-btn-primary" href={USER_MANUAL_URL} target="_blank" rel="noreferrer">
+                  <ExternalLink size={16} />
+                  Apri DOCX
+                </a>
+                <a className="app-btn app-btn-ghost" href={USER_MANUAL_URL} download>
+                  Scarica
+                </a>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {adminTab === "Utenti" && (
         <>
           <SectionTitle title="Utenti e inviti" icon={<UsersRound size={20} />} />
@@ -3337,6 +3401,8 @@ export function AdminView({
             ? "Utenti e inviti"
             : adminTab === "Catalogo"
             ? `Catalogo · ${catalogView === "drive" ? "Slide Drive" : "Sheet"}`
+            : adminTab === "Manuale"
+              ? "Manuale utente"
             : adminTab === "Google"
               ? "Google backend"
               : adminTab
@@ -3346,6 +3412,8 @@ export function AdminView({
             ? `${authUsers.filter((user) => !user.disabled).length} attivi · ${accessRequests.filter((request) => request.status === "pending").length} in attesa`
             : adminTab === "Catalogo" && catalogView === "drive"
             ? `${driveLinkedCount}/${workshops.length} slide collegate`
+            : adminTab === "Manuale"
+              ? "DOCX v2.2 · flussi e atlante UI"
             : adminTab === "Google"
               ? `Workspace Google · ${googleHealthStatusLabel.toLowerCase()}`
               : `${selectedProject.company} · ${statusLabel[activeAdminStatus]}`
