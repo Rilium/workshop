@@ -1,8 +1,8 @@
 import { SECRET_SETTINGS } from "./secretSettings";
-import { allowLocalFallbacks, appendSessionParams, withSessionPayload } from "./authTransport";
+import { appendSessionParams, withSessionPayload } from "./authTransport";
 
 export type AssetDraftFolder = {
-  source: "google-drive" | "mock";
+  source: "google-drive";
   id: string;
   name: string;
   url: string;
@@ -35,36 +35,19 @@ function fileToBase64(file: File) {
 }
 
 async function postAppsScript(scriptUrl: string, body: unknown) {
-  const serialized = JSON.stringify(body);
-  try {
-    const response = await fetch(scriptUrl, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: serialized,
-    });
-    if (response.ok) return;
-  } catch {
-    // Apps Script redirects can trip browser CORS; fall back to a simple opaque POST.
-  }
-
-  await fetch(scriptUrl, {
+  const response = await fetch(scriptUrl, {
     method: "POST",
-    mode: "no-cors",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: serialized,
+    body: JSON.stringify(body),
   });
+  if (!response.ok) throw new Error("Upload file su Drive non riuscito");
+  const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+  if (!result) throw new Error("Apps Script ha risposto con un formato non valido");
+  if (result.ok === false) throw new Error(result.error || "Upload file su Drive non riuscito");
 }
 
 export async function createAssetDraftFolder(clientName: string): Promise<AssetDraftFolder> {
   const scriptUrl = getScriptUrl();
-  if (!scriptUrl && allowLocalFallbacks()) {
-    return {
-      source: "mock",
-      id: `mock_assets_${Date.now().toString(36)}`,
-      name: `${clientName} ${new Intl.DateTimeFormat("it-IT").format(new Date()).replace(/\//g, "-")}`,
-      url: "",
-    };
-  }
   if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
   const url = new URL(scriptUrl);
@@ -81,8 +64,7 @@ export async function uploadAssetFiles(folderId: string, files: File[]): Promise
   const uploaded: UploadedAsset[] = [];
 
   for (const file of files) {
-    uploaded.push({ name: file.name, size: file.size, mimeType: file.type || "application/octet-stream" });
-    if (!scriptUrl || folderId.startsWith("mock_")) continue;
+    if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
     const data = await fileToBase64(file);
     await postAppsScript(scriptUrl, {
@@ -94,6 +76,7 @@ export async function uploadAssetFiles(folderId: string, files: File[]): Promise
         data,
       }),
     });
+    uploaded.push({ name: file.name, size: file.size, mimeType: file.type || "application/octet-stream" });
   }
 
   return uploaded;
@@ -101,11 +84,11 @@ export async function uploadAssetFiles(folderId: string, files: File[]): Promise
 
 export async function deleteAssetDraftFolder(folderId?: string) {
   const scriptUrl = getScriptUrl();
-  if (!scriptUrl || !folderId || folderId.startsWith("mock_")) return;
+  if (!scriptUrl || !folderId) return;
 
   const url = new URL(scriptUrl);
   url.searchParams.set("action", "deleteAssetDraftFolder");
   appendSessionParams(url);
   url.searchParams.set("folderId", folderId);
-  await fetch(url.toString(), { mode: "no-cors", keepalive: true }).catch(() => {});
+  await fetch(url.toString(), { keepalive: true }).catch(() => {});
 }

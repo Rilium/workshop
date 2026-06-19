@@ -39,15 +39,26 @@ async function run() {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     await page.addInitScript(() => {
       Math.random = () => 0;
+      const session = {
+        userId: "user-funnifin",
+        token: `local-ui-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        effectiveRole: "FunniFin",
+        user: {
+          id: "user-funnifin",
+          email: "rinaldi.rilio@gmail.com",
+          actualRole: "FunniFin",
+          displayName: "Team FunniFin",
+          createdAt: "2024-01-01T00:00:00",
+          disabled: false,
+        },
+      };
+      window.localStorage.setItem("funnifin_auth_session", JSON.stringify(session));
+      window.sessionStorage.setItem(`funnifin_welcome_seen_${session.token}`, "1");
     });
     await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
 
-    await page.getByLabel("Accedi all'area riservata").click();
-    await page.getByLabel("Email").fill("rinaldi.rilio@gmail.com");
-    await page.getByRole("button", { name: /continua/i }).click();
-    await page.getByRole("button", { name: /non hai il codice/i }).click();
-    await page.getByLabel("Codice di accesso").fill("100000");
-    await page.getByRole("button", { name: /^Accedi$/ }).click();
     await page.getByLabel(/Esci \(Team FunniFin\)/).waitFor({ timeout: 5000 });
     await page.getByLabel("Chiudi benvenuto").click().catch(() => {});
     await page.getByText("Visualizza come: FunniFin").click();
@@ -77,15 +88,7 @@ async function run() {
     if (stepper.cardBorderTopWidth !== "0px") throw new Error(`Mobile card top border should be delegated to tabs: ${stepper.cardBorderTopWidth}`);
     if (stepper.labelDisplay !== "block") throw new Error("Active mobile step label must remain visible");
 
-    await page.getByLabel(/Esci \(Team FunniFin\)/).click();
-    await page.getByLabel("Accedi all'area riservata").click();
-    await page.getByLabel("Email").fill("rinaldi.rilio@gmail.com");
-    await page.getByRole("button", { name: /continua/i }).click();
-    await page.getByLabel("Codice di accesso").fill("100000");
-    await page.getByRole("button", { name: /^Accedi$/ }).click();
-    await page.getByLabel(/Esci \(Team FunniFin\)/).waitFor({ timeout: 5000 });
-
-    console.log("PASS local e2e: reusable auth code and mobile stepper seam");
+    console.log("PASS local e2e: injected auth session and mobile stepper seam");
   } finally {
     if (browser) await browser.close();
     server.kill("SIGTERM");

@@ -1,5 +1,5 @@
 import { SECRET_SETTINGS } from "./secretSettings";
-import { allowLocalFallbacks, withSessionPayload } from "./authTransport";
+import { withSessionPayload } from "./authTransport";
 
 type EmailWorkshop = {
   title: string;
@@ -302,15 +302,6 @@ async function postAppsScriptJson<T>(scriptUrl: string, body: unknown): Promise<
   return result;
 }
 
-async function postAppsScriptNoCors(scriptUrl: string, body: unknown) {
-  await fetch(scriptUrl, {
-    method: "POST",
-    mode: "no-cors",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(body),
-  });
-}
-
 export async function sendWorkshopRequestEmail(payload: WorkshopRequestEmailPayload) {
   const env = (import.meta as unknown as { env: Record<string, string | undefined> }).env;
   const scriptUrl = env[SECRET_SETTINGS.google.env.appScriptDeploymentUrl];
@@ -329,15 +320,9 @@ export async function sendWorkshopRequestEmail(payload: WorkshopRequestEmailPayl
       text,
       payload,
     };
-    try {
-      const result = await postAppsScriptJson<{ sent?: boolean; error?: string }>(scriptUrl, body);
-      if (!result.sent) throw new Error(result.error || "Apps Script non ha confermato l'invio email.");
-      return { sent: true, html, subject, opaque: false };
-    } catch (error) {
-      if (!allowLocalFallbacks()) throw error;
-      await postAppsScriptNoCors(scriptUrl, body);
-      return { sent: true, html, subject, opaque: true };
-    }
+    const result = await postAppsScriptJson<{ sent?: boolean; error?: string }>(scriptUrl, body);
+    if (!result.sent) throw new Error(result.error || "Apps Script non ha confermato l'invio email.");
+    return { sent: true, html, subject, opaque: false };
   }
 
   return {
@@ -371,25 +356,14 @@ export async function sendWorkflowNotification(payload: WorkflowNotificationPayl
         recipientLabels: payload.recipients,
       }),
     };
-    try {
-      const result = await postAppsScriptJson<{ sent?: boolean; subject?: string; recipients?: string[]; error?: string }>(scriptUrl, body);
-      if (!result.sent) throw new Error(result.error || "Apps Script non ha confermato l'invio email.");
-      return {
-        sent: true,
-        subject: result.subject || `FunniFin - ${payload.project.company} - ${payload.phase}`,
-        recipients: result.recipients || to,
-        opaque: false,
-      };
-    } catch (error) {
-      if (!allowLocalFallbacks()) throw error;
-      await postAppsScriptNoCors(scriptUrl, body);
-      return {
-        sent: true,
-        subject: `FunniFin - ${payload.project.company} - ${payload.phase}`,
-        recipients: to,
-        opaque: true,
-      };
-    }
+    const result = await postAppsScriptJson<{ sent?: boolean; subject?: string; recipients?: string[]; error?: string }>(scriptUrl, body);
+    if (!result.sent) throw new Error(result.error || "Apps Script non ha confermato l'invio email.");
+    return {
+      sent: true,
+      subject: result.subject || `FunniFin - ${payload.project.company} - ${payload.phase}`,
+      recipients: result.recipients || to,
+      opaque: false,
+    };
   }
 
   return {

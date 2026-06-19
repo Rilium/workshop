@@ -1,5 +1,5 @@
 import { SECRET_SETTINGS } from "./secretSettings";
-import { allowLocalFallbacks, appendSessionParams, withSessionPayload } from "./authTransport";
+import { appendSessionParams, withSessionPayload } from "./authTransport";
 
 export type RequestProjectStatus =
   | "draft_cliente"
@@ -114,18 +114,6 @@ async function postAppsScript<T>(body: unknown): Promise<T> {
   return result;
 }
 
-async function postAppsScriptOpaque(body: unknown) {
-  const scriptUrl = getScriptUrl();
-  if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
-
-  await fetch(scriptUrl, {
-    method: "POST",
-    mode: "no-cors",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(body),
-  });
-}
-
 function slug(value: string) {
   return value
     .toLowerCase()
@@ -142,47 +130,17 @@ function timestampId() {
   return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
 }
 
-function localTimestamp() {
-  return new Date().toLocaleString("sv-SE", { timeZone: "Europe/Rome" });
-}
-
-function buildRequestRecord(id: string, payload: CreateWorkshopRequestPayload): WorkshopRequestRecord {
-  const createdAt = localTimestamp();
-  return {
-    id,
-    company: payload.contact.company,
-    manager: `${payload.contact.firstName} ${payload.contact.lastName}`.trim() || payload.contact.email,
-    email: payload.contact.email,
-    phone: payload.contact.phone,
-    status: "richiesta_inviata",
-    quoteTotal: payload.quote.total,
-    workshopIds: payload.workshops.map((workshop) => workshop.workshopId),
-    dateCount: payload.workshops.filter((workshop) => workshop.date).length,
-    createdAt,
-    updatedAt: createdAt,
-    contact: payload.contact,
-    workshops: payload.workshops,
-    quote: payload.quote,
-    materials: payload.materials,
-  };
-}
-
 export async function createWorkshopRequest(payload: CreateWorkshopRequestPayload): Promise<WorkshopRequestRecord> {
   const id = `${slug(payload.contact.company)}-${timestampId()}`;
-  const payloadWithId = { ...payload, id };
+  const clientMutationId = crypto.randomUUID();
+  const payloadWithId = { ...payload, id, clientMutationId };
   const body = {
     action: "createWorkshopRequest",
     payload: payloadWithId,
   };
 
-  try {
-    const result = await postAppsScript<{ request: WorkshopRequestRecord }>(body);
-    return result.request;
-  } catch (error) {
-    if (!allowLocalFallbacks()) throw error;
-    await postAppsScriptOpaque(body).catch(() => {});
-    return buildRequestRecord(id, payload);
-  }
+  const result = await postAppsScript<{ request: WorkshopRequestRecord }>(body);
+  return result.request;
 }
 
 export async function listWorkshopRequests(): Promise<WorkshopRequestRecord[]> {
@@ -201,7 +159,7 @@ export async function listWorkshopRequests(): Promise<WorkshopRequestRecord[]> {
     if (result.ok === false) throw new Error(result.error || "Lettura richieste non riuscita");
     return result.requests ?? [];
   } catch (error) {
-    throw new Error(friendlyRequestError(error, "Connessione al registro richieste non disponibile. Uso la vista locale."));
+    throw new Error(friendlyRequestError(error, "Connessione al registro richieste non disponibile."));
   }
 }
 

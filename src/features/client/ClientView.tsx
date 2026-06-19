@@ -116,7 +116,7 @@ export function ClientView({
   const [requestFinalized, setRequestFinalized] = useState(false);
   const [contactTouched, setContactTouched] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
-  const [emailDeliveryMode, setEmailDeliveryMode] = useState<"sent" | "opaque" | "not_sent">("not_sent");
+  const [emailDeliveryMode, setEmailDeliveryMode] = useState<"sent" | "not_sent">("not_sent");
   const [flyToBar, setFlyToBar] = useState<{ id: number; title: string; x: number; y: number } | null>(null);
   const [expandedTopicCards, setExpandedTopicCards] = useState<string[]>([]);
   const assetFolderRef = useRef<AssetDraftFolder | null>(null);
@@ -337,17 +337,21 @@ export function ClientView({
       });
       const emailResult = await sendWorkshopRequestEmail({
         ...emailPayload,
+      }).catch((error) => {
+        const message = error instanceof Error ? error.message : "Email non inviata.";
+        notify("Email non inviata", message);
+        return { sent: false, opaque: false };
       });
       onRequestCreated(request);
       setProjectStatus(
         "richiesta_inviata",
         emailResult.sent ? "Richiesta presa in carico" : "Richiesta presa in carico",
         emailResult.sent
-          ? `Richiesta ${request.id} salvata sul registro reale e recap inviato a ${contact.email.trim()}.`
-          : `Richiesta ${request.id} salvata sul registro reale, ma l'email non è partita.`,
+          ? `Richiesta ${request.id} salvata sullo Sheet e recap inviato a ${contact.email.trim()}.`
+          : `Richiesta ${request.id} salvata sullo Sheet, ma l'email non è partita.`,
       );
       setSubmittedEmail(contact.email.trim());
-      setEmailDeliveryMode(emailResult.sent ? (emailResult.opaque ? "opaque" : "sent") : "not_sent");
+      setEmailDeliveryMode(emailResult.sent ? "sent" : "not_sent");
       setRequestFinalized(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Salvataggio richiesta o invio email non riuscito.";
@@ -1019,15 +1023,13 @@ export function ClientView({
                 <div>
                   <strong>Richiesta inviata</strong>
                   <p>
-                    {emailDeliveryMode === "opaque"
-                        ? "Richiesta presa in carico. FunniFin la trova nella coda e ti ricontattera con il recap."
-                        : emailDeliveryMode === "not_sent"
-                          ? "Richiesta presa in carico. Email non inviata."
-                          : "Email inviata al cliente e a FunniFin."}
+                    {emailDeliveryMode === "not_sent"
+                      ? "Richiesta salvata sullo Sheet. Email non inviata."
+                      : "Richiesta salvata sullo Sheet, email inviata al cliente e a FunniFin."}
                   </p>
                 </div>
                 <div className="submitted-email-box">
-                  <span>{emailDeliveryMode === "not_sent" ? "Recap finale per" : emailDeliveryMode === "opaque" ? "Recap richiesto per" : "Inviata a"}</span>
+                  <span>{emailDeliveryMode === "not_sent" ? "Recap finale per" : "Inviata a"}</span>
                   <strong>{submittedEmail}</strong>
                   <AppButton
                     variant="ghost"

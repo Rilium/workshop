@@ -13,8 +13,17 @@ function envValue(key: string) {
   return (import.meta as unknown as { env: Record<string, string | boolean | undefined> }).env[key];
 }
 
+function envFlag(key: string) {
+  const value = envValue(key);
+  if (typeof value === "boolean") return value;
+  return String(value ?? "").trim().toLowerCase() === "true";
+}
+
 export function allowLocalFallbacks() {
-  return envValue("VITE_ALLOW_LOCAL_FALLBACKS") !== "false" && envValue("VITE_STRICT_GOOGLE_BACKEND") !== "true";
+  if (envFlag("VITE_STRICT_GOOGLE_BACKEND")) return false;
+  const explicitFallback = envValue("VITE_ALLOW_LOCAL_FALLBACKS");
+  if (explicitFallback !== undefined) return envFlag("VITE_ALLOW_LOCAL_FALLBACKS");
+  return envFlag("DEV");
 }
 
 export function getStoredAuthSession(): StoredAuthSession | null {
