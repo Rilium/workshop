@@ -36,6 +36,18 @@ import { workshops } from "../../../data/catalog";
 import type { Selection, Workshop } from "../../../types/domain";
 import { Skeleton } from "../../../components/ui/Skeleton";
 
+function formatDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateKey(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year || new Date().getFullYear(), (month || 1) - 1, day || 1, 12, 0, 0);
+}
+
 export function DatePickerModal({
   selection,
   selections,
@@ -50,22 +62,32 @@ export function DatePickerModal({
   onConfirm: (date: string, time: string) => void;
 }) {
   const [mode, setMode] = useState<"now" | "plan">("plan");
-  const [day, setDay] = useState(selection.date || "2026-06-12");
+  const todayDate = formatDateKey(new Date());
+  const [day, setDay] = useState(selection.date || todayDate);
   const [time, setTime] = useState(selection.time || "18:00");
   const [availability, setAvailability] = useState<{ source: string; slots: Array<{ time: string; status: "available" | "busy" | "promo" }> }>({
     source: "mock",
     slots: [],
   });
   const [loadingSlots, setLoadingSlots] = useState(false);
-  const days = Array.from({ length: 30 }, (_, index) => index + 1);
-  const todayDate = "2026-06-12";
-  const dayNumber = Number(day.split("-")[2] || "12");
-  const formattedDay = `2026-06-${String(dayNumber).padStart(2, "0")}`;
+  const selectedDate = parseDateKey(day);
+  const selectedYear = selectedDate.getFullYear();
+  const selectedMonth = selectedDate.getMonth();
+  const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+  const days = Array.from({ length: daysInMonth }, (_, index) => index + 1);
+  const dayNumber = selectedDate.getDate();
+  const formattedDay = formatDateKey(selectedDate);
+  const selectedMonthKey = formattedDay.slice(0, 7);
+  const monthLabel = new Intl.DateTimeFormat("it-IT", { month: "long", year: "numeric" }).format(selectedDate);
   const scheduledSelections = selections
     .filter((item) => item.dateConfirmed && item.date && item.time)
     .map((item) => ({ ...item, workshop: workshops.find((workshopItem) => workshopItem.id === item.workshopId) }))
     .filter((item) => item.workshop);
-  const scheduledDays = new Set(scheduledSelections.map((item) => Number(item.date.split("-")[2])));
+  const scheduledDays = new Set(
+    scheduledSelections
+      .filter((item) => item.date.slice(0, 7) === selectedMonthKey)
+      .map((item) => Number(item.date.split("-")[2])),
+  );
   const scheduledTimesForDay = new Set(scheduledSelections.filter((item) => item.date === formattedDay).map((item) => item.time));
   const currentAlreadyScheduled = Boolean(selection.dateConfirmed && selection.date && selection.time);
 
@@ -97,6 +119,14 @@ export function DatePickerModal({
     if (immediateSlot) setTime(immediateSlot.time);
   };
 
+  const shiftMonth = (delta: number) => {
+    const next = new Date(selectedYear, selectedMonth + delta, 1, 12, 0, 0);
+    const nextMaxDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+    next.setDate(Math.min(dayNumber, nextMaxDay));
+    setMode("plan");
+    setDay(formatDateKey(next));
+  };
+
   return (
     <div className="modal-backdrop calendar-backdrop" role="dialog" aria-modal="true" aria-labelledby="date-title">
       <section className="calendar-modal">
@@ -126,9 +156,9 @@ export function DatePickerModal({
           <div className="calendar-layout">
             <div className="month-card">
               <div className="month-head">
-                <button aria-label="Mese precedente">‹</button>
-                <strong>Giugno 2026</strong>
-                <button aria-label="Mese successivo">›</button>
+                <button type="button" aria-label="Mese precedente" onClick={() => shiftMonth(-1)}>‹</button>
+                <strong>{monthLabel}</strong>
+                <button type="button" aria-label="Mese successivo" onClick={() => shiftMonth(1)}>›</button>
               </div>
               <div className="weekday-row">
                 {["LU", "MA", "ME", "GI", "VE", "SA", "DO"].map((weekday) => <span key={weekday}>{weekday}</span>)}
@@ -138,7 +168,10 @@ export function DatePickerModal({
                   <button
                     key={item}
                     className={`${item === dayNumber ? "active" : ""} ${scheduledDays.has(item) ? "has-selection" : ""}`}
-                    onClick={() => setDay(`2026-06-${String(item).padStart(2, "0")}`)}
+                    onClick={() => {
+                      setMode("plan");
+                      setDay(formatDateKey(new Date(selectedYear, selectedMonth, item, 12, 0, 0)));
+                    }}
                   >
                     {item}
                   </button>

@@ -50,7 +50,12 @@ export function EcommerceCart({
 
       <>
         <div className="cart-lines">
-            {rows.length === 0 && <p>Seleziona un workshop dal catalogo.</p>}
+            {rows.length === 0 && (
+              <div className="cart-empty">
+                <strong>Il percorso è vuoto</strong>
+                <span>Aggiungi workshop dal catalogo per costruire il tuo percorso formativo.</span>
+              </div>
+            )}
             {rows.map(({ selection, workshop }) => {
               const price = getWorkshopSelectionPrice(workshop, selection);
               return (

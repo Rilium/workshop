@@ -115,9 +115,16 @@ export function WorkshopCard({
       )}
       <div className="card-footer">
         <strong>{money(selectedPrice || workshop.price1h)}</strong>
-        <AppButton variant={selection ? "dangerIcon" : "secondary"} onClick={onToggle} aria-label={selection ? `Rimuovi ${workshop.title}` : `Aggiungi ${workshop.title} al percorso`}>
-          {selection ? <Trash2 size={18} /> : "Aggiungi al percorso"}
-        </AppButton>
+        <div className="card-footer-actions">
+          <AppButton variant={selection ? "outline" : "secondary"} onClick={onToggle} aria-label={selection ? `Rimuovi ${workshop.title}` : `Aggiungi ${workshop.title} al percorso`}>
+            {selection ? <><Check size={15} /> Nel percorso</> : "Aggiungi al percorso"}
+          </AppButton>
+          {selection && (
+            <button type="button" className="card-remove-action" onClick={onToggle} aria-label={`Rimuovi ${workshop.title}`} title="Rimuovi dal percorso">
+              <Trash2 size={15} />
+            </button>
+          )}
+        </div>
       </div>
     </article>
   );

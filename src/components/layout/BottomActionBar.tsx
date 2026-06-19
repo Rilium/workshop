@@ -10,6 +10,7 @@ export function BottomActionBar({
   priceAfter,
   discountLabel,
   caveat,
+  primaryHint,
   leftContent,
   primaryLabel,
   primaryDisabled,
@@ -26,6 +27,7 @@ export function BottomActionBar({
   priceAfter?: string;
   discountLabel?: string;
   caveat?: string;
+  primaryHint?: string;
   leftContent?: React.ReactNode;
   primaryLabel: string;
   primaryDisabled?: boolean;
@@ -64,9 +66,14 @@ export function BottomActionBar({
             {secondaryLabel}
           </AppButton>
         )}
-        <AppButton variant="primary" onClick={onPrimary} disabled={primaryDisabled}>
-          {primaryLabel}
-        </AppButton>
+        <div className="bottom-primary-group">
+          <AppButton variant="primary" onClick={onPrimary} disabled={primaryDisabled}>
+            {primaryLabel}
+          </AppButton>
+          {primaryDisabled && primaryHint && (
+            <small className="bottom-bar-hint">{primaryHint}</small>
+          )}
+        </div>
       </div>
     </aside>
   );

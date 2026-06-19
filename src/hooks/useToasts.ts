@@ -37,9 +37,21 @@ function compactAudience(audience: AppNotificationRole[] | undefined): AppNotifi
   return Array.from(new Set(audience.filter((r) => NON_CLIENT_ROLES.includes(r))));
 }
 
-export function useToasts(role: Role) {
+function compactStrings(values: string[] | undefined): string[] | undefined {
+  if (!values?.length) return undefined;
+  const next = Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+  return next.length ? next : undefined;
+}
+
+function compactEmails(values: string[] | undefined): string[] | undefined {
+  const next = compactStrings(values?.map((value) => value.toLowerCase()));
+  return next;
+}
+
+export function useToasts(role: Role, currentUserId?: string, currentUserEmail?: string) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>(readStoredNotifications);
+  const toastIdCounter = useRef(0);
 
   // ── Per-toast timers: un timeout dedicato per ID, nessuna race condition ──
   const toastTimers = useRef<Map<number, number>>(new Map());
@@ -88,14 +100,17 @@ export function useToasts(role: Role) {
   };
 
   const notify = (title: string, body: string, options: NotifyOptions = {}) => {
-    const id = Date.now() + Math.round(Math.random() * 1000);
+    toastIdCounter.current += 1;
+    const id = Date.now() * 1000 + toastIdCounter.current;
 
-    // Aggiungi toast e schedula il suo dismiss individuale
-    setToasts((current) => {
-      const next = [...current.slice(-3), { id, title, body }];
-      return next;
-    });
-    scheduleToastDismiss(id);
+    if (options.toast !== false) {
+      // Aggiungi toast e schedula il suo dismiss individuale
+      setToasts((current) => {
+        const next = [...current.slice(-3), { id, title, body }];
+        return next;
+      });
+      scheduleToastDismiss(id);
+    }
 
     // Persisti nel centro notifiche solo se c'è audience esplicito
     const audience = compactAudience(options.audience);
@@ -111,10 +126,13 @@ export function useToasts(role: Role) {
       updatedAt: now,
       sourceRole: role,
       audience,
+      audienceUserIds: compactStrings(options.audienceUserIds),
+      audienceEmails: compactEmails(options.audienceEmails),
       priority: options.priority ?? "info",
       category: options.category ?? "feedback",
       status: "open",
       readBy: [],
+      readByUserIds: [],
       action: options.action,
     };
 
@@ -139,25 +157,48 @@ export function useToasts(role: Role) {
     );
   };
 
-  const markNotificationRead = (id: string, readerRole: AppNotificationRole) => {
+  const markNotificationRead = (id: string, readerRole: AppNotificationRole, readerUserId = currentUserId) => {
     setNotifications((current) =>
       current.map((n) =>
-        n.id === id && !n.readBy.includes(readerRole)
-          ? { ...n, readBy: [...n.readBy, readerRole], updatedAt: new Date().toISOString() }
+        n.id === id && (
+          readerUserId
+            ? !(n.readByUserIds ?? []).includes(readerUserId)
+            : !n.readBy.includes(readerRole)
+        )
+          ? {
+              ...n,
+              readBy: n.readBy.includes(readerRole) ? n.readBy : [...n.readBy, readerRole],
+              readByUserIds: readerUserId && !(n.readByUserIds ?? []).includes(readerUserId)
+                ? [...(n.readByUserIds ?? []), readerUserId]
+                : n.readByUserIds,
+              updatedAt: new Date().toISOString(),
+            }
           : n,
       ),
     );
   };
 
   // Segna tutte le notifiche visibili per il ruolo come lette — un solo setState
-  const markVisibleNotificationsRead = (readerRole: AppNotificationRole) => {
+  const markVisibleNotificationsRead = (readerRole: AppNotificationRole, readerUserId = currentUserId, readerEmail = currentUserEmail) => {
     setNotifications((current) => {
       const now = new Date().toISOString();
       let changed = false;
       const next = current.map((n) => {
-        if (n.audience.includes(readerRole) && !n.readBy.includes(readerRole)) {
+        const matchesRole = n.audience.includes(readerRole);
+        const matchesUser = !n.audienceUserIds?.length || (readerUserId ? n.audienceUserIds.includes(readerUserId) : false);
+        const normalizedEmail = readerEmail?.toLowerCase();
+        const matchesEmail = !n.audienceEmails?.length || (normalizedEmail ? n.audienceEmails.includes(normalizedEmail) : false);
+        const alreadyRead = readerUserId ? (n.readByUserIds ?? []).includes(readerUserId) : n.readBy.includes(readerRole);
+        if (matchesRole && matchesUser && matchesEmail && !alreadyRead) {
           changed = true;
-          return { ...n, readBy: [...n.readBy, readerRole], updatedAt: now };
+          return {
+            ...n,
+            readBy: n.readBy.includes(readerRole) ? n.readBy : [...n.readBy, readerRole],
+            readByUserIds: readerUserId && !(n.readByUserIds ?? []).includes(readerUserId)
+              ? [...(n.readByUserIds ?? []), readerUserId]
+              : n.readByUserIds,
+            updatedAt: now,
+          };
         }
         return n;
       });
@@ -166,14 +207,26 @@ export function useToasts(role: Role) {
   };
 
   // Segna tutte le aperte per il ruolo come lette — un solo setState
-  const markAllNotificationsRead = (readerRole: AppNotificationRole) => {
+  const markAllNotificationsRead = (readerRole: AppNotificationRole, readerUserId = currentUserId, readerEmail = currentUserEmail) => {
     setNotifications((current) => {
       const now = new Date().toISOString();
       let changed = false;
       const next = current.map((n) => {
-        if (n.status === "open" && n.audience.includes(readerRole) && !n.readBy.includes(readerRole)) {
+        const matchesRole = n.audience.includes(readerRole);
+        const matchesUser = !n.audienceUserIds?.length || (readerUserId ? n.audienceUserIds.includes(readerUserId) : false);
+        const normalizedEmail = readerEmail?.toLowerCase();
+        const matchesEmail = !n.audienceEmails?.length || (normalizedEmail ? n.audienceEmails.includes(normalizedEmail) : false);
+        const alreadyRead = readerUserId ? (n.readByUserIds ?? []).includes(readerUserId) : n.readBy.includes(readerRole);
+        if (n.status === "open" && matchesRole && matchesUser && matchesEmail && !alreadyRead) {
           changed = true;
-          return { ...n, readBy: [...n.readBy, readerRole], updatedAt: now };
+          return {
+            ...n,
+            readBy: n.readBy.includes(readerRole) ? n.readBy : [...n.readBy, readerRole],
+            readByUserIds: readerUserId && !(n.readByUserIds ?? []).includes(readerUserId)
+              ? [...(n.readByUserIds ?? []), readerUserId]
+              : n.readByUserIds,
+            updatedAt: now,
+          };
         }
         return n;
       });

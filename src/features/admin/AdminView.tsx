@@ -141,6 +141,8 @@ export function AdminView({
   clientAssetFolder,
   clientUploadedAssets,
   currentRequest,
+  currentUserId,
+  currentUserEmail,
   requestRefreshToken,
   systemRefreshToken,
   systemSettingsToken,
@@ -157,6 +159,8 @@ export function AdminView({
   clientAssetFolder: AssetDraftFolder | null;
   clientUploadedAssets: UploadedAsset[];
   currentRequest: WorkshopRequestRecord | null;
+  currentUserId?: string;
+  currentUserEmail?: string;
   requestRefreshToken: number;
   systemRefreshToken: number;
   systemSettingsToken: number;
@@ -372,6 +376,118 @@ export function AdminView({
     }),
     [workspaceSettingMap],
   );
+  const getAudienceUsers = (role: AppNotificationRole, email?: string) => {
+    const normalizedEmail = email?.trim().toLowerCase();
+    const candidates = authUsers.filter((user) => !user.disabled && user.actualRole === role);
+    const emailMatches = normalizedEmail ? candidates.filter((user) => user.email.toLowerCase() === normalizedEmail) : [];
+    const users = emailMatches.length ? emailMatches : candidates;
+    return {
+      userIds: users.map((user) => user.id),
+      emails: normalizedEmail ? [normalizedEmail] : users.map((user) => user.email.toLowerCase()),
+    };
+  };
+  const getExpertAudienceUsers = (expertName?: string) => {
+    if (!expertName) return getAudienceUsers("Esperto", workspaceRecipientEmails.expert);
+    const normalizedName = expertName.trim().toLowerCase();
+    const profile = expertDirectory.find((expert) => expertFullName(expert).toLowerCase() === normalizedName);
+    const matchedUsers = authUsers.filter((user) => (
+      !user.disabled &&
+      user.actualRole === "Esperto" &&
+      ((profile?.id && user.expertId === profile.id) || (profile?.email && user.email.toLowerCase() === profile.email.toLowerCase()))
+    ));
+    if (matchedUsers.length > 0) {
+      return {
+        userIds: matchedUsers.map((user) => user.id),
+        emails: matchedUsers.map((user) => user.email.toLowerCase()),
+      };
+    }
+    if (profile?.email) return getAudienceUsers("Esperto", profile.email);
+    return getAudienceUsers("Esperto", workspaceRecipientEmails.expert);
+  };
+  const workflowCopyForRole = (
+    phase: WorkflowNotificationPayload["phase"],
+    targetRole: AppNotificationRole,
+    company: string,
+  ) => {
+    if (phase === "request_updated") {
+      return {
+        actorTitle: "Richiesta aggiornata",
+        actorBody: `Hai aggiornato richiesta, workshop o preventivo per ${company}.`,
+        targetTitle: "FunniFin ha aggiornato la richiesta",
+        targetBody: `${company}: controlla workshop, date e prossima azione aggiornata.`,
+      };
+    }
+    if (phase === "dates_approved") {
+      return {
+        actorTitle: "Date approvate",
+        actorBody: `Hai approvato le date per ${company}.`,
+        targetTitle: "FunniFin ha approvato le date",
+        targetBody: `${company}: le date sono approvate, prosegui con la prossima fase.`,
+      };
+    }
+    if (phase === "date_change_requested") {
+      return {
+        actorTitle: "Modifica date richiesta",
+        actorBody: `Hai richiesto una modifica date per ${company}.`,
+        targetTitle: "FunniFin chiede una modifica date",
+        targetBody: `${company}: apri la task e aggiorna la proposta date.`,
+      };
+    }
+    if (phase === "candidacies_open" && targetRole === "Esperto") {
+      return {
+        actorTitle: "Candidature aperte agli esperti",
+        actorBody: `Hai aperto le candidature esperti per ${company}.`,
+        targetTitle: "FunniFin ha aperto una candidatura",
+        targetBody: `${company}: valuta i workshop disponibili e candidati se sei compatibile.`,
+      };
+    }
+    if (phase === "brand_review" && targetRole === "Brand") {
+      return {
+        actorTitle: "Presentazione assegnata al Brand",
+        actorBody: `Hai assegnato a Brand la revisione materiali per ${company}.`,
+        targetTitle: "FunniFin ti ha assegnato una presentazione",
+        targetBody: `${company}: controlla deck, note e abilitazione finale per Calendar.`,
+      };
+    }
+    if (phase === "expert_assigned" && targetRole === "Esperto") {
+      return {
+        actorTitle: "Workshop assegnato all'esperto",
+        actorBody: `Hai assegnato l'incarico esperto per ${company}.`,
+        targetTitle: "FunniFin ti ha assegnato un workshop",
+        targetBody: `${company}: trovi incarico, date e materiali nella tua area esperto.`,
+      };
+    }
+    if (phase === "event_tentative") {
+      return {
+        actorTitle: "Evento provvisorio creato",
+        actorBody: `Hai creato l'evento provvisorio per ${company}.`,
+        targetTitle: "FunniFin ha creato un evento provvisorio",
+        targetBody: `${company}: controlla invito, Meet e dettagli evento.`,
+      };
+    }
+    if (phase === "event_confirmed") {
+      return {
+        actorTitle: "Evento confermato",
+        actorBody: `Hai confermato l'evento per ${company}.`,
+        targetTitle: "FunniFin ha confermato l'evento",
+        targetBody: `${company}: evento, Meet e materiali finali sono pronti.`,
+      };
+    }
+    if (phase === "final_approval") {
+      return {
+        actorTitle: "Approvazione finale inviata",
+        actorBody: `Hai inviato l'approvazione finale per ${company}.`,
+        targetTitle: "FunniFin ha inviato l'approvazione finale",
+        targetBody: `${company}: controlla l'ultima conferma prima dell'evento.`,
+      };
+    }
+    return {
+      actorTitle: "Notifica workflow inviata",
+      actorBody: `Hai inviato un aggiornamento a ${targetRole} per ${company}.`,
+      targetTitle: "FunniFin ti ha inviato un aggiornamento",
+      targetBody: `${company}: apri la task collegata per continuare il workflow.`,
+    };
+  };
   const effectiveAdminSettingDefinitions = useMemo(
     () =>
       adminSettingDefinitions.map((definition) => {
@@ -513,6 +629,49 @@ export function AdminView({
   const allProjectDatesApproved = currentProjectSelections.length > 0 && currentProjectSelections.every((row) => row.approval === "approved");
   const activeAdminStatus = selectedProject.source === "local" ? projectStatus : selectedProject.status;
   const activeAdminQuote = selectedProject.source === "local" ? quote.total : selectedProject.quoteTotal;
+  const notifyWorkflowRecipients = ({
+    phase,
+    recipients,
+    deliveredRecipients,
+    deliveryLabel,
+    expertName,
+  }: {
+    phase: WorkflowNotificationPayload["phase"];
+    recipients: WorkflowNotificationRecipientRole[];
+    deliveredRecipients: string[];
+    deliveryLabel: string;
+    expertName?: string;
+  }) => {
+    const audience = Array.from(
+      new Set(recipients.map(notificationRoleFromRecipient).filter((item): item is AppNotificationRole => Boolean(item))),
+    );
+    const actorCopy = workflowCopyForRole(phase, audience[0] ?? "FunniFin", selectedProject.company);
+    notify(actorCopy.actorTitle, `${actorCopy.actorBody} ${deliveryLabel}: ${deliveredRecipients.join(", ") || "nessun destinatario operativo"}.`, {
+      audience: ["FunniFin"],
+      audienceUserIds: currentUserId ? [currentUserId] : undefined,
+      audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+      priority: audience.length > 0 ? "task" : "info",
+      category: "mail",
+      action: { label: "Apri progetto", role: "FunniFin", hash: "#funnifin", projectId: selectedProject.id },
+    });
+    audience.forEach((targetRole) => {
+      if (targetRole === "FunniFin") return;
+      const recipientRole = targetRole === "Esperto" ? "expert" : "brand";
+      const targetUsers = targetRole === "Esperto" && expertName
+        ? getExpertAudienceUsers(expertName)
+        : getAudienceUsers(targetRole, workspaceRecipientEmails[recipientRole]);
+      const copy = workflowCopyForRole(phase, targetRole, selectedProject.company);
+      notify(copy.targetTitle, copy.targetBody, {
+        audience: [targetRole],
+        audienceUserIds: targetUsers.userIds.length ? targetUsers.userIds : undefined,
+        audienceEmails: targetUsers.emails.length ? targetUsers.emails : undefined,
+        priority: "task",
+        category: "mail",
+        action: workflowNotificationAction([targetRole]),
+        toast: false,
+      });
+    });
+  };
   useEffect(() => {
     syncProjectStatus(activeAdminStatus);
   }, [activeAdminStatus, syncProjectStatus]);
@@ -690,7 +849,7 @@ export function AdminView({
       );
     }
     if (notification.send && notification.recipients.length > 0) {
-      await sendWorkflowNotification({
+      const result = await sendWorkflowNotification({
         phase: "request_updated",
         project: {
           id: selectedProject.id,
@@ -714,9 +873,21 @@ export function AdminView({
         fromName: getWorkspaceSettingValue("mail.fromName", SECRET_SETTINGS.google.email.fromName),
         note: notification.note,
       });
-      notify("Richiesta modificata", `Fase: ${statusLabel[phase]}. Email inviata a ${notification.recipients.join(", ")}.`);
+      notifyWorkflowRecipients({
+        phase: "request_updated",
+        recipients: notification.recipients,
+        deliveredRecipients: result.recipients,
+        deliveryLabel: result.sent ? "Email inviata" : "Email pronta in demo",
+      });
     } else {
-      notify("Richiesta modificata", `Fase: ${statusLabel[phase]}. Salvata senza inviare email.`);
+      notify("Richiesta modificata", `Fase: ${statusLabel[phase]}. Salvata senza inviare email.`, {
+        audience: ["FunniFin"],
+        audienceUserIds: currentUserId ? [currentUserId] : undefined,
+        audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+        priority: "info",
+        category: "task",
+        action: { label: "Apri progetto", role: "FunniFin", hash: "#funnifin", projectId: selectedProject.id },
+      });
     }
     setAdminActionModal(null);
   };
@@ -807,6 +978,7 @@ export function AdminView({
     phase: WorkflowNotificationPayload["phase"],
     choice: NotificationChoice,
     event?: WorkflowNotificationPayload["event"],
+    context?: { expertName?: string },
   ) => {
     if (!choice.send || choice.recipients.length === 0) return;
     try {
@@ -835,19 +1007,14 @@ export function AdminView({
         note: choice.note,
         event,
       });
-      const audience = Array.from(
-        new Set(choice.recipients.map(notificationRoleFromRecipient).filter((item): item is AppNotificationRole => Boolean(item))),
-      );
-      notify(
-        result.sent ? (result.opaque ? "Email inoltrata, consegna da verificare" : "Email inviata") : "Email pronta in demo",
-        `${choice.recipients.join(", ")} · ${result.recipients.join(", ")}`,
-        {
-          audience,
-          priority: audience.length > 0 ? "task" : "info",
-          category: "mail",
-          action: workflowNotificationAction(audience),
-        },
-      );
+      const mailTitle = result.sent ? (result.opaque ? "Email inoltrata, consegna da verificare" : "Email inviata") : "Email pronta in demo";
+      notifyWorkflowRecipients({
+        phase,
+        recipients: choice.recipients,
+        deliveredRecipients: result.recipients,
+        deliveryLabel: mailTitle,
+        expertName: context?.expertName,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invio notifica non riuscito";
       notify("Email non inviata", message, {
@@ -909,7 +1076,7 @@ export function AdminView({
   const confirmExpertAssignment = async (workshopId: string, expertName: string, mode: "assign" | "reassign", choice: NotificationChoice) => {
     if (mode === "reassign") reassignWorkshop(workshopId);
     else assignExpertTo(workshopId, expertName);
-    await sendPhaseNotification(mode === "reassign" ? "candidacies_open" : "expert_assigned", choice, undefined);
+    await sendPhaseNotification(mode === "reassign" ? "candidacies_open" : "expert_assigned", choice, undefined, { expertName });
   };
   const verifyCalendars = async () => {
     setCalendarCheck({ checked: false, loading: true, freeSlots: 0, source: "Google Calendar FreeBusy" });

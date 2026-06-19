@@ -4,7 +4,7 @@ import { useDarkMode } from "./hooks/useDarkMode";
 import { DarkModeToggle } from "./components/ui/DarkModeToggle";
 import { initialRules } from "./data/pricing";
 import { workshops } from "./data/catalog";
-import type { ProjectStatus, Role, Selection, Workshop } from "./types/domain";
+import type { AppNotificationRole, ProjectStatus, Role, Selection, Workshop } from "./types/domain";
 import { useQuote } from "./hooks/useQuote";
 import { useToasts } from "./hooks/useToasts";
 import { useWorkshopSelection } from "./hooks/useWorkshopSelection";
@@ -140,8 +140,8 @@ function AppInner() {
   const [showLogin, setShowLogin] = useState(false);
   const [systemRefreshToken, setSystemRefreshToken] = useState(0);
   const [systemSettingsToken, setSystemSettingsToken] = useState(0);
-  const [activeTopics, setActiveTopics] = useState<string[]>(["budget", "benessere"]);
-  const [activeThemes, setActiveThemes] = useState<string[]>(["budget-mensile", "fondo-emergenza", "abitudini", "mutuo", "etf", "rischio", "welfare"]);
+  const [activeTopics, setActiveTopics] = useState<string[]>([]);
+  const [activeThemes, setActiveThemes] = useState<string[]>([]);
   const [brandFilter, setBrandFilter] = useState("Revisioni");
   const [projectStatus, setProjectStatus] = useState<ProjectStatus>("draft_cliente");
   const [customModalWorkshop, setCustomModalWorkshop] = useState<Workshop | null>(null);
@@ -165,7 +165,7 @@ function AppInner() {
     markVisibleNotificationsRead,
     markAllNotificationsRead,
     clearClosedNotifications,
-  } = useToasts(role);
+  } = useToasts(role, currentUser?.id, currentUser?.email);
   const { selections, toggleWorkshop, addWorkshops, updateSelection } = useWorkshopSelection(workshops, notify);
   const quote = useQuote(selections, workshops, rules);
   const lastConfettiTokenRef = useRef<string | null>(null);
@@ -349,7 +349,6 @@ function AppInner() {
           }}
         />
       )}
-      <DarkModeToggle isDark={isDark} onToggle={toggleDark} />
       <Topbar role={role} context={topbarContext} projectStatus={projectStatus} notify={notify} />
       {/* Banner impersonificazione */}
       {isImpersonating && (
@@ -380,9 +379,12 @@ function AppInner() {
         onLogout={logout}
         onLogin={() => setShowLogin(true)}
         currentUser={currentUser}
+        darkModeToggle={<DarkModeToggle isDark={isDark} onToggle={toggleDark} />}
         notificationCenter={
           <NotificationCenter
             role={role}
+            currentUserId={currentUser?.id}
+            currentUserEmail={currentUser?.email}
             notifications={notifications}
             onCloseNotification={closeNotification}
             onReopenNotification={reopenNotification}
@@ -451,6 +453,8 @@ function AppInner() {
             clientAssetFolder={clientAssetFolder}
             clientUploadedAssets={clientUploadedAssets}
             currentRequest={currentRequest}
+            currentUserId={currentUser?.id}
+            currentUserEmail={currentUser?.email}
             requestRefreshToken={requestRefreshToken}
             systemRefreshToken={systemRefreshToken}
             systemSettingsToken={systemSettingsToken}
@@ -463,6 +467,8 @@ function AppInner() {
             setProjectStatus={setStatusWithFeedback}
             notify={notify}
             syncProjectStatus={syncProjectStatus}
+            currentUserId={currentUser?.id}
+            currentUserEmail={currentUser?.email}
             systemRefreshToken={systemRefreshToken}
             systemSettingsToken={systemSettingsToken}
             project={{
@@ -480,6 +486,8 @@ function AppInner() {
             setProjectStatus={setStatusWithFeedback}
             syncProjectStatus={syncProjectStatus}
             notify={notify}
+            currentUserId={currentUser?.id}
+            currentUserEmail={currentUser?.email}
             systemRefreshToken={systemRefreshToken}
             systemSettingsToken={systemSettingsToken}
           />

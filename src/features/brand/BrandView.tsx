@@ -54,6 +54,8 @@ export function BrandView({
   setProjectStatus,
   syncProjectStatus,
   notify,
+  currentUserId,
+  currentUserEmail,
   systemRefreshToken,
   systemSettingsToken,
 }: {
@@ -62,6 +64,8 @@ export function BrandView({
   setProjectStatus: (status: ProjectStatus, title: string, body: string) => void;
   syncProjectStatus: (status: ProjectStatus) => void;
   notify: (title: string, body: string, options?: NotifyOptions) => void;
+  currentUserId?: string;
+  currentUserEmail?: string;
   systemRefreshToken: number;
   systemSettingsToken: number;
 }) {
@@ -167,13 +171,24 @@ export function BrandView({
       setBrandProjects((current) => current.map((item) => (item.id === project.id ? project : item)));
       setSelectedBrandProjectId(project.id);
       setProjectStatus(status, eventType === "brand_approved" ? "Brand approvato" : "Modifiche richieste", note);
-      notify(eventType === "brand_approved" ? "Brand approvato" : "Modifiche richieste", `${project.company}: stato salvato sul registro.`, {
+      notify(eventType === "brand_approved" ? "Hai approvato il deck" : "Hai richiesto modifiche", `${project.company}: stato salvato sul registro.`, {
+        audience: ["Brand"],
+        audienceUserIds: currentUserId ? [currentUserId] : undefined,
+        audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+        priority: "task",
+        category: "task",
+        action: eventType === "brand_approved"
+          ? { label: "Apri revisione", role: "Brand", hash: "#brand", projectId: project.id }
+          : { label: "Rivedi note", role: "Brand", hash: "#brand", projectId: project.id },
+      });
+      notify(eventType === "brand_approved" ? "Brand ha approvato il deck" : "Brand ha chiesto modifiche", `${project.company}: ${note}`, {
         audience: eventType === "brand_approved" ? ["FunniFin"] : ["FunniFin", "Esperto"],
         priority: "task",
         category: "task",
         action: eventType === "brand_approved"
           ? { label: "Vai alla conferma", role: "FunniFin", hash: "#funnifin", projectId: project.id }
           : { label: "Apri modifiche", role: "Esperto", hash: "#esperto-candidature", projectId: project.id },
+        toast: false,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Aggiornamento brand non salvato.";
@@ -297,11 +312,20 @@ export function BrandView({
       const project = requestToAdminProject(request);
       setBrandProjects((current) => current.map((item) => (item.id === project.id ? project : item)));
       setSelectedBrandProjectId(project.id);
-      notify("Deck abilitato per Calendar", `${selectedBrandDeck.title}: il link verra scritto solo negli eventi creati dopo questa abilitazione.`, {
+      notify("Deck abilitato per Calendar", `Hai abilitato ${selectedBrandDeck.title} come deck finale.`, {
+        audience: ["Brand"],
+        audienceUserIds: currentUserId ? [currentUserId] : undefined,
+        audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+        priority: "task",
+        category: "task",
+        action: { label: "Apri revisione", role: "Brand", hash: "#brand", projectId: project.id },
+      });
+      notify("Brand ha abilitato il deck Calendar", `${selectedBrandDeck.title}: il link verra scritto negli eventi creati dopo questa abilitazione.`, {
         audience: ["FunniFin"],
         priority: "task",
         category: "task",
         action: { label: "Crea evento", role: "FunniFin", hash: "#funnifin", projectId: project.id },
+        toast: false,
       });
     } catch (error) {
       notify("Deck Calendar non salvato", error instanceof Error ? error.message : "Aggiornamento registro non riuscito.", {

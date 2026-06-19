@@ -197,6 +197,14 @@ function handlePost(event) {
     requireFunniFinSessionOrSetupSecret(body.payload || {});
     return jsonResponse(seedAdminConfig(body.payload || {}));
   }
+  if (body.action === "createSmokeTestSession") {
+    requireSetupSecret(body.payload || {});
+    return jsonResponse(createSmokeTestSession(body.payload || {}));
+  }
+  if (body.action === "smokeTestSheetLifecycle") {
+    requireSetupSecret(body.payload || {});
+    return jsonResponse(smokeTestSheetLifecycle(body.payload || {}));
+  }
   if (body.action === "createCalendarEvent") {
     requireFunniFinSession(body.payload || {});
     return jsonResponse(createCalendarEvent(body.payload));
@@ -1691,6 +1699,110 @@ function findAuthSessionByToken(token) {
   return null;
 }
 
+function createSmokeTestSession(payload) {
+  seedAuthUsersIfNeeded();
+  const email = String(payload.email || "rinaldi.rilio@gmail.com").trim().toLowerCase();
+  const user = rowToAuthUser(findAuthUserRowByEmail(email, getAuthUsersSheet()));
+  if (!user || user.disabled) throw new Error(`Smoke user not available: ${email}`);
+
+  const durationMinutes = Number(payload.durationMinutes || 30);
+  const session = {
+    userId: user.id,
+    token: `smoke-${Utilities.getUuid()}`,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + durationMinutes * 60 * 1000).toISOString(),
+    effectiveRole: user.actualRole,
+    user,
+  };
+  saveAuthSession(session);
+
+  return {
+    ok: true,
+    source: "google-sheet",
+    session,
+    user,
+  };
+}
+
+function smokeTestSheetLifecycle(payload) {
+  const now = new Date();
+  const suffix = Utilities.getUuid().slice(0, 8);
+  const requestId = `smoke-sheet-${Utilities.formatDate(now, SETTINGS.timezone, "yyyyMMdd-HHmmss")}-${suffix}`;
+  const email = String(payload.email || `smoke+${suffix}@example.com`).trim().toLowerCase();
+  const company = String(payload.company || `Smoke Sheet ${suffix}`);
+
+  const created = createWorkshopRequest({
+    id: requestId,
+    contact: {
+      firstName: "Smoke",
+      lastName: "Test",
+      email,
+      company,
+      phone: "+390000000000",
+    },
+    workshops: [
+      {
+        workshopId: "ws-budget-step",
+        title: "Budgeting personale step by step",
+        duration: "1h",
+        format: "webinar",
+        date: Utilities.formatDate(now, SETTINGS.timezone, "yyyy-MM-dd"),
+        time: "10:00",
+        price: 300,
+        custom: false,
+        status: "draft_cliente",
+      },
+    ],
+    quote: {
+      gross: 300,
+      discount: 0,
+      promoDiscount: 0,
+      customTotal: 0,
+      total: 300,
+      saved: 0,
+      packageName: "Smoke",
+    },
+    materials: {},
+  }).request;
+
+  const listed = listWorkshopRequests({}).requests.some((request) => request.id === requestId);
+  const updated = updateWorkshopRequest({
+    requestId,
+    patch: { status: "in_verifica_funnifin" },
+    event: {
+      type: "smoke_test_update",
+      note: "Smoke test Spreadsheet update",
+      payload: { requestId },
+    },
+  }).request;
+  const deleted = deleteWorkshopRequest({ requestId }).deleted;
+  const deletedEvents = deleteRequestEventsByRequestId(requestId);
+
+  return {
+    ok: true,
+    source: "google-sheet",
+    requestId,
+    created: created.id === requestId,
+    listed,
+    updated: updated.status === "in_verifica_funnifin",
+    deleted,
+    deletedEvents,
+  };
+}
+
+function deleteRequestEventsByRequestId(requestId) {
+  const sheet = getRequestEventsSheet();
+  const rows = sheet.getDataRange().getValues();
+  let deleted = 0;
+  for (let index = rows.length - 1; index >= 1; index -= 1) {
+    if (String(rows[index][1] || "") === String(requestId)) {
+      sheet.deleteRow(index + 1);
+      deleted += 1;
+    }
+  }
+  return deleted;
+}
+
 function requireFunniFinSession(source) {
   return requireSession(source, ["FunniFin"]);
 }
@@ -1702,6 +1814,15 @@ function requireFunniFinSessionOrSetupSecret(source) {
     return { setupSecret: true };
   }
   return requireFunniFinSession(source);
+}
+
+function requireSetupSecret(source) {
+  const setupSecret = PropertiesService.getScriptProperties().getProperty("SETUP_SECRET") || "";
+  const providedSecret = String((source && source.setupSecret) || "");
+  if (!setupSecret || !providedSecret || setupSecret !== providedSecret) {
+    throw new Error("Setup secret non valido.");
+  }
+  return { setupSecret: true };
 }
 
 function requireSession(source, allowedRoles) {

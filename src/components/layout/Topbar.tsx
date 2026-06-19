@@ -30,7 +30,7 @@ export function Topbar({
           </div>
           <div className="brand-subline">
             <span>{context}</span>
-            <span className="request-status-chip" title={statusDescription[projectStatus]}>
+            <span className={`request-status-chip ${projectStatus === "confermato" ? "status-confirmed" : projectStatus === "draft_cliente" ? "status-draft" : "status-active"}`} title={statusDescription[projectStatus]}>
               <strong>{statusLabel[projectStatus]}</strong>
               <button
                 type="button"
@@ -63,6 +63,7 @@ export function SystemBar({
   onLogin,
   currentUser,
   notificationCenter,
+  darkModeToggle,
 }: {
   role: Role;
   /** actualRole dell'utente autenticato (null = visitatore anonimo Cliente) */
@@ -78,6 +79,7 @@ export function SystemBar({
   onLogin: () => void;
   currentUser: AuthUser | null;
   notificationCenter?: React.ReactNode;
+  darkModeToggle?: React.ReactNode;
 }) {
   const isFunniFin = actualRole === "FunniFin";
 
@@ -121,6 +123,7 @@ export function SystemBar({
         <span>{context}</span>
       </div>
       <div className="system-actions">
+        {darkModeToggle}
         {notificationCenter}
         <ToolIconButton onClick={onSettings} label={settingsLabel}>
           <Settings2 size={18} />

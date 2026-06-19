@@ -85,10 +85,25 @@ function isUnread(n: AppNotification, role: AppNotificationRole): boolean {
   return n.status === "open" && !n.readBy.includes(role);
 }
 
+function isUnreadForViewer(n: AppNotification, role: AppNotificationRole, userId?: string): boolean {
+  if (userId) return n.status === "open" && !(n.readByUserIds ?? []).includes(userId);
+  return isUnread(n, role);
+}
+
+function isVisibleForViewer(n: AppNotification, role: AppNotificationRole | null, userId?: string, email?: string): boolean {
+  if (!role || !n.audience.includes(role)) return false;
+  const normalizedEmail = email?.toLowerCase();
+  const matchesUser = !n.audienceUserIds?.length || (userId ? n.audienceUserIds.includes(userId) : false);
+  const matchesEmail = !n.audienceEmails?.length || (normalizedEmail ? n.audienceEmails.includes(normalizedEmail) : false);
+  return matchesUser && matchesEmail;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function NotificationCenter({
   role,
+  currentUserId,
+  currentUserEmail,
   notifications,
   onCloseNotification,
   onReopenNotification,
@@ -99,12 +114,14 @@ export function NotificationCenter({
   onClearClosed,
 }: {
   role: Role;
+  currentUserId?: string;
+  currentUserEmail?: string;
   notifications: AppNotification[];
   onCloseNotification: (id: string) => void;
   onReopenNotification: (id: string) => void;
-  onMarkRead: (id: string, role: AppNotificationRole) => void;
-  onMarkVisibleRead: (role: AppNotificationRole) => void;
-  onMarkAllRead: (role: AppNotificationRole) => void;
+  onMarkRead: (id: string, role: AppNotificationRole, userId?: string) => void;
+  onMarkVisibleRead: (role: AppNotificationRole, userId?: string, email?: string) => void;
+  onMarkAllRead: (role: AppNotificationRole, userId?: string, email?: string) => void;
   onAction: (notification: AppNotification) => void;
   onClearClosed?: () => void;
 }) {
@@ -113,21 +130,20 @@ export function NotificationCenter({
   const [activeFilter, setFilter]   = useState<NotificationFilter>("all");
 
   const notificationRole = isNotificationRole(role) ? role : null;
-  if (!notificationRole) return null;
 
   // ── Derivazioni memoizzate ──
   const roleNotifications = useMemo(
-    () => notifications.filter((n) => n.audience.includes(notificationRole!)),
-    [notifications, notificationRole],
+    () => notifications.filter((n) => isVisibleForViewer(n, notificationRole, currentUserId, currentUserEmail)),
+    [notifications, notificationRole, currentUserId, currentUserEmail],
   );
 
   const counts = useMemo(() => ({
-    unread:   roleNotifications.filter((n) => isUnread(n, notificationRole!)).length,
+    unread:   roleNotifications.filter((n) => notificationRole && isUnreadForViewer(n, notificationRole, currentUserId)).length,
     open:     roleNotifications.filter((n) => n.status === "open").length,
     task:     roleNotifications.filter((n) => n.status === "open" && (n.priority === "task" || n.category === "task" || n.category === "mail")).length,
     critical: roleNotifications.filter((n) => n.status === "open" && n.priority === "critical").length,
     closed:   roleNotifications.filter((n) => n.status === "closed").length,
-  }), [roleNotifications, notificationRole]);
+  }), [roleNotifications, notificationRole, currentUserId]);
 
   const filteredNotifications = useMemo(
     () =>
@@ -146,16 +162,18 @@ export function NotificationCenter({
     return 0;
   };
 
+  if (!notificationRole) return null;
+
   // ── Handlers ──
   const openPanel = () => {
     setOpen(true);
-    onMarkVisibleRead(notificationRole);
+    onMarkVisibleRead(notificationRole, currentUserId, currentUserEmail);
   };
 
   const closePanel = () => setOpen(false);
 
   const handleAction = (n: AppNotification) => {
-    onMarkRead(n.id, notificationRole);
+    onMarkRead(n.id, notificationRole, currentUserId);
     onAction(n);
     closePanel();
   };
@@ -265,7 +283,7 @@ export function NotificationCenter({
             </div>
           ) : (
             filteredNotifications.map((n) => {
-              const unread = isUnread(n, notificationRole);
+              const unread = isUnreadForViewer(n, notificationRole, currentUserId);
               return (
                 <article
                   key={n.id}

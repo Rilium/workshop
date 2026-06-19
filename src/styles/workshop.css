@@ -539,7 +539,12 @@
   padding: var(--sp-3);
   border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg);
-  background: var(--neutral-50);
+  background: var(--surface-glass-heavy);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  position: sticky;
+  top: calc(var(--sticky-topbar-offset, 84px) + 46px);
+  z-index: 7;
 }
 
 .workshop-command-summary {
@@ -1047,6 +1052,43 @@
 
 .workshop-card > .card-footer {
   grid-row: -2 / -1;
+}
+
+.card-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.card-remove-action {
+  opacity: 0;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--neutral-200);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--neutral-600);
+  padding: 0;
+  transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  cursor: pointer;
+}
+
+.workshop-card:hover .card-remove-action,
+.workshop-card:focus-within .card-remove-action {
+  opacity: 1;
+}
+
+.card-remove-action:hover {
+  border-color: var(--accent-pink);
+  color: var(--accent-pink);
+}
+
+/* MI-2: hide theme pills on unselected topic cards */
+.topic-card:not(.selected) .topic-theme-preview {
+  display: none;
 }
 
 .card-footer {

@@ -58,6 +58,8 @@ export function ExpertView({
   setProjectStatus,
   notify,
   syncProjectStatus,
+  currentUserId,
+  currentUserEmail,
   systemRefreshToken,
   systemSettingsToken,
   project,
@@ -67,6 +69,8 @@ export function ExpertView({
   setProjectStatus: (status: ProjectStatus, title: string, body: string) => void;
   notify: (title: string, body: string, options?: NotifyOptions) => void;
   syncProjectStatus: (status: ProjectStatus) => void;
+  currentUserId?: string;
+  currentUserEmail?: string;
   systemRefreshToken: number;
   systemSettingsToken: number;
   project: AdminProject;
@@ -210,11 +214,20 @@ export function ExpertView({
         updateSelection(assignedRow.workshop.id, { status: "in_revisione_brand" });
       }
       setProjectStatus("in_revisione_brand", "Deck inviato al brand", `${expertDeckFile.name} passa alla revisione qualita.`);
-      notify("Deck inviato al brand", `${expertDeckFile.name} salvato sul registro del progetto.`, {
+      notify("Deck inviato al brand", `Hai inviato ${expertDeckFile.name} al Brand per la revisione.`, {
+        audience: ["Esperto"],
+        audienceUserIds: currentUserId ? [currentUserId] : undefined,
+        audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+        priority: "task",
+        category: "task",
+        action: { label: "Torna all'upload", role: "Esperto", hash: "#esperto-candidature", projectId: activeExpertProject.id },
+      });
+      notify("Esperto ti ha inviato una presentazione", `${expertName} ha inviato ${expertDeckFile.name}: apri la revisione Brand.`, {
         audience: ["Brand"],
         priority: "task",
         category: "task",
         action: { label: "Apri revisione", role: "Brand", hash: "#brand", projectId: activeExpertProject.id },
+        toast: false,
       });
     } catch (error) {
       notify("Invio a brand non salvato", error instanceof Error ? error.message : "Aggiornamento registro non riuscito.", {
@@ -312,11 +325,20 @@ export function ExpertView({
       }
       if (activeExpertProject.source === "local") updateSelection(workshop.id, { status: "candidatura_ricevuta" });
       setProjectStatus("aperto_a_esperti", "Candidatura inviata", "FunniFin ha ricevuto la candidatura interna e puo assegnarti il workshop.");
-      notify("Candidatura registrata", "Nessuna email automatica inviata: FunniFin la vede nella coda progetto.", {
+      notify("Candidatura registrata", `Hai inviato la candidatura per ${workshop.title}.`, {
+        audience: ["Esperto"],
+        audienceUserIds: currentUserId ? [currentUserId] : undefined,
+        audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+        priority: "task",
+        category: "task",
+        action: { label: "Vedi opportunita", role: "Esperto", hash: "#esperto-candidature", projectId: activeExpertProject.id },
+      });
+      notify("Esperto candidato", `${expertName} si e candidato per ${workshop.title}.`, {
         audience: ["FunniFin"],
         priority: "task",
         category: "task",
         action: { label: "Apri coda", role: "FunniFin", hash: "#funnifin", projectId: activeExpertProject.id },
+        toast: false,
       });
       setCandidateModalRow(null);
     } catch (error) {

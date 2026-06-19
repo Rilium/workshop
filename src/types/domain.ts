@@ -24,18 +24,24 @@ export type AppNotification = {
   updatedAt: string;
   sourceRole?: Role;
   audience: AppNotificationRole[];
+  audienceUserIds?: string[];
+  audienceEmails?: string[];
   priority: NotificationPriority;
   category: NotificationCategory;
   status: NotificationStatus;
   readBy: AppNotificationRole[];
+  readByUserIds?: string[];
   action?: NotificationAction;
 };
 export type NotifyOptions = {
   audience?: AppNotificationRole[];
+  audienceUserIds?: string[];
+  audienceEmails?: string[];
   priority?: NotificationPriority;
   category?: NotificationCategory;
   action?: NotificationAction;
   persist?: boolean;
+  toast?: boolean;
 };
 export type Duration = "1h" | "2h";
 export type Format = "live" | "webinar" | "ibrido";

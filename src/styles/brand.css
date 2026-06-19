@@ -57,6 +57,17 @@
   min-height: 32px;
 }
 
+.date-action-card.proposed {
+  border-color: var(--color-warning-border);
+  background: linear-gradient(180deg, var(--white), var(--color-warning-bg));
+}
+
+.date-action-card.proposed .date-status {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border: 1px solid var(--color-warning-border);
+}
+
 .date-action-card.done {
   border-color: var(--brand);
   background: linear-gradient(180deg, var(--white), var(--brand-light));

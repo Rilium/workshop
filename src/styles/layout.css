@@ -313,6 +313,28 @@
   border-radius: var(--radius-pill);
   background: var(--brand-light);
   color: var(--brand-dark);
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* Stato bozza: neutro */
+.request-status-chip.status-draft {
+  background: var(--neutral-100);
+  border-color: var(--neutral-200);
+  color: var(--neutral-800);
+}
+
+/* Stato attivo / in lavorazione: ambra */
+.request-status-chip.status-active {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+  color: var(--color-warning-text);
+}
+
+/* Stato confermato: verde */
+.request-status-chip.status-confirmed {
+  background: var(--color-success-bg);
+  border-color: var(--color-success-border);
+  color: var(--color-success-text);
 }
 
 .brand-mark .request-status-chip,

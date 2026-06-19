@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "test:e2e": "node tests/e2e/funnifin-smoke.mjs",
+    "test:e2e": "node tests/e2e/funnifin-smoke.mjs && node tests/e2e/notification-deep-check.mjs && node tests/e2e/manual-regressions.mjs",
+    "test:e2e:local": "node tests/e2e/funnifin-local-smoke.mjs && node tests/e2e/notification-deep-check.mjs && node tests/e2e/manual-regressions.mjs",
+    "test:e2e:live": "node tests/e2e/funnifin-smoke.mjs",
     "preview": "vite preview",
     "google:seed": "node google-workspace/seed-google-admin.mjs",
     "clasp:login": "clasp login",

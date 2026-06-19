@@ -1,11 +1,7 @@
 /* ─── Dark mode toggle (Magic UI style) ─────────────────────────────────── */
 
 .dark-mode-toggle {
-  position: fixed;
-  /* topbar ~73px + system-bar ~57px + 10px gap */
-  top: 140px;
-  right: 20px;
-  z-index: calc(var(--z-nav) + 1);
+  flex-shrink: 0;
   padding: 0;
   border: none;
   background: none;
@@ -1402,6 +1398,7 @@ button:disabled {
 
 /* Item body */
 .nc-item-body {
+  position: relative;
   flex: 1;
   min-width: 0;
   display: grid;
@@ -1512,29 +1509,25 @@ button:disabled {
 
 .nc-tag--source { background: var(--brand-light); color: var(--brand-dark); }
 
-/* Actions row — hover via CSS puro, zero JS state */
+/* Actions row */
 .nc-item-actions {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--sp-2);
-  max-height: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition: max-height 0.15s ease, opacity 0.15s ease, margin-top 0.15s ease;
-}
-
-.nc-item:hover .nc-item-actions,
-.nc-item:focus-within .nc-item-actions {
-  max-height: 60px;
   opacity: 1;
   margin-top: 2px;
+  overflow: visible;
 }
 
 /* Action buttons */
 .nc-btn-primary,
 .nc-btn-ghost,
 .nc-btn-danger {
+  position: relative;
+  z-index: 1;
   min-height: 30px;
   display: inline-flex;
   align-items: center;

@@ -114,6 +114,7 @@ export function ClientView({
   const [uploadingAssets, setUploadingAssets] = useState(false);
   const [assetUploadError, setAssetUploadError] = useState("");
   const [requestFinalized, setRequestFinalized] = useState(false);
+  const [contactTouched, setContactTouched] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [emailDeliveryMode, setEmailDeliveryMode] = useState<"sent" | "opaque" | "not_sent">("not_sent");
   const [flyToBar, setFlyToBar] = useState<{ id: number; title: string; x: number; y: number } | null>(null);
@@ -272,6 +273,7 @@ export function ClientView({
       return;
     }
     if (!contactReady) {
+      setContactTouched(true);
       setClientStep("Invio");
       notify("Dati contatto mancanti", "Compila nome, cognome, azienda, telefono e una email valida per ricevere il recap.");
       return;
@@ -512,7 +514,7 @@ export function ClientView({
                 <span className="topic-icon"><BookOpen size={22} /></span>
                 <span className="topic-badge">vedi tutti</span>
                 <strong>Tutto il catalogo</strong>
-                <small>Mostra tutti gli interessi, i temi e i workshop disponibili.</small>
+                <small>Salta i consigli e vai direttamente al catalogo completo →</small>
                 <em>{allThemes.length} temi catalogo · {workshops.length} workshop</em>
               </button>
               {topics.map((topicItem) => {
@@ -655,7 +657,10 @@ export function ClientView({
               <div className="recommendation-meter">
                 <span>{selectedTopics.length} interessi</span>
                 <strong>{recommendedWorkshops.length} consigli</strong>
-                <em>{selectedRecommendationCount}/{recommendedWorkshops.length} gia nel percorso</em>
+                {selectedRecommendationCount > 0
+                  ? <em>{selectedRecommendationCount}/{recommendedWorkshops.length} già nel percorso</em>
+                  : <em>Aggiungi questi {recommendedWorkshops.length} workshop con un clic</em>
+                }
               </div>
             </div>
             {recommendedWorkshops.length > 0 ? (
@@ -900,20 +905,25 @@ export function ClientView({
               <div className="date-choice-grid">
                 {selections.map((selection) => {
                 const workshop = workshops.find((item) => item.id === selection.workshopId)!;
+                const hasDate = Boolean(selection.date);
+                const isConfirmed = Boolean(selection.dateConfirmed);
+                const dateStateClass = isConfirmed ? "done" : hasDate ? "proposed" : "";
+                const dateIcon = isConfirmed ? <Check size={16} /> : hasDate ? <CalendarCheck size={16} /> : <Clock3 size={16} />;
+                const dateLabel = isConfirmed
+                  ? `${selection.date} · ${selection.time} · ${selection.duration}`
+                  : hasDate
+                    ? `${selection.date} · ${selection.time} — in attesa di conferma`
+                    : "Data non ancora scelta";
                 return (
-                  <div className={`date-action-card ${selection.dateConfirmed ? "done" : ""}`} key={selection.workshopId}>
-                    <span className="date-status">{selection.dateConfirmed ? <Check size={16} /> : <Clock3 size={16} />}</span>
+                  <div className={`date-action-card ${dateStateClass}`} key={selection.workshopId}>
+                    <span className="date-status">{dateIcon}</span>
                     <div>
                       <strong>{workshop.title}</strong>
-                      <span>
-                        {selection.dateConfirmed
-                          ? `${selection.date} · ${selection.time} · ${selection.duration}`
-                          : "Date non ancora scelte"}
-                      </span>
+                      <span>{dateLabel}</span>
                     </div>
                     <div className="date-row-actions">
-                      <AppButton variant={selection.dateConfirmed ? "outline" : "secondary"} onClick={() => openDateModal(selection)}>
-                        <CalendarCheck size={17} /> {selection.dateConfirmed ? "Modifica" : "Scegli"}
+                      <AppButton variant={isConfirmed ? "outline" : "secondary"} onClick={() => openDateModal(selection)}>
+                        <CalendarCheck size={17} /> {isConfirmed ? "Modifica" : "Scegli"}
                       </AppButton>
                       <RemoveWorkshopButton onClick={() => removeWorkshop(workshop.id)} label={workshop.title} />
                     </div>
@@ -1038,25 +1048,30 @@ export function ClientView({
                     <span>Nessun account richiesto: inserisci i dati solo alla fine per inviare la richiesta.</span>
                   </div>
                   <div className="contact-grid">
-                    <label>
+                    <label className={contactTouched && !contact.firstName.trim() ? "has-error" : ""}>
                       Nome
                       <input value={contact.firstName} onChange={(event) => setContact({ ...contact, firstName: event.target.value })} autoComplete="given-name" />
+                      {contactTouched && !contact.firstName.trim() && <small className="field-error">Campo obbligatorio</small>}
                     </label>
-                    <label>
+                    <label className={contactTouched && !contact.lastName.trim() ? "has-error" : ""}>
                       Cognome
                       <input value={contact.lastName} onChange={(event) => setContact({ ...contact, lastName: event.target.value })} autoComplete="family-name" />
+                      {contactTouched && !contact.lastName.trim() && <small className="field-error">Campo obbligatorio</small>}
                     </label>
-                    <label>
+                    <label className={contactTouched && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email.trim()) ? "has-error" : ""}>
                       Email aziendale
                       <input type="email" value={contact.email} onChange={(event) => setContact({ ...contact, email: event.target.value })} autoComplete="email" />
+                      {contactTouched && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email.trim()) && <small className="field-error">Email non valida</small>}
                     </label>
-                    <label>
+                    <label className={contactTouched && !contact.company.trim() ? "has-error" : ""}>
                       Azienda
                       <input value={contact.company} onChange={(event) => setContact({ ...contact, company: event.target.value })} autoComplete="organization" />
+                      {contactTouched && !contact.company.trim() && <small className="field-error">Campo obbligatorio</small>}
                     </label>
-                    <label>
+                    <label className={contactTouched && !contact.phone.trim() ? "has-error" : ""}>
                       Telefono
                       <input value={contact.phone} onChange={(event) => setContact({ ...contact, phone: event.target.value })} autoComplete="tel" />
+                      {contactTouched && !contact.phone.trim() && <small className="field-error">Campo obbligatorio</small>}
                     </label>
                   </div>
                 </div>
@@ -1065,13 +1080,6 @@ export function ClientView({
                     <strong>Preventivo pronto per FunniFin</strong>
                     <span>Riceverai un recap via email; FunniFin verifichera date, esperti e fattibilita operativa.</span>
                   </div>
-                  <button
-                    className="primary-btn"
-                    onClick={submitRequest}
-                    disabled={sendingRequest}
-                  >
-                    <Send size={18} /> {sendingRequest ? "Invio..." : "Invia richiesta"}
-                  </button>
                 </div>
               </>
             )}
@@ -1095,8 +1103,17 @@ export function ClientView({
         discountLabel={quote.saved > 0 ? `Sconto ${money(quote.saved)}` : undefined}
         caveat={
           selectedWorkshopRows.length > 0 && selectedWorkshopRows.length < 3
-            ? `Aggiungi ${3 - selectedWorkshopRows.length} workshop\nper sconto del 20%`
+            ? `Aggiungi ${3 - selectedWorkshopRows.length} workshop per sconto del 20%`
             : undefined
+        }
+        primaryHint={
+          clientStep === "Interessi" && clientMainAction.disabled
+            ? "Seleziona almeno un interesse per continuare"
+            : clientStep === "Workshop" && clientMainAction.disabled
+              ? "Aggiungi almeno un workshop al percorso"
+              : clientStep === "Date" && clientMainAction.disabled
+                ? "Scegli la data per tutti i workshop"
+                : undefined
         }
         primaryLabel={clientMainAction.label}
         primaryDisabled={clientMainAction.disabled}
