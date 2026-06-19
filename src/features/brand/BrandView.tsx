@@ -79,6 +79,7 @@ export function BrandView({
   const [brandDriveLoading, setBrandDriveLoading] = useState(false);
   const [brandDriveError, setBrandDriveError] = useState("");
   const [brandDriveFolder, setBrandDriveFolder] = useState<{ name: string; url: string } | null>(null);
+  const [brandActionBusy, setBrandActionBusy] = useState<"" | "approve" | "changes" | "calendar">("");
   const [reviewNote, setReviewNote] = useState("Uniformare chip topic, inserire logo nella cover, verificare disclaimer finale.");
   const [reviewChecklist, setReviewChecklist] = useState({
     clientLogo: false,
@@ -255,26 +256,31 @@ export function BrandView({
     setSelectedBrandDeckId(firstDeck?.id ?? "");
   }, [brandFilter, brandDecks]);
   const approveSelectedDeck = () => {
-    if (!selectedBrandDeck && !selectedBrandProject) return;
+    if ((!selectedBrandDeck && !selectedBrandProject) || brandActionBusy) return;
+    setBrandActionBusy("approve");
     if (selectedBrandDeck) {
       const deckId = selectedBrandDeck.id;
       updateDeckStatus("approved");
       setSelectedBrandDeckId(deckId);
     }
     setBrandFilter("Approvate");
-    void persistBrandProjectStatus("approvazione_finale", "brand_approved", "La versione brand-approved passa all'approvazione finale FunniFin/cliente.", "approved");
+    void persistBrandProjectStatus("approvazione_finale", "brand_approved", "La versione brand-approved passa all'approvazione finale FunniFin/cliente.", "approved")
+      .finally(() => setBrandActionBusy(""));
   };
   const requestDeckChanges = () => {
-    if (!selectedBrandDeck && !selectedBrandProject) return;
+    if ((!selectedBrandDeck && !selectedBrandProject) || brandActionBusy) return;
+    setBrandActionBusy("changes");
     if (selectedBrandDeck) {
       const deckId = selectedBrandDeck.id;
       updateDeckStatus("changes_requested");
       setSelectedBrandDeckId(deckId);
     }
     setBrandFilter("Da correggere");
-    void persistBrandProjectStatus("in_revisione_brand", "brand_changes_requested", "L'esperto vede le note e deve caricare una nuova versione.", "changes_requested");
+    void persistBrandProjectStatus("in_revisione_brand", "brand_changes_requested", "L'esperto vede le note e deve caricare una nuova versione.", "changes_requested")
+      .finally(() => setBrandActionBusy(""));
   };
   const enableDeckForCalendar = async () => {
+    if (brandActionBusy) return;
     if (!selectedBrandProject || !selectedBrandDeck) {
       notify("Deck non selezionato", "Seleziona un progetto e una presentazione prima di abilitarla per Calendar.");
       return;
@@ -284,6 +290,7 @@ export function BrandView({
       notify("Link deck mancante", "La presentazione selezionata non espone un link Drive/Slides.");
       return;
     }
+    setBrandActionBusy("calendar");
     try {
       const request = await updateWorkshopRequest(
         selectedBrandProject.id,
@@ -333,6 +340,8 @@ export function BrandView({
         category: "system",
         action: { label: "Riprova deck", role: "Brand", hash: "#brand", projectId: selectedBrandProject.id },
       });
+    } finally {
+      setBrandActionBusy("");
     }
   };
   const uploadDeckVersion = () => {
@@ -353,7 +362,7 @@ export function BrandView({
     if (brandFilter === "Approvate") return { label: "Carica nuova versione", disabled: false, action: uploadDeckVersion };
     if (brandFilter === "Da correggere") return { label: "Carica nuova versione", disabled: false, action: uploadDeckVersion };
     if (brandFilter === "Storico") return { label: "Riapri revisione", disabled: false, action: uploadDeckVersion };
-    return { label: "Approva brand", disabled: false, action: approveSelectedDeck };
+    return { label: "Approva brand", disabled: Boolean(brandActionBusy), loading: brandActionBusy === "approve", action: approveSelectedDeck };
   })();
   const queueIcons: Record<string, React.ReactNode> = {
     Revisioni: <Palette size={18} />,
@@ -381,7 +390,7 @@ export function BrandView({
         title="Progetti in revisione"
         icon={<BadgeCheck size={20} />}
         actions={
-          <ToolIconButton onClick={() => refreshBrandProjects(true)} label="Ricarica progetti brand">
+          <ToolIconButton onClick={() => refreshBrandProjects(true)} loading={brandProjectLoading} label="Ricarica progetti brand">
             <RefreshCw size={18} />
           </ToolIconButton>
         }
@@ -420,7 +429,7 @@ export function BrandView({
         title="Revisione materiali brand"
         icon={<Palette size={20} />}
         actions={
-          <ToolIconButton onClick={() => refreshBrandDrive(true)} label="Ricarica presentazioni Drive">
+          <ToolIconButton onClick={() => refreshBrandDrive(true)} loading={brandDriveLoading} label="Ricarica presentazioni Drive">
             <RefreshCw size={18} />
           </ToolIconButton>
         }
@@ -565,15 +574,15 @@ export function BrandView({
                           : "Il link verra scritto negli eventi solo dopo questa abilitazione esplicita."}
                       </span>
                     </div>
-                    <AppButton variant="secondary" onClick={enableDeckForCalendar} disabled={!selectedBrandDeck || selectedDeckStatus !== "approved"}>
+                    <AppButton variant="secondary" onClick={enableDeckForCalendar} disabled={!selectedBrandDeck || selectedDeckStatus !== "approved"} loading={brandActionBusy === "calendar"}>
                       <CalendarCheck size={17} /> Abilita per Calendar
                     </AppButton>
                   </div>
                   <div className="button-row compact-actions">
-                    <ActionIconButton variant="success" onClick={approveSelectedDeck} label="Approva brand">
+                    <ActionIconButton variant="success" onClick={approveSelectedDeck} loading={brandActionBusy === "approve"} disabled={Boolean(brandActionBusy)} label="Approva brand">
                       <Check size={18} />
                     </ActionIconButton>
-                    <ActionIconButton onClick={requestDeckChanges} label="Richiedi modifiche">
+                    <ActionIconButton onClick={requestDeckChanges} loading={brandActionBusy === "changes"} disabled={Boolean(brandActionBusy)} label="Richiedi modifiche">
                       <AlertCircle size={18} />
                     </ActionIconButton>
                     <ActionIconButton onClick={uploadDeckVersion} label="Carica nuova versione">
@@ -590,6 +599,7 @@ export function BrandView({
         detail={selectedBrandDeck ? `${selectedBrandDeck.title} · ${selectedDeckStatusLabel[selectedDeckStatus]}` : "Nessun deck reale trovato in Drive"}
         primaryLabel={brandMainAction.label}
         primaryDisabled={brandMainAction.disabled}
+        primaryLoading={"loading" in brandMainAction ? brandMainAction.loading : false}
         onPrimary={brandMainAction.action}
         secondaryLabel={brandFilter === "Revisioni" && selectedBrandDeck ? "Richiedi modifiche" : undefined}
         onSecondary={brandFilter === "Revisioni" ? requestDeckChanges : undefined}

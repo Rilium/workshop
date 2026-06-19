@@ -23,13 +23,9 @@ export function Topbar({
     <header className="topbar">
       <div className="brand-mark">
         <img className="logo-bubble" src="/Logo.png" alt="FunniFin" />
-        <div>
+        <div className="brand-copy">
           <div className="brand-title-row">
             <strong>FunniFin Workshop Planner</strong>
-            <span className="role-title-badge">{role}</span>
-          </div>
-          <div className="brand-subline">
-            <span>{context}</span>
             <span className={`request-status-chip ${projectStatus === "confermato" ? "status-confirmed" : projectStatus === "draft_cliente" ? "status-draft" : "status-active"}`} title={statusDescription[projectStatus]}>
               <strong>{statusLabel[projectStatus]}</strong>
               <button
@@ -42,6 +38,9 @@ export function Topbar({
                 <InfoIcon size={14} />
               </button>
             </span>
+          </div>
+          <div className="brand-subline">
+            <span>{context}</span>
           </div>
         </div>
       </div>
@@ -89,6 +88,7 @@ export function SystemBar({
         {isFunniFin ? (
           /* Switch ruolo: solo per FunniFin */
           <div className="role-menu">
+            <span className="role-menu-label">Visualizza come</span>
             <button
               className="role-menu-trigger"
               type="button"
@@ -96,7 +96,7 @@ export function SystemBar({
               aria-expanded={roleMenuOpen}
               onClick={onToggleRoleMenu}
             >
-              <span>Visualizza come: {role}</span>
+              <span>{role}</span>
               <Menu size={18} />
             </button>
             {roleMenuOpen && (
@@ -120,26 +120,27 @@ export function SystemBar({
             <span>{role}</span>
           </div>
         )}
-        <span>{context}</span>
       </div>
       <div className="system-actions">
-        {darkModeToggle}
-        {notificationCenter}
-        <ToolIconButton onClick={onSettings} label={settingsLabel}>
-          <Settings2 size={18} />
-        </ToolIconButton>
-        <ToolIconButton onClick={onRefresh} label="Ricarica sezione">
-          <RefreshCw size={18} />
-        </ToolIconButton>
-        {currentUser ? (
-          <ToolIconButton onClick={onLogout} label={`Esci (${currentUser.displayName})`}>
-            <LogOut size={18} />
+        <div className="system-preference-actions">{darkModeToggle}</div>
+        <div className="system-operational-actions">
+          {notificationCenter}
+          <ToolIconButton onClick={onSettings} label={settingsLabel} className="system-action-settings">
+            <Settings2 size={18} />
           </ToolIconButton>
-        ) : (
-          <ToolIconButton onClick={onLogin} label="Accedi all'area riservata">
-            <LogIn size={18} />
+          <ToolIconButton onClick={onRefresh} label="Ricarica sezione" className="system-action-refresh">
+            <RefreshCw size={18} />
           </ToolIconButton>
-        )}
+          {currentUser ? (
+            <ToolIconButton onClick={onLogout} label={`Esci (${currentUser.displayName})`} className="system-action-auth">
+              <LogOut size={18} />
+            </ToolIconButton>
+          ) : (
+            <ToolIconButton onClick={onLogin} label="Accedi all'area riservata" className="system-action-auth">
+              <LogIn size={18} />
+            </ToolIconButton>
+          )}
+        </div>
       </div>
     </section>
   );

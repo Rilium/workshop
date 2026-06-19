@@ -12,11 +12,13 @@ export function EcommerceCart({
   quote,
   onRemove,
   onSubmit,
+  submitting = false,
 }: {
   rows: Array<{ selection: Selection; workshop: Workshop }>;
   quote: Quote;
   onRemove: (workshopId: string) => void;
   onSubmit: () => void;
+  submitting?: boolean;
 }) {
   const cartRef = useRef<HTMLElement | null>(null);
 
@@ -92,7 +94,7 @@ export function EcommerceCart({
       </>
 
       <div className="cart-submit-row">
-        <AppButton variant="secondary" onClick={onSubmit} disabled={rows.length === 0}>
+        <AppButton variant="secondary" onClick={onSubmit} disabled={rows.length === 0} loading={submitting}>
           <Send size={17} /> Invia
         </AppButton>
       </div>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ArrowRight, Mail, RefreshCw, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../AuthContext";
+import { AppButton } from "../../components/ui/AppButton";
 
 type LoginStep = "email" | "code";
 
@@ -126,14 +127,16 @@ export function LoginView({ onClose }: { onClose?: () => void }) {
               autoFocus
             />
             {error && <p className="login-error">{error}</p>}
-            <button
+            <AppButton
               type="submit"
+              variant="primary"
               className="login-submit"
               disabled={loading || code.length !== 6}
+              loading={loading}
+              rightIcon={<ArrowRight size={16} />}
             >
-              {loading ? "Verifica…" : "Accedi"}
-              <ArrowRight size={16} />
-            </button>
+              Accedi
+            </AppButton>
             <button
               type="button"
               className="login-back"
@@ -146,15 +149,17 @@ export function LoginView({ onClose }: { onClose?: () => void }) {
             >
               ← Cambia email
             </button>
-            <button
+            <AppButton
               type="button"
+              variant="ghost"
               className="login-back"
               onClick={handleResendCode}
               disabled={resending}
+              loading={resending}
+              leftIcon={<RefreshCw size={13} />}
             >
-              <RefreshCw size={13} />
-              {resending ? "Invio…" : "Non hai il codice? Invialo via email"}
-            </button>
+              Non hai il codice? Invialo via email
+            </AppButton>
           </form>
         )}
       </div>

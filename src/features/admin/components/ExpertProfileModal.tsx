@@ -43,6 +43,8 @@ export function ExpertProfileModal({
   onDelete,
   onChange,
   onSave,
+  saving = false,
+  deleting = false,
 }: {
   expert: ExpertProfile;
   catalogThemeRows: Array<Theme & { topicId: string; topicTitle: string }>;
@@ -50,6 +52,8 @@ export function ExpertProfileModal({
   onDelete: () => void;
   onChange: (patch: Partial<ExpertProfile>) => void;
   onSave: () => void;
+  saving?: boolean;
+  deleting?: boolean;
 }) {
   const fullName = `${expert.firstName} ${expert.lastName}`.trim();
 
@@ -66,7 +70,7 @@ export function ExpertProfileModal({
             </div>
           </div>
           <div className="row-actions compact-actions">
-            <ActionIconButton variant="danger" onClick={onDelete} label="Elimina esperto">
+            <ActionIconButton variant="danger" onClick={onDelete} loading={deleting} disabled={saving || deleting} label="Elimina esperto">
               <Trash2 size={17} />
             </ActionIconButton>
             <button className="modal-close" onClick={onClose} aria-label="Chiudi">
@@ -153,10 +157,10 @@ export function ExpertProfileModal({
           </div>
         </div>
         <footer className="modal-footer">
-          <AppButton variant="ghost" onClick={onClose}>
+          <AppButton variant="ghost" onClick={onClose} disabled={saving || deleting}>
             Annulla
           </AppButton>
-          <AppButton variant="primary" onClick={onSave}>
+          <AppButton variant="primary" onClick={onSave} loading={saving} disabled={deleting}>
             Salva profilo
           </AppButton>
         </footer>

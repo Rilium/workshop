@@ -11,6 +11,7 @@ export function CatalogEditModal({
   onReset,
   onSave,
   onClose,
+  saving = false,
 }: {
   topic: Topic;
   draft: { title: string; description: string; badge: string; active: boolean };
@@ -18,6 +19,7 @@ export function CatalogEditModal({
   onReset: () => void;
   onSave: () => void;
   onClose: () => void;
+  saving?: boolean;
 }) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="catalog-edit-title">
@@ -60,10 +62,10 @@ export function CatalogEditModal({
           </label>
         </div>
         <footer className="modal-footer">
-          <AppButton variant="ghost" onClick={onReset}>
+          <AppButton variant="ghost" onClick={onReset} disabled={saving}>
             Ripristina
           </AppButton>
-          <AppButton variant="primary" onClick={onSave}>
+          <AppButton variant="primary" onClick={onSave} loading={saving}>
             Salva modifiche
           </AppButton>
         </footer>

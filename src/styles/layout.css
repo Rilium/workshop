@@ -30,7 +30,7 @@
   justify-content: space-between;
   min-width: 0;
   gap: 16px;
-  padding: 12px 20px;
+  padding: 20px 24px;
   background: var(--surface-glass);
   border-bottom: 1px solid var(--color-border);
   position: sticky;
@@ -52,14 +52,14 @@
 .system-bar {
   grid-column: 1 / -1;
   position: sticky;
-  top: 73px;
+  top: 101px;
   z-index: var(--z-nav);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: var(--sp-3);
+  gap: var(--sp-6);
   min-width: 0;
-  padding: 8px 20px 10px;
+  padding: 24px 24px 12px;
   border-bottom: 1px solid var(--color-border);
   background: var(--surface-glass);
   backdrop-filter: blur(8px);
@@ -85,15 +85,24 @@
 .system-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-6);
+  min-width: 0;
+}
+
+.system-preference-actions,
+.system-operational-actions {
+  display: flex;
+  align-items: center;
   gap: var(--sp-2);
 }
 
-.system-actions .tool-icon-btn {
-  width: 38px;
-  min-width: 38px;
-  height: 38px;
-  min-height: 38px;
+.system-actions .tool-icon-btn,
+.system-actions .nc-bell {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
   box-shadow: none;
 }
 
@@ -119,13 +128,15 @@
 .brand-mark {
   flex: 1 1 auto;
   overflow: hidden;
+  gap: 12px;
 }
 
+.brand-copy,
 .brand-mark > div:last-child {
   width: 100%;
 }
 
-.brand-mark div:last-child,
+.brand-copy,
 .brand-mark strong,
 .brand-mark span {
   min-width: 0;
@@ -138,9 +149,8 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 2px;
+  gap: 0;
+  margin-top: 4px;
 }
 
 .brand-subline > span:first-child {
@@ -182,17 +192,25 @@
   object-fit: cover;
 }
 
+.brand-copy,
 .brand-mark > div:last-child {
   display: grid;
-  gap: 2px;
+  gap: 0;
 }
 
 .brand-title-row {
   min-width: 0;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   max-width: 100%;
+}
+
+.brand-title-row > strong {
+  color: var(--neutral-900);
+  font-size: var(--text-md);
+  font-weight: 900;
+  line-height: 1.25;
 }
 
 .brand-mark .role-title-badge {
@@ -215,22 +233,32 @@
 .role-menu {
   position: relative;
   flex: 0 0 auto;
+  display: grid;
+  gap: 6px;
+}
+
+.role-menu-label {
+  color: var(--neutral-600);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
+  line-height: 1;
 }
 
 .role-menu-trigger {
-  min-height: 40px;
+  min-height: 34px;
   min-width: 0;
   display: inline-grid;
   grid-template-columns: minmax(0, 1fr) 18px;
   align-items: center;
   gap: var(--sp-2);
-  padding: 9px 12px 9px 14px;
-  border: 1px solid var(--brand-mid);
-  border-radius: var(--radius-pill);
+  padding: 6px 10px 6px 12px;
+  border: 1px solid var(--neutral-300);
+  border-radius: var(--radius-sm);
   background: var(--white);
   color: var(--brand-dark);
-  box-shadow: var(--brand-shadow-card);
-  font-weight: var(--fw-xbold);
+  box-shadow: none;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
 }
 
 .role-menu-trigger span {
@@ -241,13 +269,14 @@
 }
 
 .role-menu-trigger[aria-expanded="true"] {
-  background: var(--brand);
-  color: var(--white);
+  border-color: var(--brand-mid);
+  background: var(--brand-light);
+  color: var(--brand-dark);
 }
 
 .role-switch {
   position: fixed;
-  top: 126px;
+  top: 182px;
   left: 20px;
   z-index: var(--z-tooltip);
   width: min(232px, calc(100vw - 40px));
@@ -302,13 +331,13 @@
 
 .request-status-chip {
   width: fit-content;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   max-width: min(290px, 100%);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 24px;
-  padding: 3px 4px 3px 9px;
+  gap: 8px;
+  min-height: 38px;
+  padding: 7px 8px 7px 14px;
   border: 1px solid var(--brand-mid);
   border-radius: var(--radius-pill);
   background: var(--brand-light);
@@ -347,17 +376,17 @@
 
 .request-status-chip strong {
   font-size: var(--text-xs);
-  font-weight: 900;
+  font-weight: var(--fw-xbold);
   line-height: 1;
 }
 
 .status-info-button {
-  width: 20px;
-  min-width: 20px;
-  height: 20px;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
   display: grid;
   place-items: center;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 50%;
   background: var(--surface-glass-subtle);
   color: var(--neutral-600);
@@ -619,7 +648,7 @@
 .main-content {
   min-width: 0;
   max-width: 100%;
-  padding: 22px 22px 132px;
+  padding: 24px 22px 132px;
   overflow: clip;
 }
 

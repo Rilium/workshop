@@ -52,6 +52,7 @@ export function AdminActionModal({
   eventPrechecks,
   eventRecord,
   canConfirmEvent,
+  brandApprovedForCalendar,
   rules,
   expertCount,
   onClose,
@@ -70,6 +71,7 @@ export function AdminActionModal({
   eventPrechecks: Array<{ label: string; done: boolean }>;
   eventRecord?: CalendarEventRecord;
   canConfirmEvent: boolean;
+  brandApprovedForCalendar: boolean;
   rules: PricingRule[];
   expertCount: number;
   onClose: () => void;
@@ -262,6 +264,8 @@ export function AdminActionModal({
     rows.every((item) => (item.workshop.id === modal.workshopId ? "approved" : item.approval) === "approved");
   const showNotification = modal.type !== "price" && !(modal.type === "date" && modal.decision === "approved" && !dateApprovalCompletesAll);
   const showImpact = true;
+  const needsBrandBypass = modal.type === "confirm_event" && notification.eventMode === "confirmed" && !brandApprovedForCalendar;
+  const canRunConfirmEvent = canConfirmEvent && (!needsBrandBypass || Boolean(notification.bypassBrandApproval));
   const normalizedDiscount = Math.min(100, Math.max(0, Number(draftRule.discountPercent) || 0));
   const normalizedMin = Math.max(1, Number(draftRule.min) || 1);
   const normalizedMax = Math.max(normalizedMin, Number(draftRule.max) || normalizedMin);
@@ -326,7 +330,9 @@ export function AdminActionModal({
         emailImpact,
         calendarGuestImpact,
         `Calendario: crea un evento Google Calendar ${notification.eventMode === "tentative" ? "in bozza" : "confermato"} con Meet e workshop collegati.`,
-        "Materiali: collega presentazioni e deck finale già approvati.",
+        needsBrandBypass
+          ? "Materiali: bypass Brand attivo, il definitivo nasce senza deck finale approvato dal Brand."
+          : "Materiali: collega presentazioni e deck finale gia approvati.",
       ];
     }
     if (modal.type === "price") {
@@ -342,7 +348,7 @@ export function AdminActionModal({
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="admin-action-title">
-      <section className="custom-modal admin-action-modal">
+      <section className={`custom-modal admin-action-modal${modal.type === "confirm_event" ? " confirm-event-modal" : ""}`}>
         <header className="modal-header">
           <div>
             <span className="topic-badge">FunniFin</span>
@@ -497,13 +503,32 @@ export function AdminActionModal({
                   </span>
                 ))}
               </div>
-              <div className="modal-points single">
+              <div className="event-summary-row">
                 <Info label="Cliente" value={project.company} />
                 <Info label="Workshop" value={`${rows.length} collegati`} />
                 <Info label="Evento" value={eventRecord ? eventRecord.id : "da creare"} />
                 {eventRecord && <Info label="Meet" value={<EventLink href={eventRecord.meetLink} label="Apri Meet" />} />}
                 {eventRecord?.htmlLink && <Info label="Calendar" value={<EventLink href={eventRecord.htmlLink} label="Apri Calendar" />} />}
               </div>
+              {needsBrandBypass && (
+                <div className="brand-bypass-panel" role="alert">
+                  <div>
+                    <AlertCircle size={18} />
+                    <span>
+                      <strong>Vuoi finalizzare anche senza approvazione Brand?</strong>
+                      <small>Il definitivo verra creato senza deck finale abilitato dal Brand. Potrai collegarlo piu avanti.</small>
+                    </span>
+                  </div>
+                  <label className="toggle-line">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(notification.bypassBrandApproval)}
+                      onChange={(event) => setNotification({ ...notification, bypassBrandApproval: event.target.checked })}
+                    />
+                    <span>Si, finalizza senza approvazione Brand</span>
+                  </label>
+                </div>
+              )}
               {!canConfirmEvent && <p className="modal-warning">Completa i passaggi mancanti prima di creare l'evento.</p>}
             </div>
           )}
@@ -652,7 +677,7 @@ export function AdminActionModal({
               onClick={() =>
                 void runModalAction("confirm_event", () => (eventRecord?.mode === notification.eventMode ? onClose() : onConfirmEvent(notification)))
               }
-              disabled={!canConfirmEvent}
+              disabled={eventRecord?.mode === notification.eventMode ? false : !canRunConfirmEvent}
             >
               {eventRecord?.mode === notification.eventMode
                 ? "Chiudi riepilogo"

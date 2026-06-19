@@ -262,13 +262,13 @@
     position: static;
     align-items: flex-start;
     flex-direction: column;
-    padding: 12px 14px;
+    padding: 20px 16px;
   }
 
   .system-bar {
     top: 0;
-    grid-template-columns: minmax(0, 1fr) auto;
-    padding: 8px 12px;
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 20px 16px 12px;
   }
 
   .system-role-area {
@@ -284,7 +284,7 @@
   }
 
   .main-content {
-    padding: 12px 12px 176px;
+    padding: 24px 12px 176px;
   }
 
   .client-commerce {
@@ -308,7 +308,9 @@
   }
 
   .admin-section-nav {
-    --admin-section-min: 220px;
+    position: sticky;
+    top: 0;
+    z-index: 8;
   }
 
   .operational-strip {
@@ -589,6 +591,12 @@
     grid-template-columns: 1fr;
   }
 
+  .confirm-event-modal .precheck-list,
+  .event-summary-row,
+  .confirm-event-modal .workflow-impact-panel ul {
+    grid-template-columns: 1fr;
+  }
+
   .folder-preview-row {
     grid-template-columns: 24px minmax(0, 1fr);
   }
@@ -684,7 +692,7 @@
   .system-role-area {
     width: 100%;
     display: grid;
-    grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     align-items: center;
   }
 
@@ -700,10 +708,28 @@
 
   .system-actions {
     width: 100%;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, 38px);
-    justify-content: start;
+    display: flex;
+    justify-content: flex-end;
     gap: var(--sp-2);
+  }
+
+  .system-actions .dark-mode-toggle,
+  .system-actions .system-action-settings,
+  .system-actions .system-action-refresh {
+    display: none;
+  }
+
+  .system-actions .tool-icon-btn {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+  }
+
+  .system-actions .system-action-auth {
+    border-color: var(--brand);
+    background: var(--brand-light);
+    color: var(--brand-dark);
   }
 
   .role-switch {
@@ -714,7 +740,32 @@
   }
 
   .admin-section-nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-inline: -12px;
+    display: flex;
+    overflow-x: auto;
+    padding-inline: 12px;
+    border-inline: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .admin-section-nav button {
+    flex: 0 0 auto;
+    min-width: 220px;
+    background: var(--white);
+    border-color: var(--neutral-200);
+  }
+
+  .admin-section-summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0;
+  }
+
+  .admin-section-summary span {
+    white-space: normal;
   }
 
   .bottom-action-bar {
@@ -1051,8 +1102,14 @@
 }
 
 @media (max-width: 420px) {
-  .admin-section-nav {
-    grid-template-columns: 1fr;
+  .admin-section-nav button {
+    min-width: 204px;
+    padding: 8px 9px;
+  }
+
+  .admin-section-nav-icon {
+    width: 26px;
+    height: 26px;
   }
 }
 

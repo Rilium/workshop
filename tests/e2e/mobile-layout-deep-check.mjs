@@ -44,6 +44,7 @@ async function mobileMetrics(page, label) {
       };
     };
     const overflow = Array.from(document.querySelectorAll("body *"))
+      .filter((el) => !el.closest(".admin-section-nav"))
       .map((el) => {
         const box = el.getBoundingClientRect();
         return {
@@ -171,11 +172,13 @@ async function run() {
       assert(workshops.toast.bottom <= workshops.bottom.top - 8, `client-workshops: toast overlaps bottom sheet ${JSON.stringify({ toast: workshops.toast, bottom: workshops.bottom })}`);
     }
 
-    await page.getByLabel("Impostazioni sezione").click();
+    const visibleSettingsButtons = await page.getByLabel("Impostazioni sezione").filter({ visible: true }).count();
+    assert(visibleSettingsButtons === 0, `client-workshops: mobile settings action should be hidden, found ${visibleSettingsButtons}`);
+    await page.getByRole("button", { name: /Personalizza percorso/i }).click();
     await page.waitForTimeout(500);
     const clientSettings = await mobileMetrics(page, "client-settings");
     assertNoHorizontalOverflow(clientSettings);
-    assert(clientSettings.activeTab.text.includes("Personalizza"), `client-settings: settings did not open configuration step ${JSON.stringify(clientSettings.activeTab)}`);
+    assert(clientSettings.activeTab.text.includes("Personalizza"), `client-settings: primary action did not open configuration step ${JSON.stringify(clientSettings.activeTab)}`);
 
     const personalize = await mobileMetrics(page, "client-personalize");
     assertNoHorizontalOverflow(personalize);
@@ -203,7 +206,9 @@ async function run() {
     await page.getByText("Visualizza come: Cliente", { exact: true }).click();
     await page.getByRole("button", { name: "FunniFin", exact: true }).click();
     await page.waitForTimeout(500);
-    await page.getByLabel("Apri Google backend").click();
+    const visibleGoogleShortcutButtons = await page.getByLabel("Apri Google backend").filter({ visible: true }).count();
+    assert(visibleGoogleShortcutButtons === 0, `admin-home: mobile Google shortcut should be hidden, found ${visibleGoogleShortcutButtons}`);
+    await page.locator("button:visible").filter({ hasText: "Google backend" }).click();
     await page.getByRole("heading", { name: "Google backend", exact: true }).waitFor({ timeout: 5000 });
     const googleSettings = await mobileMetrics(page, "admin-settings");
     assertNoHorizontalOverflow(googleSettings);

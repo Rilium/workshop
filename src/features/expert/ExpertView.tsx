@@ -14,6 +14,7 @@ import {
   FileCheck2,
   FolderKanban,
   InfoIcon,
+  Loader2,
   Menu,
   Megaphone,
   Palette,
@@ -88,6 +89,7 @@ export function ExpertView({
   const [expertDeckFolder, setExpertDeckFolder] = useState<AssetDraftFolder | null>(null);
   const [expertDeckFile, setExpertDeckFile] = useState<UploadedAsset | null>(null);
   const [expertDeckUploading, setExpertDeckUploading] = useState(false);
+  const [expertDeckSending, setExpertDeckSending] = useState(false);
   const [expertDeckError, setExpertDeckError] = useState("");
   const [expertDrivePickerOpen, setExpertDrivePickerOpen] = useState(false);
   const [expertDriveItems, setExpertDriveItems] = useState<DriveFolderItem[]>([]);
@@ -160,7 +162,7 @@ export function ExpertView({
       void loadExpertOpportunities(true);
     } };
     if (expertStep === "Assegnati") return { label: "Vai all'upload", disabled: !assignedRow, action: () => setExpertStep("Upload deck") };
-    if (expertStep === "Upload deck") return { label: "Invia a brand", disabled: !assignedRow || !expertDeckFile, action: () => { void sendDeckToBrand(); } };
+    if (expertStep === "Upload deck") return { label: "Invia a brand", disabled: !assignedRow || !expertDeckFile || expertDeckSending, loading: expertDeckSending, action: () => { void sendDeckToBrand(); } };
     return { label: "Vedi opportunita", disabled: false, action: () => setExpertStep("Opportunita") };
   })();
   const handleExpertDeckUpload = async (files: FileList | null) => {
@@ -182,7 +184,8 @@ export function ExpertView({
     }
   };
   const sendDeckToBrand = async () => {
-    if (!assignedRow || !expertDeckFile) return;
+    if (!assignedRow || !expertDeckFile || expertDeckSending) return;
+    setExpertDeckSending(true);
     try {
       if (activeExpertProject.source === "sheet" && activeExpertProject.request) {
         const nextWorkshops = activeExpertProject.request.workshops.map((record) =>
@@ -236,6 +239,8 @@ export function ExpertView({
         category: "system",
         action: { label: "Torna all'upload", role: "Esperto", hash: "#esperto-candidature", projectId: activeExpertProject.id },
       });
+    } finally {
+      setExpertDeckSending(false);
     }
   };
   const loadExpertDriveItems = async (openPicker: boolean) => {
@@ -422,7 +427,7 @@ export function ExpertView({
             title="Opportunità disponibili"
             icon={<Megaphone size={20} />}
             actions={
-              <ToolIconButton onClick={() => refreshExpertSection("Opportunita")} label="Ricarica opportunita">
+              <ToolIconButton onClick={() => refreshExpertSection("Opportunita")} loading={expertSyncState.loading} label="Ricarica opportunita">
                 <RefreshCw size={18} />
               </ToolIconButton>
             }
@@ -519,7 +524,7 @@ export function ExpertView({
             title="Upload presentazione"
             icon={<UploadCloud size={20} />}
             actions={
-              <ToolIconButton onClick={() => refreshExpertSection("Upload deck")} label="Ricarica file Drive">
+              <ToolIconButton onClick={() => refreshExpertSection("Upload deck")} loading={expertDriveLoading} label="Ricarica file Drive">
                 <RefreshCw size={18} />
               </ToolIconButton>
             }
@@ -536,8 +541,9 @@ export function ExpertView({
               <span>{expertDeckFile ? expertDeckFile.mimeType || "File selezionato" : "Google Slides, PPTX o PDF"}</span>
               {expertDeckError && <em>{expertDeckError}</em>}
               <div className="expert-upload-actions">
-                <label className="app-btn app-btn-secondary asset-upload-trigger">
-                  {expertDeckUploading ? "Carico..." : "Carica file"}
+                <label className={`app-btn app-btn-secondary asset-upload-trigger ${expertDeckUploading ? "app-btn-loading" : ""}`} aria-busy={expertDeckUploading || undefined}>
+                  {expertDeckUploading && <Loader2 className="app-btn-spinner" size={16} aria-hidden="true" />}
+                  Carica file
                   <input
                     className="asset-file-input"
                     type="file"
@@ -546,7 +552,7 @@ export function ExpertView({
                     onChange={(event) => handleExpertDeckUpload(event.target.files)}
                   />
                 </label>
-                <AppButton variant="ghost" onClick={openExpertDrivePicker}>
+                <AppButton variant="ghost" onClick={openExpertDrivePicker} loading={expertDriveLoading}>
                   <ExternalLink size={18} /> Seleziona da Drive
                 </AppButton>
               </div>
@@ -581,6 +587,7 @@ export function ExpertView({
             <AppButton
               variant="primary"
               disabled={!assignedRow || !expertDeckFile}
+              loading={expertDeckSending}
               onClick={() => {
                 void sendDeckToBrand();
               }}
@@ -616,6 +623,7 @@ export function ExpertView({
         detail={`${expertRows.length} opportunita · ${candidateCount} candidature inviate`}
         primaryLabel={expertMainAction.label}
         primaryDisabled={expertMainAction.disabled}
+        primaryLoading={"loading" in expertMainAction ? expertMainAction.loading : false}
         onPrimary={expertMainAction.action}
       />
     </section>

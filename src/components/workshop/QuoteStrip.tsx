@@ -11,6 +11,7 @@ export function QuoteStrip({
   coveredThemes,
   totalHours,
   onCta,
+  submitting = false,
 }: {
   selections: Selection[];
   quote: Quote;
@@ -18,6 +19,7 @@ export function QuoteStrip({
   coveredThemes: number;
   totalHours: number;
   onCta?: () => void;
+  submitting?: boolean;
 }) {
   return (
     <section className="quote-strip">
@@ -41,7 +43,7 @@ export function QuoteStrip({
         <span>{quote.rule.name}</span>
         <strong>{money(quote.total)}</strong>
       </div>
-      <AppButton variant="secondary" onClick={onCta} aria-label="Vai all'invio richiesta">
+      <AppButton variant="secondary" onClick={onCta} loading={submitting} aria-label="Vai all'invio richiesta">
         <Send size={17} /> Invia
       </AppButton>
     </section>

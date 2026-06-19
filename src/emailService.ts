@@ -94,9 +94,11 @@ function escapeEmailHtml(value: unknown) {
     .replace(/'/g, "&#039;");
 }
 
+const EMAIL_LINK_STYLE = "color:#004f54 !important;text-decoration:none !important;border-bottom:0 !important;font-weight:800;";
+
 function emailDataCell(label: string, value: string, href?: string) {
   const content = href
-    ? `<a href="${escapeEmailHtml(href)}" style="color:#1cafb9;text-decoration:none;font-weight:800;">${escapeEmailHtml(value || "-")}</a>`
+    ? `<a href="${escapeEmailHtml(href)}" style="${EMAIL_LINK_STYLE}">${escapeEmailHtml(value || "-")}</a>`
     : escapeEmailHtml(value || "-");
   return `
     <td width="50%" style="width:50%;padding:10px 12px;border-top:1px solid #dde0e3;vertical-align:top;">

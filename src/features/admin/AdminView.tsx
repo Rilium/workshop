@@ -64,19 +64,21 @@ import { WorkshopSessionView } from "../../components/workshop/WorkshopSessionVi
 import { roleIdentities } from "../../data/mockData";
 import { AdminActionModal } from "./components/AdminActionModal";
 import { AdminFlowStepper } from "./components/AdminFlowStepper";
-import { AdminSectionNav } from "./components/AdminSectionNav";
+import { AdminSectionNav, type AdminSectionNavItem } from "./components/AdminSectionNav";
 import { CatalogEditModal } from "./components/CatalogEditModal";
 import { ExpertProfileModal } from "./components/ExpertProfileModal";
 import { readCachedGoogleHealth, writeCachedGoogleHealth } from "./adminHealthCache";
 import { getWorkshopSelectionPrice } from "../../utils/workshop";
 import { updateAuthUser } from "../../authService";
 
-type AdminQueueFilter = "tutti" | "oggi" | "da-fissare" | "produzione" | "in-calendario" | "chiusi";
+type AdminQueueFilter = "tutti" | "da-fare" | "oggi" | "da-fissare" | "produzione" | "in-calendario" | "chiusi";
 type AdminQueueSort = "recenti" | "vecchi" | "prezzo_alto" | "date_vicine" | "date_lontane";
 type QueueCardTone = "neutral" | "today" | "late" | "soon" | "calendar" | "closed";
+type AdminTodoLabel = "verifica" | "date" | "date da rivedere" | "esperti" | "materiali" | "deck" | "brand" | "evento";
 
 const queueFilterOptions: Array<{ id: AdminQueueFilter; label: string }> = [
   { id: "tutti", label: "Tutti" },
+  { id: "da-fare", label: "Da fare" },
   { id: "oggi", label: "Oggi" },
   { id: "da-fissare", label: "Da fissare" },
   { id: "produzione", label: "Produzione" },
@@ -92,6 +94,17 @@ const queueSortOptions: Array<{ id: AdminQueueSort; label: string }> = [
   { id: "date_lontane", label: "Date più lontane" },
 ];
 const USER_MANUAL_URL = "/FunniFin_Manuale_Utente.docx";
+const todoLabelPriority: AdminTodoLabel[] = ["date da rivedere", "date", "verifica", "esperti", "materiali", "deck", "brand", "evento"];
+const todoLabelCopy: Record<AdminTodoLabel, string> = {
+  verifica: "verifica",
+  date: "date",
+  "date da rivedere": "date da rivedere",
+  esperti: "esperti",
+  materiali: "materiali",
+  deck: "deck",
+  brand: "brand",
+  evento: "evento",
+};
 
 function notificationRoleFromRecipient(role: WorkflowNotificationRecipientRole): AppNotificationRole | null {
   if (role === "funnifin") return "FunniFin";
@@ -191,15 +204,21 @@ export function AdminView({
   const [adminWorkspacePanel, setAdminWorkspacePanel] = useState<AdminWorkspacePanel>("workshops");
   const [editingTopicId, setEditingTopicId] = useState(topics[0].id);
   const [catalogModalTopicId, setCatalogModalTopicId] = useState<string | null>(null);
+  const [catalogSaving, setCatalogSaving] = useState(false);
   const [pricingSavedAt, setPricingSavedAt] = useState("");
   const [expertsSyncedAt, setExpertsSyncedAt] = useState("");
   const [catalogRefreshedAt, setCatalogRefreshedAt] = useState("");
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [expertsLoading, setExpertsLoading] = useState(false);
   const [sheetCatalogWorkshops, setSheetCatalogWorkshops] = useState<CatalogWorkshopConfig[]>([]);
   const [driveSlidesSyncedAt, setDriveSlidesSyncedAt] = useState("");
   const [driveSlidesRoot, setDriveSlidesRoot] = useState("Drive/FunniFin/Presentazioni operative");
   const [driveSlideLinks, setDriveSlideLinks] = useState<Partial<Record<string, DriveSlideLink>>>({});
   const [expertDirectory, setExpertDirectory] = useState<ExpertProfile[]>(initialExpertProfiles);
   const [selectedExpertProfileId, setSelectedExpertProfileId] = useState<string | null>(null);
+  const [expertProfileSaving, setExpertProfileSaving] = useState(false);
+  const [expertProfileDeleting, setExpertProfileDeleting] = useState(false);
   const [workspaceSettings, setWorkspaceSettings] = useState<WorkspaceSetting[]>([]);
   const [sensitiveSettingDrafts, setSensitiveSettingDrafts] = useState<Record<string, string>>({});
   const [dirtyWorkspaceSettingKeys, setDirtyWorkspaceSettingKeys] = useState<Record<string, boolean>>({});
@@ -269,12 +288,15 @@ export function AdminView({
   }, [requestRefreshToken, systemRefreshToken]);
 
   const refreshAuthData = async () => {
+    setAuthLoading(true);
     try {
       const [users, requests] = await Promise.all([listAuthUsers(), listAccessRequests()]);
       setAuthUsers(users);
       setAccessRequests(requests);
     } catch (error) {
       notify("Auth", error instanceof Error ? error.message : "Aggiornamento utenti non riuscito.");
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -900,6 +922,7 @@ export function AdminView({
     setExpertDirectory((current) => current.map((expert) => (expert.id === expertId ? { ...expert, ...patch } : expert)));
   };
   const saveExpertProfile = (expert: ExpertProfile) => {
+    setExpertProfileSaving(true);
     void updateExpert({ ...expert, active: true })
       .then((savedExpert) => {
         setExpertDirectory((current) => current.map((item) => (item.id === savedExpert.id ? {
@@ -920,7 +943,8 @@ export function AdminView({
       .catch((error) => {
         notify("Profilo esperto non salvato", error instanceof Error ? error.message : "Google Sheets non disponibile.");
         setSelectedExpertProfileId(null);
-      });
+      })
+      .finally(() => setExpertProfileSaving(false));
   };
   const createExpertProfile = () => {
     const id = `esperto-${Date.now()}`;
@@ -942,6 +966,8 @@ export function AdminView({
     notify("Esperto creato", "Completa anagrafica, mail e associazioni al catalogo.");
   };
   const deleteExpertProfile = (expertId: string) => {
+    if (expertProfileDeleting) return;
+    setExpertProfileDeleting(true);
     const expert = expertDirectory.find((item) => item.id === expertId);
     const nextDirectory = expertDirectory.filter((item) => item.id !== expertId);
     setExpertDirectory(nextDirectory);
@@ -953,7 +979,8 @@ export function AdminView({
       })
       .catch((error) => {
         if (expert) notify("Esperto non eliminato dallo Sheet", error instanceof Error ? error.message : "Google Sheets non disponibile.");
-      });
+      })
+      .finally(() => setExpertProfileDeleting(false));
   };
   const syncDriveSlidesFromRoot = () => {
     const today = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -1179,6 +1206,9 @@ export function AdminView({
     { label: "Materiali passati a brand", done: projectStatuses.indexOf(activeAdminStatus) >= projectStatuses.indexOf("in_revisione_brand") },
   ];
   const canConfirmEvent = eventPrechecks.every((item) => item.done);
+  const brandApprovedForCalendar = Boolean(
+    calendarDeckUrl && projectStatuses.indexOf(activeAdminStatus) >= projectStatuses.indexOf("approvazione_finale"),
+  );
   const sendBrandHandoff = async (choice: NotificationChoice) => {
     runProjectStatus("in_revisione_brand", "In revisione brand", "Il deck passa al team brand/design.");
     setAdminWorkspacePanel("confirm");
@@ -1188,12 +1218,9 @@ export function AdminView({
     if (!canConfirmEvent) return;
     try {
       const eventMode = choice?.eventMode ?? "confirmed";
-      if (eventMode === "confirmed" && !calendarDeckUrl) {
-        notify("Deck finale non abilitato", "Il Brand deve abilitare esplicitamente il link deck per Calendar prima del definitivo.");
-        return;
-      }
-      if (eventMode === "confirmed" && projectStatuses.indexOf(activeAdminStatus) < projectStatuses.indexOf("approvazione_finale")) {
-        notify("Brand non approvato", "Crea il definitivo solo dopo approvazione Brand e abilitazione del deck Calendar.");
+      const bypassBrandApproval = eventMode === "confirmed" && Boolean(choice?.bypassBrandApproval);
+      if (eventMode === "confirmed" && !brandApprovedForCalendar && !bypassBrandApproval) {
+        notify("Brand non approvato", "Conferma il bypass Brand nella modale per creare comunque il definitivo.");
         return;
       }
       const eventRecord = await createWorkshopCalendarEvent({
@@ -1205,8 +1232,8 @@ export function AdminView({
         quoteTotal: activeAdminQuote,
         eventMode,
         driveFolderUrl: selectedProject.request?.materials?.folderUrl,
-        finalDeckUrl: eventMode === "confirmed" ? calendarDeckUrl : undefined,
-        finalDeckTitle: eventMode === "confirmed" ? calendarDeckTitle : undefined,
+        finalDeckUrl: eventMode === "confirmed" && !bypassBrandApproval ? calendarDeckUrl : undefined,
+        finalDeckTitle: eventMode === "confirmed" && !bypassBrandApproval ? calendarDeckTitle : undefined,
         sendCalendarInvites: eventMode === "confirmed" && Boolean(choice?.send),
         includeClientInCalendar: Boolean(choice?.addClientToCalendar),
         existingEventId: eventMode === "confirmed" ? currentProjectEvent?.id : undefined,
@@ -1239,7 +1266,9 @@ export function AdminView({
       runProjectStatus(
         eventMode === "tentative" ? "approvazione_finale" : "confermato",
         eventMode === "tentative" ? "Evento provvisorio creato" : "Evento confermato",
-        `Evento ${eventRecord.id} creato con Meet${eventMode === "confirmed" && calendarDeckUrl ? " e link deck finale" : ""}.`,
+        `Evento ${eventRecord.id} creato con Meet${
+          eventMode === "confirmed" && calendarDeckUrl && !bypassBrandApproval ? " e link deck finale" : ""
+        }${bypassBrandApproval ? ". Bypass Brand registrato: deck finale non allegato" : ""}.`,
       );
       if (choice) {
         await sendPhaseNotification(eventMode === "tentative" ? "event_tentative" : "event_confirmed", choice, {
@@ -1255,6 +1284,66 @@ export function AdminView({
       runProjectStatus("approvazione_finale", "Creazione evento non riuscita", message);
     }
   };
+  const getProjectTodoLabels = (project: AdminProject): AdminTodoLabel[] => {
+    const status = project.source === "local" ? projectStatus : project.status;
+    const statusIndex = projectStatuses.indexOf(status);
+    const scheduleRows =
+      project.source === "local"
+        ? selections.map((selection) => ({
+            date: selection.date,
+            approval: selection.dateConfirmed ? "approved" : "pending",
+            expertName: project.assignedExpert,
+          }))
+        : project.request?.workshops.map((workshop) => ({
+            date: workshop.date,
+            approval: workshop.approval ?? "pending",
+            expertName: workshop.expertName,
+          })) ?? [];
+    const confirmedEvent = status === "confermato" || project.request?.calendarEvent?.mode === "confirmed" || calendarEvents[project.id]?.mode === "confirmed";
+    const tentativeEvent = status === "evento_provvisorio" || project.request?.calendarEvent?.mode === "tentative" || calendarEvents[project.id]?.mode === "tentative";
+    const missingDates = project.dateCount < project.workshopIds.length || scheduleRows.some((row) => !row.date);
+    const dateIssue = scheduleRows.some((row) => row.approval === "rejected" || row.approval === "change_requested");
+    const pendingDateApproval = scheduleRows.some((row) => row.date && row.approval !== "approved");
+    const missingExperts =
+      statusIndex >= projectStatuses.indexOf("date_approvate") &&
+      !confirmedEvent &&
+      (scheduleRows.length > 0 ? scheduleRows.some((row) => !row.expertName && !project.assignedExpert) : !project.assignedExpert);
+    const needsBrandApproval =
+      status === "in_revisione_brand" &&
+      !project.request?.materials?.calendarDeckEnabled;
+
+    const labels: AdminTodoLabel[] = [];
+    if (dateIssue) labels.push("date da rivedere");
+    else if (missingDates || pendingDateApproval) labels.push("date");
+    else if (["richiesta_inviata", "in_verifica_funnifin"].includes(status)) labels.push("verifica");
+    if (missingExperts) labels.push("esperti");
+    if (status === "materiali_cliente_in_attesa") labels.push("materiali");
+    if (status === "in_preparazione_esperto") labels.push("deck");
+    if (needsBrandApproval) labels.push("brand");
+    if (!confirmedEvent && (status === "approvazione_finale" || tentativeEvent)) labels.push("evento");
+
+    return todoLabelPriority.filter((label) => labels.includes(label));
+  };
+  const formatTodoLabels = (labels: AdminTodoLabel[], limit = 3) => {
+    if (labels.length === 0) return "Tutto pronto";
+    const visible = labels.slice(0, limit).map((label) => todoLabelCopy[label]);
+    return labels.length > limit ? `${visible.join(" · ")} · altro` : visible.join(" · ");
+  };
+  const projectTodoCards = adminProjects
+    .map((project) => ({ project, labels: getProjectTodoLabels(project) }))
+    .filter((item) => item.labels.length > 0);
+  const todoSummary = (() => {
+    if (projectTodoCards.length === 0) return "Nessun blocco evidente nella coda.";
+    const counts = new Map<AdminTodoLabel, number>();
+    projectTodoCards.forEach(({ labels }) => {
+      labels.forEach((label) => counts.set(label, (counts.get(label) ?? 0) + 1));
+    });
+    const parts = todoLabelPriority
+      .filter((label) => counts.has(label))
+      .slice(0, 3)
+      .map((label) => `${todoLabelCopy[label]} su ${counts.get(label)}`);
+    return `Mancano ${parts.join(", ")}.`;
+  })();
   const getProjectQueueMeta = (project: AdminProject) => {
     const status = project.source === "local" ? projectStatus : project.status;
     const scheduleRows =
@@ -1320,8 +1409,9 @@ export function AdminView({
       tone,
     };
   };
-  const matchesProjectQueueFilter = (meta: ReturnType<typeof getProjectQueueMeta>, filter: AdminQueueFilter) => {
+  const matchesProjectQueueFilter = (project: AdminProject, meta: ReturnType<typeof getProjectQueueMeta>, filter: AdminQueueFilter) => {
     if (filter === "tutti") return true;
+    if (filter === "da-fare") return getProjectTodoLabels(project).length > 0;
     if (filter === "oggi") return meta.dayOffset === 0;
     if (filter === "da-fissare") return meta.needsScheduling;
     if (filter === "produzione") return meta.isProduction;
@@ -1359,8 +1449,8 @@ export function AdminView({
     return adminSearch.trim() === "" || text.includes(adminSearch.trim().toLowerCase());
   });
   const adminQueueCards = sortProjectQueueCards(searchedAdminProjects.map((project) => ({ project, meta: getProjectQueueMeta(project) })));
-  const filteredAdminProjectCards = adminQueueCards.filter(({ meta }) => matchesProjectQueueFilter(meta, adminQueueFilter));
-  const countQueueFilter = (filter: AdminQueueFilter) => adminQueueCards.filter(({ meta }) => matchesProjectQueueFilter(meta, filter)).length;
+  const filteredAdminProjectCards = adminQueueCards.filter(({ project, meta }) => matchesProjectQueueFilter(project, meta, adminQueueFilter));
+  const countQueueFilter = (filter: AdminQueueFilter) => adminQueueCards.filter(({ project, meta }) => matchesProjectQueueFilter(project, meta, filter)).length;
   const bottomProjectMenuItems = [...adminProjects.map((project) => ({ project, meta: getProjectQueueMeta(project) }))]
     .sort((a, b) => projectSortTimestamp(a.project) - projectSortTimestamp(b.project));
   const adminFlowSteps = [
@@ -1461,13 +1551,21 @@ export function AdminView({
     const next = adminFlowSteps[Math.min(Math.max(activeAdminFlowIndex + delta, 0), adminFlowSteps.length - 1)];
     setAdminWorkspacePanel(next.id);
   };
-  const adminSections = [
+  const adminSections: AdminSectionNavItem[] = [
     {
       id: "Operativo",
       title: "Richieste cliente",
-      meta: `${adminProjects.filter((project) => project.status !== "confermato").length} aperte`,
-      body: "Coda, dettaglio progetto, date, assegnazioni e avanzamento stato.",
+      meta: `${adminProjects.filter((project) => project.status !== "confermato").length} aperte · ${projectTodoCards.length} da fare`,
+      body: projectTodoCards.length > 0 ? todoSummary : "Coda, dettaglio progetto, date, assegnazioni e avanzamento stato.",
       icon: <BriefcaseBusiness size={18} />,
+    },
+    {
+      id: "DaFare",
+      title: "Da fare adesso",
+      meta: projectTodoCards.length > 0 ? `${projectTodoCards.length} progetti` : "tutto ok",
+      body: projectTodoCards.length > 0 ? todoSummary : "Nessun blocco evidente: passa agli eventi o alla revisione finale.",
+      icon: <FileCheck2 size={18} />,
+      tone: projectTodoCards.length > 0 ? "todo" : "ok",
     },
     {
       id: "Catalogo",
@@ -1513,6 +1611,17 @@ export function AdminView({
     },
   ];
   const activeAdminSection = adminSections.find((section) => section.id === adminTab) ?? adminSections[0];
+  const activeAdminNavSection = adminTab === "Operativo" && adminQueueFilter === "da-fare" ? "DaFare" : adminTab;
+  const handleAdminSection = (section: string) => {
+    if (section === "DaFare") {
+      setAdminTab("Operativo");
+      setAdminQueueFilter("da-fare");
+      setAdminQueueSort("date_vicine");
+      return;
+    }
+    setAdminTab(section);
+    if (section === "Operativo" && adminQueueFilter === "da-fare") setAdminQueueFilter("tutti");
+  };
   const adminMainAction = (() => {
     if (adminTab === "Utenti") {
       return {
@@ -1535,7 +1644,8 @@ export function AdminView({
         }
         return {
           label: "Ricarica catalogo Sheet",
-          disabled: false,
+          disabled: catalogLoading,
+          loading: catalogLoading,
           action: () => refreshCatalogSection(),
         };
       }
@@ -1550,6 +1660,7 @@ export function AdminView({
         return {
           label: googleHealthLoading ? "Controllo Google..." : "Ricarica stato Google",
           disabled: googleHealthLoading,
+          loading: googleHealthLoading,
           action: () => refreshGoogleHealth({ refresh: true }),
         };
       }
@@ -1742,6 +1853,7 @@ export function AdminView({
       notify("Slide Drive sincronizzate", `${driveLinkedCount}/${workshops.length} workshop hanno una slide operativa collegata.`);
       return;
     }
+    setCatalogLoading(true);
     void Promise.all([listCatalogConfig(), listCatalogWorkshops()])
       .then(([remoteTopics, remoteWorkshops]) => {
         if (remoteTopics.length > 0) {
@@ -1772,9 +1884,11 @@ export function AdminView({
       .catch((error) => {
         setCatalogRefreshedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
         notify("Catalogo Sheet non letto", error instanceof Error ? error.message : "Google Sheets non disponibile.");
-      });
+      })
+      .finally(() => setCatalogLoading(false));
   };
   const refreshPricingSection = () => {
+    setPricingLoading(true);
     void listPricingRules()
       .then((remoteRules) => {
         if (remoteRules.length > 0) {
@@ -1793,9 +1907,11 @@ export function AdminView({
       .catch((error) => {
         setPricingSavedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
         notify("Prezzi Sheet non letti", error instanceof Error ? error.message : "Google Sheets non disponibile.");
-      });
+      })
+      .finally(() => setPricingLoading(false));
   };
   const refreshExpertsSection = () => {
+    setExpertsLoading(true);
     void listExperts()
       .then((remoteExperts) => {
         if (remoteExperts.length > 0) {
@@ -1817,7 +1933,8 @@ export function AdminView({
       .catch((error) => {
         setExpertsSyncedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
         notify("Esperti Sheet non letti", error instanceof Error ? error.message : "Google Sheets non disponibile.");
-      });
+      })
+      .finally(() => setExpertsLoading(false));
   };
   const refreshGoogleHealth = (options?: { silent?: boolean; refresh?: boolean; preserveCurrent?: boolean }) => {
     setGoogleHealthLoading(true);
@@ -1926,7 +2043,7 @@ export function AdminView({
       />
       <OperatorIdentityCard identity={roleIdentities.FunniFin} />
 
-      <AdminSectionNav sections={adminSections} activeSection={adminTab} onSection={setAdminTab} />
+      <AdminSectionNav sections={adminSections} activeSection={activeAdminNavSection} onSection={handleAdminSection} />
 
       {adminTab === "Operativo" && (
         <>
@@ -1935,7 +2052,7 @@ export function AdminView({
             icon={<BriefcaseBusiness size={20} />}
             meta={activeAdminSection?.meta}
             actions={
-              <ToolIconButton active={requestSyncState.source === "sheet"} onClick={refreshAdminWorkspacePanel} label="Ricarica richieste cliente">
+              <ToolIconButton active={requestSyncState.source === "sheet"} onClick={refreshAdminWorkspacePanel} loading={requestSyncState.loading} label="Ricarica richieste cliente">
                 <RefreshCw size={18} />
               </ToolIconButton>
             }
@@ -1999,6 +2116,7 @@ export function AdminView({
                 const activeStatus = project.source === "local" ? projectStatus : project.status;
                 const selected = selectedProject.id === project.id;
                 const deleting = deletingRequestId === project.id;
+                const todoLabels = getProjectTodoLabels(project);
                 return (
                   <article key={project.id} className={`project-choice-card ${selected ? "active" : ""} ${meta.tone}`}>
                     <button type="button" className="project-choice-main" onClick={() => selectProject(project)}>
@@ -2013,6 +2131,12 @@ export function AdminView({
                           <Clock3 size={14} />
                           {meta.dateDistance} · {meta.detail}
                         </span>
+                        {todoLabels.length > 0 && (
+                          <span className="queue-missing-line">
+                            <AlertCircle size={14} />
+                            Manca: {formatTodoLabels(todoLabels)}
+                          </span>
+                        )}
                       </div>
                       <div className="queue-card-side">
                         <small>{statusLabel[activeStatus]}</small>
@@ -2118,8 +2242,8 @@ export function AdminView({
                         {!calendarCheck.loading && calendarCheck.error && `Errore: ${calendarCheck.error}`}
                         {!calendarCheck.loading && !calendarCheck.checked && !calendarCheck.error && "Calendari non ancora verificati"}
                       </span>
-                      <AppButton variant="secondary" onClick={verifyCalendars} disabled={calendarCheck.loading}>
-                        <CalendarCheck size={17} /> {calendarCheck.loading ? "Verifico..." : "Verifica FreeBusy"}
+                      <AppButton variant="secondary" onClick={verifyCalendars} disabled={calendarCheck.loading} loading={calendarCheck.loading}>
+                        <CalendarCheck size={17} /> Verifica FreeBusy
                       </AppButton>
                     </div>
                     {calendarCheck.loading ? Array.from({ length: Math.max(currentProjectSelections.length, 2) }).map((_, index) => (
@@ -2311,7 +2435,7 @@ export function AdminView({
             icon={<Settings2 size={20} />}
             actions={
               <>
-                <ToolIconButton onClick={catalogView === "drive" ? syncDriveSlidesFromRoot : refreshCatalogSection} label={catalogView === "drive" ? "Ricarica slide Drive" : "Ricarica catalogo Sheet"}>
+                <ToolIconButton onClick={catalogView === "drive" ? syncDriveSlidesFromRoot : refreshCatalogSection} loading={catalogView === "sheet" && catalogLoading} label={catalogView === "drive" ? "Ricarica slide Drive" : "Ricarica catalogo Sheet"}>
                   <RefreshCw size={18} />
                 </ToolIconButton>
                 <ToolIconButton
@@ -2580,7 +2704,7 @@ export function AdminView({
             icon={<CircleDollarSign size={20} />}
             actions={
               <>
-                <ToolIconButton onClick={refreshPricingSection} label="Ricarica regole prezzo">
+                <ToolIconButton onClick={refreshPricingSection} loading={pricingLoading} label="Ricarica regole prezzo">
                   <RefreshCw size={18} />
                 </ToolIconButton>
                 <ToolIconButton
@@ -2668,7 +2792,7 @@ export function AdminView({
             icon={<UsersRound size={20} />}
             actions={
               <>
-                <ToolIconButton onClick={refreshExpertsSection} label="Ricarica esperti">
+                <ToolIconButton onClick={refreshExpertsSection} loading={expertsLoading} label="Ricarica esperti">
                   <RefreshCw size={18} />
                 </ToolIconButton>
                 <AppButton variant="secondary" onClick={createExpertProfile}>
@@ -2757,7 +2881,7 @@ export function AdminView({
             title="Google backend"
             icon={<Settings2 size={20} />}
             actions={
-              <ToolIconButton onClick={() => refreshGoogleHealth({ refresh: true })} label="Ricarica stato Google">
+              <ToolIconButton onClick={() => refreshGoogleHealth({ refresh: true })} loading={googleHealthLoading} label="Ricarica stato Google">
                 <RefreshCw size={18} />
               </ToolIconButton>
             }
@@ -3032,15 +3156,23 @@ export function AdminView({
                           </ActionIconButton>
                           <ActionIconButton
                             variant={user.disabled ? "success" : "danger"}
-                            onClick={() => void updateAuthUser(user.id, {
-                              email: user.email,
-                              actualRole: user.actualRole,
-                              displayName: user.displayName,
-                              expertId: user.expertId ?? "",
-                              invitedBy: user.invitedBy ?? "FunniFin",
-                              disabled: !user.disabled,
-                            }).then(() => refreshAuthData()).then(() => notify(user.disabled ? "Utente riattivato" : "Utente disabilitato", user.email)).catch((error: unknown) => notify("Aggiornamento non riuscito", error instanceof Error ? error.message : "Impossibile aggiornare l'utente."))}
+                            onClick={() => {
+                              setInviteBusy(true);
+                              void updateAuthUser(user.id, {
+                                email: user.email,
+                                actualRole: user.actualRole,
+                                displayName: user.displayName,
+                                expertId: user.expertId ?? "",
+                                invitedBy: user.invitedBy ?? "FunniFin",
+                                disabled: !user.disabled,
+                              })
+                                .then(() => refreshAuthData())
+                                .then(() => notify(user.disabled ? "Utente riattivato" : "Utente disabilitato", user.email))
+                                .catch((error: unknown) => notify("Aggiornamento non riuscito", error instanceof Error ? error.message : "Impossibile aggiornare l'utente."))
+                                .finally(() => setInviteBusy(false));
+                            }}
                             disabled={inviteBusy}
+                            loading={inviteBusy}
                             label={user.disabled ? `Riattiva ${user.displayName}` : `Disabilita ${user.displayName}`}
                           >
                             {user.disabled ? <Check size={15} /> : <X size={15} />}
@@ -3096,6 +3228,7 @@ export function AdminView({
                                 variant="success"
                                 onClick={() => void handleReviewAccessRequest(req, "approved")}
                                 disabled={inviteBusy}
+                                loading={inviteBusy}
                                 label={`Approva ${req.email}`}
                               >
                                 <Check size={15} />
@@ -3104,6 +3237,7 @@ export function AdminView({
                                 variant="danger"
                                 onClick={() => void handleReviewAccessRequest(req, "rejected")}
                                 disabled={inviteBusy}
+                                loading={inviteBusy}
                                 label={`Rifiuta ${req.email}`}
                               >
                                 <X size={15} />
@@ -3298,6 +3432,7 @@ export function AdminView({
           eventPrechecks={eventPrechecks}
           eventRecord={currentProjectEvent}
           canConfirmEvent={canConfirmEvent}
+          brandApprovedForCalendar={brandApprovedForCalendar}
           rules={rules}
           expertCount={expertDirectory.length}
           onClose={() => setAdminActionModal(null)}
@@ -3421,9 +3556,11 @@ export function AdminView({
         onBack={adminBackAction ?? undefined}
         primaryLabel={adminMainAction.label}
         primaryDisabled={adminMainAction.disabled}
+        primaryLoading={"loading" in adminMainAction ? adminMainAction.loading : false}
         onPrimary={adminMainAction.action}
         secondaryLabel={adminTab === "Utenti" ? "Ricarica utenti" : undefined}
         onSecondary={adminTab === "Utenti" ? () => void refreshAuthData() : undefined}
+        secondaryLoading={adminTab === "Utenti" ? authLoading : false}
       />
     </section>
   );

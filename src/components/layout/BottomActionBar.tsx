@@ -14,11 +14,13 @@ export function BottomActionBar({
   leftContent,
   primaryLabel,
   primaryDisabled,
+  primaryLoading,
   onPrimary,
   backLabel,
   onBack,
   secondaryLabel,
   onSecondary,
+  secondaryLoading,
 }: {
   className?: string;
   context?: string;
@@ -31,11 +33,13 @@ export function BottomActionBar({
   leftContent?: React.ReactNode;
   primaryLabel: string;
   primaryDisabled?: boolean;
+  primaryLoading?: boolean;
   onPrimary: () => void;
   backLabel?: string;
   onBack?: () => void;
   secondaryLabel?: string;
   onSecondary?: () => void;
+  secondaryLoading?: boolean;
 }) {
   const hasBack = Boolean(backLabel && onBack);
   const hasSecondary = Boolean(secondaryLabel && onSecondary);
@@ -70,12 +74,12 @@ export function BottomActionBar({
           </AppButton>
         )}
         {hasSecondary && (
-          <AppButton variant="ghost" onClick={onSecondary}>
+          <AppButton variant="ghost" onClick={onSecondary} loading={secondaryLoading}>
             {secondaryLabel}
           </AppButton>
         )}
         <div className="bottom-primary-group">
-          <AppButton variant="primary" onClick={onPrimary} disabled={primaryDisabled}>
+          <AppButton variant="primary" onClick={onPrimary} disabled={primaryDisabled} loading={primaryLoading}>
             {primaryLabel}
           </AppButton>
           {primaryDisabled && primaryHint && (

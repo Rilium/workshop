@@ -18,4 +18,5 @@ export type NotificationChoice = {
   note: string;
   eventMode?: "tentative" | "confirmed";
   addClientToCalendar?: boolean;
+  bypassBrandApproval?: boolean;
 };

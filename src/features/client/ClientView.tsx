@@ -14,6 +14,7 @@ import {
   FileCheck2,
   FolderKanban,
   InfoIcon,
+  Loader2,
   Menu,
   Megaphone,
   Palette,
@@ -481,6 +482,7 @@ export function ClientView({
         coveredThemes={coveredThemes}
         totalHours={totalHours}
         onCta={submitRequest}
+        submitting={sendingRequest}
       />
 
       <div className="client-commerce">
@@ -956,16 +958,18 @@ export function ClientView({
             <span>
               Crea una cartella Drive draft chiamata <strong>{assetClientName} data</strong> per logo, linee guida e note.
             </span>
-            <label className="secondary-btn asset-upload-trigger">
+            <label className={`secondary-btn asset-upload-trigger ${uploadingAssets ? "app-btn-loading" : ""}`} aria-busy={uploadingAssets || undefined}>
               <input
                 type="file"
                 multiple
+                disabled={uploadingAssets}
                 onChange={(event) => {
                   void handleAssetFiles(event.target.files);
                   event.target.value = "";
                 }}
               />
-              {uploadingAssets ? "Caricamento..." : "Carica materiali"}
+              {uploadingAssets && <Loader2 className="app-btn-spinner" size={16} aria-hidden="true" />}
+              Carica materiali
             </label>
             {assetFolder && (
               <a className="asset-folder-link" href={assetFolder.url} target="_blank" rel="noreferrer">
@@ -1094,6 +1098,7 @@ export function ClientView({
           quote={quote}
           onRemove={removeWorkshop}
           onSubmit={submitRequest}
+          submitting={sendingRequest}
         />
       </div>
       <BottomActionBar
@@ -1119,6 +1124,7 @@ export function ClientView({
         }
         primaryLabel={clientMainAction.label}
         primaryDisabled={clientMainAction.disabled}
+        primaryLoading={sendingRequest && clientStep === "Invio"}
         onPrimary={clientMainAction.action}
         backLabel={activeStepIndex > 0 ? "Indietro" : undefined}
         onBack={activeStepIndex > 0 ? goBack : undefined}

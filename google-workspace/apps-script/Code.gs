@@ -483,8 +483,9 @@ function withMailActionForRole(payload, role) {
 
 function mailDataCell(label, value, href, topBorder) {
   var safeValue = escapeHtml(value || "-");
+  var neutralLinkStyle = "color:#004f54 !important;text-decoration:none !important;border-bottom:0 !important;font-weight:800;";
   var content = href
-    ? "<a href=\"" + escapeHtml(href) + "\" style=\"color:#1cafb9;text-decoration:none;font-weight:800;\">" + safeValue + "</a>"
+    ? "<a href=\"" + escapeHtml(href) + "\" style=\"" + neutralLinkStyle + "\">" + safeValue + "</a>"
     : safeValue;
   return "<td width=\"50%\" style=\"width:50%;padding:10px 12px;" + (topBorder ? "border-top:1px solid #dde0e3;" : "") + "vertical-align:top;\">" +
     "<span style=\"display:block;margin:0 0 4px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8c9096;font-weight:800;\">" + escapeHtml(label) + "</span>" +
@@ -2054,24 +2055,29 @@ function buildAuthInviteText(payload) {
 
 function buildAuthInviteHtml(payload) {
   const displayName = escapeHtml(payload.displayName || payload.email);
+  const displayNameIsEmail = String(payload.displayName || payload.email || "").indexOf("@") >= 0;
+  const heroGreeting = displayNameIsEmail ? "Benvenuto" : "Benvenuto, " + displayName;
+  const introGreeting = displayNameIsEmail ? "Ciao" : "Ciao " + displayName;
   const requestedRole = payload.requestedRole ? " come " + escapeHtml(payload.requestedRole) : "";
   const email = escapeHtml(payload.email);
   const code = escapeHtml(payload.code);
   const appUrl = FUNNIFIN_SITE_URL + "#login";
+  const neutralLinkStyle = "color:#004f54 !important;text-decoration:none !important;border-bottom:0 !important;font-weight:800;";
+  const fallbackLinkStyle = "color:#007f87 !important;text-decoration:none !important;border-bottom:0 !important;font-weight:700;";
   return [
     '<div style="margin:0;padding:32px 16px;background:#f5fafb;font-family:Nunito,Arial,sans-serif;color:#171d1d;">',
     '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #d4edf2;border-radius:18px;overflow:hidden;box-shadow:0 14px 38px rgba(0,79,84,0.10);">',
     '<tr><td style="padding:32px;background:#1cafb9;text-align:center;">',
-    `<p style="margin:0 0 8px;font-family:Caveat,cursive;font-size:38px;line-height:1;color:#ffffff;font-weight:700;">Benvenuto, ${displayName}</p>`,
+    `<p style="margin:0 0 8px;font-family:Caveat,cursive;font-size:38px;line-height:1;color:#ffffff;font-weight:700;">${heroGreeting}</p>`,
     '<h1 style="margin:0;font-size:24px;line-height:1.18;color:#fff;">Il tuo accesso FunniFin è pronto</h1>',
-    `<p style="margin:12px auto 0;color:rgba(255,255,255,0.86);font-size:14px;line-height:1.6;max-width:440px;">Ciao ${displayName}, abbiamo preparato il tuo accesso${requestedRole}.</p>`,
+    `<p style="margin:12px auto 0;color:rgba(255,255,255,0.86);font-size:14px;line-height:1.6;max-width:440px;">${introGreeting}, abbiamo preparato il tuo accesso${requestedRole}.</p>`,
     '</td></tr>',
     '<tr><td style="padding:24px;">',
-    `<p style="margin:0 0 12px;color:#444748;font-size:14px;line-height:1.6;">Usa questa email per entrare: <strong>${email}</strong></p>`,
+    `<p style="margin:0 0 12px;color:#444748;font-size:14px;line-height:1.6;">Usa questa email per entrare: <a href="mailto:${email}" style="${neutralLinkStyle}">${email}</a></p>`,
     `<div style="padding:18px;border-radius:14px;background:#fff8dd;border:1px solid #f5cf45;font-size:24px;color:#004f54;font-weight:800;letter-spacing:0.14em;text-align:center;">${code}</div>`,
     '<p style="margin:14px 0 0;color:#444748;font-size:14px;line-height:1.6;">Apri FunniFin e inserisci il codice nella schermata di accesso. Il codice serve solo per completare questo accesso.</p>',
-    `<p style="margin:18px 0 0;text-align:center;"><a href="${appUrl}" style="display:inline-block;padding:12px 26px;background:#1cafb9;color:#ffffff;border-radius:999px;font-size:14px;font-weight:800;text-decoration:none;">Apri FunniFin</a></p>`,
-    `<p style="margin:12px 0 0;color:#7b9698;font-size:12px;line-height:1.5;text-align:center;">Se il bottone non funziona, copia questo link:<br><a href="${appUrl}" style="color:#1cafb9;">${appUrl}</a></p>`,
+    `<p style="margin:18px 0 0;text-align:center;"><a href="${appUrl}" style="display:inline-block;padding:12px 26px;background:#1cafb9;color:#ffffff !important;border-radius:999px;font-size:14px;font-weight:800;text-decoration:none !important;border-bottom:0 !important;">Apri FunniFin</a></p>`,
+    `<p style="margin:12px 0 0;color:#7b9698;font-size:12px;line-height:1.5;text-align:center;">Se il bottone non funziona, copia questo link:<br><a href="${appUrl}" style="${fallbackLinkStyle}">${appUrl}</a></p>`,
     '</td></tr>',
     '<tr><td style="padding:18px 24px;background:#f8fcfc;border-top:1px solid #e0f2f4;text-align:center;">',
     '<p style="margin:0;color:#7b9698;font-size:11px;line-height:1.6;">FunniFin Workshop Planner<br>Email di servizio inviata per gestire gli accessi.</p>',
@@ -2745,8 +2751,8 @@ function buildWorkflowEmailHtml(payload) {
         "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:rgba(28,175,185,0.10);border:1px solid rgba(28,175,185,0.28);border-radius:12px;padding:16px 20px;\">" +
           "<tr><td>" +
             "<p style=\"margin:0 0 10px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1cafb9;\">Evento " + (payload.event.mode === "tentative" ? "in attesa di conferma" : "confermato") + "</p>" +
-            (payload.event.htmlLink ? "<a href=\"" + payload.event.htmlLink + "\" style=\"display:inline-block;margin-bottom:6px;color:#1cafb9;font-weight:700;font-size:13px;\">Apri in Google Calendar</a><br>" : "") +
-            (payload.event.meetLink ? "<a href=\"" + payload.event.meetLink + "\" style=\"color:#1cafb9;font-weight:700;font-size:13px;\">Apri Google Meet</a>" : "") +
+            (payload.event.htmlLink ? "<a href=\"" + payload.event.htmlLink + "\" style=\"display:inline-block;margin-bottom:6px;color:#007f87 !important;text-decoration:none !important;border-bottom:0 !important;font-weight:700;font-size:13px;\">Apri in Google Calendar</a><br>" : "") +
+            (payload.event.meetLink ? "<a href=\"" + payload.event.meetLink + "\" style=\"color:#007f87 !important;text-decoration:none !important;border-bottom:0 !important;font-weight:700;font-size:13px;\">Apri Google Meet</a>" : "") +
           "</td></tr>" +
         "</table>" +
       "</td></tr>"
@@ -2754,7 +2760,7 @@ function buildWorkflowEmailHtml(payload) {
 
   const ctaBlock = payload.actionUrl
     ? "<tr><td align=\"center\" style=\"padding:4px 32px 28px;\">" +
-        "<a href=\"" + payload.actionUrl + "\" style=\"display:inline-block;padding:13px 28px;background:#1cafb9;color:#ffffff;border-radius:999px;font-size:14px;font-weight:800;text-decoration:none;letter-spacing:.02em;\">" +
+        "<a href=\"" + payload.actionUrl + "\" style=\"display:inline-block;padding:13px 28px;background:#1cafb9;color:#ffffff !important;border-radius:999px;font-size:14px;font-weight:800;text-decoration:none !important;border-bottom:0 !important;letter-spacing:.02em;\">" +
           escapeHtml(payload.actionLabel || "Apri il progetto") +
         "</a>" +
       "</td></tr>"
