@@ -55,7 +55,7 @@ export function BottomActionBar({
           {caveat && <em>{caveat}</em>}
         </div>
       )}
-      <div className="bottom-action-buttons">
+      <div className={`bottom-action-buttons ${backLabel && onBack ? "bottom-action-buttons--with-back" : ""}`}>
         {backLabel && onBack && (
           <AppButton variant="ghost" className="bottom-back-btn" onClick={onBack} aria-label={backLabel} title={backLabel}>
             <ChevronLeft size={22} />
