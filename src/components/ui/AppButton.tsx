@@ -64,17 +64,17 @@ export function AppButton({
   return (
     <button {...props} className={buttonClasses} disabled={disabled} aria-busy={isLoading || undefined}>
       {leftIcon && <span className="app-btn-icon-slot">{isLoading ? <LoadingSpinner size={size} /> : leftIcon}</span>}
-      {!leftIcon && isLoadable && !firstChildIsIcon && !iconOnly && (
+      {!explicitIcon && isLoadable && !firstChildIsIcon && !iconOnly && (
         <span className="app-btn-icon-slot" aria-hidden={!isLoading}>
           {isLoading ? <LoadingSpinner size={size} /> : <span className="app-btn-spinner-placeholder" />}
         </span>
       )}
-      {!leftIcon && firstChildIsIcon && (
+      {!leftIcon && !rightIcon && firstChildIsIcon && (
         <span className="app-btn-icon-slot">{isLoading ? <LoadingSpinner size={size} /> : firstChild}</span>
       )}
       {!leftIcon && iconOnly ? (
         isLoading ? <LoadingSpinner size={size} /> : content
-      ) : firstChildIsIcon ? (
+      ) : !rightIcon && firstChildIsIcon ? (
         childArray.slice(1)
       ) : (
         content
