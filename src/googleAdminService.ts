@@ -113,7 +113,7 @@ function friendlyGoogleError(error: unknown, fallback: string) {
 
 async function getAppsScript<T>(action: string, params?: Record<string, string>): Promise<T | null> {
   const scriptUrl = getScriptUrl();
-  if (!scriptUrl) return null;
+  if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
   const url = new URL(scriptUrl);
   url.searchParams.set("action", action);

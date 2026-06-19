@@ -542,8 +542,25 @@ function createWorkshopRequest(payload) {
   }
 
   const now = new Date();
+  const requestId = payload.id || buildRequestId(payload.contact.company, now);
+  const sheet = getRequestsSheet();
+  const rows = sheet.getDataRange().getValues();
+  const existingRowIndex = rows.findIndex((row, index) => index > 0 && row[0] === requestId);
+  if (existingRowIndex > 0) {
+    const existing = rowToRequest(rows[existingRowIndex]);
+    appendRequestEvent(requestId, "request_create_replayed", `Richiesta cliente gia presente per ${existing.company}`, {
+      clientMutationId: payload.clientMutationId || "",
+    });
+    return {
+      ok: true,
+      source: "google-sheet",
+      request: existing,
+      replayed: true,
+    };
+  }
+
   const request = normalizeWorkshopRequest({
-    id: payload.id || buildRequestId(payload.contact.company, now),
+    id: requestId,
     contact: payload.contact,
     company: payload.contact.company,
     manager: [payload.contact.firstName, payload.contact.lastName].filter(Boolean).join(" ").trim() || payload.contact.email,
@@ -561,7 +578,6 @@ function createWorkshopRequest(payload) {
     updatedAt: formatTimestamp(now),
   });
 
-  const sheet = getRequestsSheet();
   sheet.appendRow(requestToRow(request));
   appendRequestEvent(request.id, "request_created", `Richiesta cliente creata per ${request.company}`, request);
 
@@ -1415,6 +1431,29 @@ function requestLoginCode(payload) {
   }
 
   const issuingUser = rowToAuthUser(findAuthUserRowByEmail(email, usersSheet)) || user || null;
+  if (!issuingUser) {
+    const request = appendAccessRequest({
+      email,
+      requestedRole: String(payload.requestedRole || ""),
+      status: "pending",
+      sendMail,
+      code: "",
+      codeStatus: "pending",
+      codeExpiresAt: "",
+      reviewedBy: String(payload.invitedBy || "FunniFin"),
+      refCode: String(payload.refCode || ""),
+      createdAt: formatTimestamp(now),
+      updatedAt: formatTimestamp(now),
+    });
+    return {
+      ok: true,
+      source: "google-sheet",
+      sent: true,
+      pending: true,
+      request: publicAccessRequest(request),
+    };
+  }
+
   if (issuingUser && issuingUser.disabled) {
     const request = appendAccessRequest({
       email,
@@ -1440,6 +1479,7 @@ function requestLoginCode(payload) {
 
   const existingCodeRequest = findLatestAccessRequestWithCodeByEmail(email, requestsSheet);
   const code = existingCodeRequest && existingCodeRequest.code ? existingCodeRequest.code : buildAuthCode();
+  const codeExpiresAt = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
   const request = appendAccessRequest({
     email,
     requestedRole: String(payload.requestedRole || issuingUser?.actualRole || ""),
@@ -1447,7 +1487,7 @@ function requestLoginCode(payload) {
     sendMail,
     code,
     codeStatus: sendMail ? "sent" : "queued",
-    codeExpiresAt: "",
+    codeExpiresAt,
     reviewedAt: formatTimestamp(now),
     reviewedBy: String(payload.invitedBy || "FunniFin"),
     verifiedAt: "",
@@ -1494,6 +1534,14 @@ function verifyLoginCode(payload) {
 
   if (!request) {
     throw new Error("Codice non valido.");
+  }
+  if (!request.codeExpiresAt || new Date(request.codeExpiresAt).getTime() < Date.now()) {
+    const expired = Object.assign({}, request, {
+      codeStatus: "expired",
+      updatedAt: formatTimestamp(new Date()),
+    });
+    saveAccessRequest(expired);
+    throw new Error("Codice scaduto.");
   }
 
   const verified = Object.assign({}, request, {
@@ -1560,7 +1608,7 @@ function reviewAccessRequest(payload) {
     const code = next.code || buildAuthCode();
     next.code = code;
     next.codeStatus = next.sendMail === false ? "queued" : "sent";
-    next.codeExpiresAt = "";
+    next.codeExpiresAt = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
     if (next.sendMail !== false) {
       MailApp.sendEmail({
         to: next.email,

@@ -16,7 +16,7 @@ export type AuthUser = {
   disabled: boolean;
 };
 
-/** Sessione attiva (mock Phase 1: salvata in localStorage) */
+/** Sessione attiva salvata nel browser; il token viene emesso da Apps Script. */
 export type AuthSession = {
   userId: string;
   token: string;

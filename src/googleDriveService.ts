@@ -1,5 +1,5 @@
 import { SECRET_SETTINGS } from "./secretSettings";
-import { allowLocalFallbacks, appendSessionParams } from "./authTransport";
+import { appendSessionParams } from "./authTransport";
 
 export type BrandPresentationStatus = "in_review" | "changes_requested" | "approved" | "archived";
 
@@ -16,7 +16,7 @@ export type BrandPresentation = {
   mimeType?: string;
   folderName?: string;
   updatedAt?: string;
-  source?: "google-drive" | "demo";
+  source?: "google-drive";
 };
 
 export type BrandPresentationResponse = {
@@ -75,7 +75,6 @@ export async function getBrandPresentations(): Promise<BrandPresentationResponse
   const env = (import.meta as unknown as { env: Record<string, string | undefined> }).env;
   const scriptUrl = getScriptUrl();
 
-  if (!scriptUrl && allowLocalFallbacks()) return null;
   if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
   const folderId =
@@ -107,7 +106,6 @@ export async function getBrandPresentations(): Promise<BrandPresentationResponse
 
 export async function getDriveFolderPreview(folderId = getConfiguredFolderId()): Promise<DriveFolderResponse | null> {
   const scriptUrl = getScriptUrl();
-  if ((!scriptUrl || !folderId) && allowLocalFallbacks()) return null;
   if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
   if (!folderId) throw new Error("Cartella Drive non configurata");
 

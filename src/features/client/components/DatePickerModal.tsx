@@ -66,9 +66,10 @@ export function DatePickerModal({
   const [day, setDay] = useState(selection.date || todayDate);
   const [time, setTime] = useState(selection.time || "18:00");
   const [availability, setAvailability] = useState<{ source: string; slots: Array<{ time: string; status: "available" | "busy" | "promo" }> }>({
-    source: "mock",
+    source: "google-freebusy",
     slots: [],
   });
+  const [availabilityError, setAvailabilityError] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
   const selectedDate = parseDateKey(day);
   const selectedYear = selectedDate.getFullYear();
@@ -94,9 +95,16 @@ export function DatePickerModal({
   useEffect(() => {
     let cancelled = false;
     setLoadingSlots(true);
+    setAvailabilityError("");
     getWorkshopAvailability({ date: formattedDay, duration: selection.duration, format: selection.format, expertIds: workshop.experts })
       .then((result) => {
         if (!cancelled) setAvailability(result);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setAvailability({ source: "google-freebusy", slots: [] });
+          setAvailabilityError(error instanceof Error ? error.message : "Disponibilita Calendar non disponibile.");
+        }
       })
       .finally(() => {
         if (!cancelled) setLoadingSlots(false);
@@ -182,7 +190,7 @@ export function DatePickerModal({
             <div className="slot-panel">
               <div className="slot-title">
                 <Clock3 size={18} /> Inizio
-                <span>{availability.source === "google-freebusy" ? "Disponibilita aggiornata" : "Disponibilita demo"}</span>
+                <span>{availabilityError || "Disponibilita aggiornata da Google Calendar"}</span>
               </div>
               <div className="slot-grid" aria-busy={loadingSlots}>
                 {loadingSlots && Array.from({ length: 8 }).map((_, index) => <Skeleton key={index} className="slot-skeleton" />)}

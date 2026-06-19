@@ -340,7 +340,7 @@ export function ClientView({
       }).catch((error) => {
         const message = error instanceof Error ? error.message : "Email non inviata.";
         notify("Email non inviata", message);
-        return { sent: false, opaque: false };
+        return { sent: false };
       });
       onRequestCreated(request);
       setProjectStatus(

@@ -173,12 +173,12 @@ export function AdminView({
   const [adminQueueSort, setAdminQueueSort] = useState<AdminQueueSort>("recenti");
   const [bottomProjectMenuOpen, setBottomProjectMenuOpen] = useState(false);
   const localProject = buildLocalAdminProject(selections, quote.total, projectStatus);
-  const [adminProjects, setAdminProjects] = useState<AdminProject[]>(() => (currentRequest ? [requestToAdminProject(currentRequest)] : [localProject]));
-  const [selectedProjectId, setSelectedProjectId] = useState(currentRequest?.id ?? localProject.id);
+  const [adminProjects, setAdminProjects] = useState<AdminProject[]>(() => (currentRequest ? [requestToAdminProject(currentRequest)] : []));
+  const [selectedProjectId, setSelectedProjectId] = useState(currentRequest?.id ?? "");
   const [requestSyncState, setRequestSyncState] = useState<{ loading: boolean; error: string; source: "sheet" | "local" }>({
     loading: false,
     error: "",
-    source: currentRequest ? "sheet" : "local",
+    source: "sheet",
   });
   const [assignmentWorkshopId, setAssignmentWorkshopId] = useState(selections[0]?.workshopId ?? "ws-budget-step");
   const [expertDraft, setExpertDraft] = useState(experts[0].name);
@@ -529,7 +529,7 @@ export function AdminView({
       })
       .catch((error) => {
         if (!alive) return;
-        notify("Prezzi Google non letti", error instanceof Error ? error.message : "Uso le regole locali.");
+        notify("Prezzi Google non letti", error instanceof Error ? error.message : "Sheet prezzi non disponibile.");
       });
     return () => {
       alive = false;
@@ -561,7 +561,7 @@ export function AdminView({
       })
       .catch((error) => {
         if (!alive) return;
-        notify("Catalogo Google non letto", error instanceof Error ? error.message : "Uso la configurazione locale.");
+        notify("Catalogo Google non letto", error instanceof Error ? error.message : "Sheet catalogo non disponibile.");
       });
     return () => {
       alive = false;
@@ -587,7 +587,7 @@ export function AdminView({
       })
       .catch((error) => {
         if (!alive) return;
-        notify("Esperti Google non letti", error instanceof Error ? error.message : "Uso la rubrica locale.");
+        notify("Esperti Google non letti", error instanceof Error ? error.message : "Sheet esperti non disponibile.");
       });
     return () => {
       alive = false;
@@ -602,7 +602,7 @@ export function AdminView({
       })
       .catch((error) => {
         if (!alive) return;
-        notify("Settings Google non letti", error instanceof Error ? error.message : "Uso configurazione locale/env.");
+        notify("Settings Google non letti", error instanceof Error ? error.message : "Sheet impostazioni non disponibile.");
       });
     return () => {
       alive = false;
@@ -685,17 +685,16 @@ export function AdminView({
         const projects = requests.map(requestToAdminProject);
         const hasCurrent = currentRequest ? projects.some((project) => project.id === currentRequest.id) : true;
         const nextProjects = currentRequest && !hasCurrent ? [requestToAdminProject(currentRequest), ...projects] : projects;
-        const fallbackProjects = nextProjects.length ? nextProjects : [buildLocalAdminProject(selections, quote.total, projectStatus)];
-        setAdminProjects(fallbackProjects);
-        setSelectedProjectId((current) => (fallbackProjects.some((project) => project.id === current) ? current : fallbackProjects[0].id));
-        setRequestSyncState({ loading: false, error: "", source: nextProjects.length ? "sheet" : "local" });
+        setAdminProjects(nextProjects);
+        setSelectedProjectId((current) => (nextProjects.some((project) => project.id === current) ? current : nextProjects[0]?.id ?? ""));
+        setRequestSyncState({ loading: false, error: "", source: "sheet" });
       })
       .catch((error) => {
         if (!alive) return;
-        const fallbackProjects = currentRequest ? [requestToAdminProject(currentRequest)] : [buildLocalAdminProject(selections, quote.total, projectStatus)];
-        setAdminProjects(fallbackProjects);
-        setSelectedProjectId((current) => (fallbackProjects.some((project) => project.id === current) ? current : fallbackProjects[0].id));
-        setRequestSyncState({ loading: false, error: "", source: "local" });
+        const projects = currentRequest ? [requestToAdminProject(currentRequest)] : [];
+        setAdminProjects(projects);
+        setSelectedProjectId((current) => (projects.some((project) => project.id === current) ? current : projects[0]?.id ?? ""));
+        setRequestSyncState({ loading: false, error: error instanceof Error ? error.message : "Registro richieste non disponibile.", source: "sheet" });
       });
     return () => {
       alive = false;
@@ -878,7 +877,7 @@ export function AdminView({
         phase: "request_updated",
         recipients: notification.recipients,
         deliveredRecipients: result.recipients,
-        deliveryLabel: result.sent ? "Email inviata" : "Email pronta in demo",
+        deliveryLabel: result.sent ? "Email inviata" : "Email non inviata",
       });
     } else {
       notify("Richiesta modificata", `Fase: ${statusLabel[phase]}. Salvata senza inviare email.`, {
@@ -919,7 +918,7 @@ export function AdminView({
         setSelectedExpertProfileId(null);
       })
       .catch((error) => {
-        notify("Profilo esperto salvato solo in locale", error instanceof Error ? error.message : "Google Sheets non disponibile.");
+        notify("Profilo esperto non salvato", error instanceof Error ? error.message : "Google Sheets non disponibile.");
         setSelectedExpertProfileId(null);
       });
   };
@@ -953,7 +952,7 @@ export function AdminView({
         if (expert) notify("Esperto eliminato da Google", `${expertFullName(expert)} rimosso dal pool esperti.`);
       })
       .catch((error) => {
-        if (expert) notify("Esperto eliminato solo in locale", error instanceof Error ? error.message : `${expertFullName(expert)} rimosso dalla vista corrente.`);
+        if (expert) notify("Esperto non eliminato dallo Sheet", error instanceof Error ? error.message : "Google Sheets non disponibile.");
       });
   };
   const syncDriveSlidesFromRoot = () => {
@@ -1008,7 +1007,7 @@ export function AdminView({
         note: choice.note,
         event,
       });
-      const mailTitle = result.sent ? (result.opaque ? "Email inoltrata, consegna da verificare" : "Email inviata") : "Email pronta in demo";
+      const mailTitle = result.sent ? "Email inviata" : "Email non inviata";
       notifyWorkflowRecipients({
         phase,
         recipients: choice.recipients,
@@ -1094,7 +1093,7 @@ export function AdminView({
         ),
       );
       const freeSlots = results.reduce((total, result) => total + result.slots.filter((slot) => slot.status === "available" || slot.status === "promo").length, 0);
-      const source = results.some((result) => result.source === "google-freebusy") ? "Google Calendar FreeBusy" : "Disponibilita demo";
+      const source = "Google Calendar FreeBusy";
       setCalendarCheck({ checked: true, loading: false, freeSlots, source });
       runProjectStatus("in_verifica_funnifin", "Calendari verificati", `${freeSlots} slot compatibili trovati da ${source}. Ora approva o chiedi modifica alle singole date.`);
     } catch (error) {
@@ -1373,7 +1372,7 @@ export function AdminView({
   ] as const;
   const catalogThemeRows = topics.flatMap((topic) => topic.themes.map((theme) => ({ ...theme, topicId: topic.id, topicTitle: topic.title })));
   const catalogWorkshopsForAdmin = sheetCatalogWorkshops.length > 0 ? sheetCatalogWorkshops : workshops;
-  const catalogSourceLabel = sheetCatalogWorkshops.length > 0 ? "Google Sheet" : "fallback locale";
+  const catalogSourceLabel = sheetCatalogWorkshops.length > 0 ? "Google Sheet" : "Sheet vuoto";
   const sheetPreviewUrl = googleHealth?.spreadsheet.id
     ? `https://docs.google.com/spreadsheets/d/${encodeURIComponent(googleHealth.spreadsheet.id)}/preview`
     : "";
@@ -1393,7 +1392,7 @@ export function AdminView({
     : googleHealthMode === "error"
       ? "Errore"
       : googleHealthMode === "cache"
-        ? "Cache locale"
+        ? "Cache health"
         : googleHealthMode === "live"
           ? "Live Google"
           : "Non verificato";
@@ -1630,7 +1629,7 @@ export function AdminView({
         return {
           eyebrow: `Step ${activeAdminFlowIndex + 1} - Richiesta`,
           title: selectedProject.company,
-          detail: `${selectedProjectRows.length} workshop · ${requestSyncState.source === "sheet" ? "registro Google" : "vista locale"}`,
+          detail: `${selectedProjectRows.length} workshop · registro Google`,
           meta: money(activeAdminQuote),
         };
       }
@@ -1724,15 +1723,16 @@ export function AdminView({
     listWorkshopRequests()
       .then((requests) => {
         const projects = requests.map(requestToAdminProject);
-        const fallbackProjects = projects.length ? projects : [buildLocalAdminProject(selections, quote.total, projectStatus)];
-        setAdminProjects(fallbackProjects);
-        setSelectedProjectId((current) => (fallbackProjects.some((project) => project.id === current) ? current : fallbackProjects[0].id));
-        setRequestSyncState({ loading: false, error: "", source: projects.length ? "sheet" : "local" });
-        notify(projects.length ? "Coda aggiornata" : "Nessuna richiesta salvata", projects.length ? `${projects.length} richieste lette dal registro.` : "Mostro solo la richiesta locale.");
+        setAdminProjects(projects);
+        setSelectedProjectId((current) => (projects.some((project) => project.id === current) ? current : projects[0]?.id ?? ""));
+        setRequestSyncState({ loading: false, error: "", source: "sheet" });
+        notify(projects.length ? "Coda aggiornata" : "Nessuna richiesta nello Sheet", projects.length ? `${projects.length} richieste lette dal registro.` : "Il registro Google non contiene richieste.");
       })
       .catch((error) => {
         const message = getFriendlyErrorMessage(error, "Lettura richieste non riuscita");
-        setRequestSyncState({ loading: false, error: message, source: "local" });
+        setAdminProjects([]);
+        setSelectedProjectId("");
+        setRequestSyncState({ loading: false, error: message, source: "sheet" });
         notify("Coda non aggiornata", message);
       });
   };
@@ -1766,12 +1766,12 @@ export function AdminView({
           "Catalogo Sheet aggiornato",
           remoteTopics.length + remoteWorkshops.length > 0
             ? `${remoteTopics.length || topics.length} ambiti e ${remoteWorkshops.length || catalogWorkshopsForAdmin.length} workshop letti da Google Sheets. Canva resta solo reference visuale.`
-            : `${topics.length} interessi, ${catalogThemeRows.length} temi e ${catalogWorkshopsForAdmin.length} workshop disponibili in fallback locale.`,
+            : "Lo Sheet catalogo ha risposto senza righe vendibili.",
         );
       })
       .catch((error) => {
         setCatalogRefreshedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-        notify("Catalogo locale verificato", error instanceof Error ? error.message : "Google Sheets non disponibile, uso configurazione locale.");
+        notify("Catalogo Sheet non letto", error instanceof Error ? error.message : "Google Sheets non disponibile.");
       });
   };
   const refreshPricingSection = () => {
@@ -1788,11 +1788,11 @@ export function AdminView({
           })));
         }
         setPricingSavedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-        notify("Regole prezzo aggiornate", remoteRules.length > 0 ? `${remoteRules.length} regole lette da Google Sheets.` : `${rules.length} regole locali disponibili; preventivo cliente ricalcolato.`);
+        notify("Regole prezzo aggiornate", remoteRules.length > 0 ? `${remoteRules.length} regole lette da Google Sheets.` : "Lo Sheet prezzi ha risposto senza regole.");
       })
       .catch((error) => {
         setPricingSavedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-        notify("Prezzi locali verificati", error instanceof Error ? error.message : "Google Sheets non disponibile, uso regole locali.");
+        notify("Prezzi Sheet non letti", error instanceof Error ? error.message : "Google Sheets non disponibile.");
       });
   };
   const refreshExpertsSection = () => {
@@ -1812,11 +1812,11 @@ export function AdminView({
           })));
         }
         setExpertsSyncedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-        notify("Vista esperti aggiornata", remoteExperts.length > 0 ? `${remoteExperts.length} profili letti da Google Sheets.` : `${expertDirectory.length} profili locali disponibili.`);
+        notify("Vista esperti aggiornata", remoteExperts.length > 0 ? `${remoteExperts.length} profili letti da Google Sheets.` : "Lo Sheet esperti ha risposto senza profili.");
       })
       .catch((error) => {
         setExpertsSyncedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-        notify("Esperti locali verificati", error instanceof Error ? error.message : "Google Sheets non disponibile, uso rubrica locale.");
+        notify("Esperti Sheet non letti", error instanceof Error ? error.message : "Google Sheets non disponibile.");
       });
   };
   const refreshGoogleHealth = (options?: { silent?: boolean; refresh?: boolean; preserveCurrent?: boolean }) => {
@@ -1917,7 +1917,7 @@ export function AdminView({
   const automaticPricingRules = rules.filter((rule) => !rule.specialQuote);
   const quoteOnlyRules = rules.filter((rule) => rule.specialQuote);
   const maxAutomaticDiscount = automaticPricingRules.reduce((max, rule) => Math.max(max, rule.discountPercent), 0);
-  const showRequestSkeleton = requestSyncState.loading && requestSyncState.source === "local";
+  const showRequestSkeleton = requestSyncState.loading;
   return (
     <section className="admin-console">
       <RoleHero
@@ -1951,7 +1951,7 @@ export function AdminView({
                     <span>
                       {requestSyncState.loading && "Lettura registro..."}
                       {!requestSyncState.loading && requestSyncState.source === "sheet" && `${filteredAdminProjectCards.length} di ${adminProjects.length}`}
-                      {!requestSyncState.loading && requestSyncState.source === "local" && "Vista locale temporanea"}
+                      {!requestSyncState.loading && requestSyncState.error && "Registro non disponibile"}
                     </span>
                   </div>
                 </div>
@@ -2565,7 +2565,7 @@ export function AdminView({
                     setCatalogModalTopicId(null);
                   })
                   .catch((error) => {
-                    notify("Catalogo salvato solo in locale", error instanceof Error ? error.message : "Redeploy Apps Script necessario per salvare su Google Sheets.");
+                    notify("Catalogo non salvato", error instanceof Error ? error.message : "Google Sheets non disponibile.");
                     setCatalogModalTopicId(null);
                   });
               }}
@@ -3319,7 +3319,7 @@ export function AdminView({
                 setRules(nextRules.map((rule) => (rule.id === savedRule.id ? { ...rule, ...savedRule } : rule)));
                 notify("Prezzi salvati su Google", "Nome, range, sconto e logica preventivo sono ora usati dal preventivo dinamico.");
               } catch (error) {
-                notify("Prezzi salvati solo in locale", error instanceof Error ? error.message : "Redeploy Apps Script necessario per salvare su Google Sheets.");
+                notify("Prezzi non salvati", error instanceof Error ? error.message : "Google Sheets non disponibile.");
               }
             }
           }}

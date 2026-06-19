@@ -1,5 +1,5 @@
 import { SECRET_SETTINGS } from "./secretSettings";
-import { allowLocalFallbacks, withSessionPayload } from "./authTransport";
+import { withSessionPayload } from "./authTransport";
 
 export type CalendarSlot = {
   time: string;
@@ -7,7 +7,7 @@ export type CalendarSlot = {
 };
 
 export type CalendarAvailability = {
-  source: "google-freebusy" | "mock";
+  source: "google-freebusy";
   slots: CalendarSlot[];
 };
 
@@ -36,7 +36,7 @@ export type CalendarEventPayload = {
 };
 
 export type CalendarEventResult = {
-  source: "google-calendar" | "mock";
+  source: "google-calendar";
   id: string;
   mode?: "tentative" | "confirmed";
   htmlLink?: string;
@@ -47,25 +47,6 @@ export type CalendarEventResult = {
   createdAt: string;
   workshops: number;
 };
-
-const DEFAULT_SLOTS = [
-  "08:00",
-  "09:00",
-  "10:00",
-  "11:00",
-  "12:00",
-  "13:00",
-  "14:00",
-  "15:00",
-  "16:00",
-  "17:00",
-  "18:00",
-  "19:00",
-  "20:00",
-  "21:00",
-  "22:00",
-  "23:00",
-];
 
 function friendlyCalendarError(error: unknown, fallback: string) {
   const message = error instanceof Error ? error.message : "";
@@ -84,19 +65,6 @@ export async function getWorkshopAvailability(params: {
     SECRET_SETTINGS.google.env.appScriptDeploymentUrl
   ];
 
-  if (!scriptUrl && allowLocalFallbacks()) {
-    return {
-      source: "mock",
-      slots: DEFAULT_SLOTS.map((time) => ({
-        time,
-        status: ["08:00", "09:00", "10:00", "12:00", "13:00", "14:00", "16:00", "17:00"].includes(time)
-          ? "busy"
-          : time === "18:00"
-            ? "promo"
-            : "available",
-      })),
-    };
-  }
   if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
   const url = new URL(scriptUrl);
@@ -120,16 +88,7 @@ export async function createWorkshopCalendarEvent(payload: CalendarEventPayload)
     SECRET_SETTINGS.google.env.appScriptDeploymentUrl
   ];
 
-  if (!scriptUrl) {
-    return {
-      source: "mock",
-      id: `mock_${payload.projectId}_${Date.now().toString(36)}`,
-      mode: payload.eventMode ?? "confirmed",
-      meetLink: `https://meet.google.com/funnifin-${payload.projectId}`,
-      createdAt: new Date().toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
-      workshops: payload.workshops.length,
-    };
-  }
+  if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
   try {
     const response = await fetch(scriptUrl, {

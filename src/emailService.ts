@@ -322,7 +322,7 @@ export async function sendWorkshopRequestEmail(payload: WorkshopRequestEmailPayl
     };
     const result = await postAppsScriptJson<{ sent?: boolean; error?: string }>(scriptUrl, body);
     if (!result.sent) throw new Error(result.error || "Apps Script non ha confermato l'invio email.");
-    return { sent: true, html, subject, opaque: false };
+    return { sent: true, html, subject };
   }
 
   return {
@@ -362,7 +362,6 @@ export async function sendWorkflowNotification(payload: WorkflowNotificationPayl
       sent: true,
       subject: result.subject || `FunniFin - ${payload.project.company} - ${payload.phase}`,
       recipients: result.recipients || to,
-      opaque: false,
     };
   }
 
