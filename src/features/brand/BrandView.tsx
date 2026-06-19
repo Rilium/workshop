@@ -246,7 +246,6 @@ export function BrandView({
   useEffect(() => {
     if (systemSettingsToken === 0) return;
     setBrandFilter("Revisioni");
-    notify("Impostazioni brand", "Vista revisioni attiva: qui gestisci stato deck, versioni e collegamenti Drive.");
   }, [systemSettingsToken]);
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Check } from "lucide-react";
 
 export function Stepper({
@@ -16,6 +16,11 @@ export function Stepper({
   children?: React.ReactNode;
 }) {
   const activeIndex = steps.indexOf(activeStep);
+  const activeTabRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+  }, [activeStep]);
 
   const cardRadius = (() => {
     const r = "12px";
@@ -34,6 +39,7 @@ export function Stepper({
           return (
             <button
               key={step}
+              ref={isActive ? activeTabRef : undefined}
               className={`ff-tab ${isDone ? "ff-tab--done" : isActive ? "ff-tab--active" : "ff-tab--future"}`}
               onClick={() => onStep(step)}
               aria-current={isActive ? "step" : undefined}

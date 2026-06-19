@@ -293,7 +293,6 @@ export function ExpertView({
   useEffect(() => {
     if (systemSettingsToken === 0) return;
     setExpertStep("Upload deck");
-    notify("Impostazioni esperto", "Aperto Upload deck: qui gestisci file e collegamenti Drive dell'esperto.");
   }, [systemSettingsToken]);
   const confirmExpertCandidacy = async () => {
     if (!candidateModalRow || candidateSending) return;

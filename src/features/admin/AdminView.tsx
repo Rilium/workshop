@@ -1912,7 +1912,6 @@ export function AdminView({
   useEffect(() => {
     if (systemSettingsToken === 0) return;
     setAdminTab("Google");
-    notify("Impostazioni Google", "Aperto Google backend: qui gestisci invii, Sheet, Calendar, Drive e runtime.");
   }, [systemSettingsToken]);
   const automaticPricingRules = rules.filter((rule) => !rule.specialQuote);
   const quoteOnlyRules = rules.filter((rule) => rule.specialQuote);

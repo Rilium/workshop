@@ -37,6 +37,14 @@ export function BottomActionBar({
   secondaryLabel?: string;
   onSecondary?: () => void;
 }) {
+  const hasBack = Boolean(backLabel && onBack);
+  const hasSecondary = Boolean(secondaryLabel && onSecondary);
+  const buttonsClassName = [
+    "bottom-action-buttons",
+    hasBack ? "bottom-action-buttons--with-back" : "",
+    hasSecondary ? "bottom-action-buttons--with-secondary" : "",
+  ].filter(Boolean).join(" ");
+
   return (
     <aside className={`bottom-action-bar ${className ?? ""}`} aria-label="Azione principale">
       {leftContent ?? (
@@ -55,13 +63,13 @@ export function BottomActionBar({
           {caveat && <em>{caveat}</em>}
         </div>
       )}
-      <div className={`bottom-action-buttons ${backLabel && onBack ? "bottom-action-buttons--with-back" : ""}`}>
-        {backLabel && onBack && (
+      <div className={buttonsClassName}>
+        {hasBack && (
           <AppButton variant="ghost" className="bottom-back-btn" onClick={onBack} aria-label={backLabel} title={backLabel}>
             <ChevronLeft size={22} />
           </AppButton>
         )}
-        {secondaryLabel && onSecondary && (
+        {hasSecondary && (
           <AppButton variant="ghost" onClick={onSecondary}>
             {secondaryLabel}
           </AppButton>

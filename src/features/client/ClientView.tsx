@@ -453,7 +453,7 @@ export function ClientView({
   }, [systemRefreshToken]);
   useEffect(() => {
     if (systemSettingsToken === 0) return;
-    notify("Impostazioni cliente", "Le opzioni del percorso restano dentro step e card correnti; usa il selettore ruolo nella barra sistema per cambiare vista.");
+    setClientStep(selectedWorkshopRows.length > 0 ? "Personalizza" : "Workshop");
   }, [systemSettingsToken]);
 
   return (
