@@ -88,7 +88,6 @@ export function SystemBar({
         {isFunniFin ? (
           /* Switch ruolo: solo per FunniFin */
           <div className="role-menu">
-            <span className="role-menu-label">Visualizza come</span>
             <button
               className="role-menu-trigger"
               type="button"
@@ -96,7 +95,7 @@ export function SystemBar({
               aria-expanded={roleMenuOpen}
               onClick={onToggleRoleMenu}
             >
-              <span>{role}</span>
+              <span>Visualizza come: {role}</span>
               <Menu size={18} />
             </button>
             {roleMenuOpen && (
@@ -120,27 +119,26 @@ export function SystemBar({
             <span>{role}</span>
           </div>
         )}
+        <span>{context}</span>
       </div>
       <div className="system-actions">
-        <div className="system-preference-actions">{darkModeToggle}</div>
-        <div className="system-operational-actions">
-          {notificationCenter}
-          <ToolIconButton onClick={onSettings} label={settingsLabel} className="system-action-settings">
-            <Settings2 size={18} />
+        {darkModeToggle}
+        {notificationCenter}
+        <ToolIconButton onClick={onSettings} label={settingsLabel} className="system-action-settings">
+          <Settings2 size={18} />
+        </ToolIconButton>
+        <ToolIconButton onClick={onRefresh} label="Ricarica sezione" className="system-action-refresh">
+          <RefreshCw size={18} />
+        </ToolIconButton>
+        {currentUser ? (
+          <ToolIconButton onClick={onLogout} label={`Esci (${currentUser.displayName})`} className="system-action-auth">
+            <LogOut size={18} />
           </ToolIconButton>
-          <ToolIconButton onClick={onRefresh} label="Ricarica sezione" className="system-action-refresh">
-            <RefreshCw size={18} />
+        ) : (
+          <ToolIconButton onClick={onLogin} label="Accedi all'area riservata" className="system-action-auth">
+            <LogIn size={18} />
           </ToolIconButton>
-          {currentUser ? (
-            <ToolIconButton onClick={onLogout} label={`Esci (${currentUser.displayName})`} className="system-action-auth">
-              <LogOut size={18} />
-            </ToolIconButton>
-          ) : (
-            <ToolIconButton onClick={onLogin} label="Accedi all'area riservata" className="system-action-auth">
-              <LogIn size={18} />
-            </ToolIconButton>
-          )}
-        </div>
+        )}
       </div>
     </section>
   );

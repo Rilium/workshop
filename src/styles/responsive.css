@@ -267,7 +267,7 @@
 
   .system-bar {
     top: 0;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto;
     padding: 20px 16px 12px;
   }
 
@@ -692,7 +692,7 @@
   .system-role-area {
     width: 100%;
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
     align-items: center;
   }
 
@@ -708,15 +708,10 @@
 
   .system-actions {
     width: 100%;
-    display: flex;
-    justify-content: flex-end;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, 38px);
+    justify-content: start;
     gap: var(--sp-2);
-  }
-
-  .system-actions .dark-mode-toggle,
-  .system-actions .system-action-settings,
-  .system-actions .system-action-refresh {
-    display: none;
   }
 
   .system-actions .tool-icon-btn {
@@ -724,12 +719,6 @@
     min-width: 40px;
     height: 40px;
     min-height: 40px;
-  }
-
-  .system-actions .system-action-auth {
-    border-color: var(--brand);
-    background: var(--brand-light);
-    color: var(--brand-dark);
   }
 
   .role-switch {
