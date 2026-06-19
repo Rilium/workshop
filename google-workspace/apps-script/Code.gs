@@ -2013,16 +2013,16 @@ function buildAuthInviteHtml(payload) {
   return [
     '<div style="margin:0;padding:32px 16px;background:#f5fafb;font-family:Nunito,Arial,sans-serif;color:#171d1d;">',
     '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #d4edf2;border-radius:18px;overflow:hidden;box-shadow:0 14px 38px rgba(0,79,84,0.10);">',
-    '<tr><td style="padding:32px;background:#004f54;text-align:center;">',
-    `<p style="margin:0 0 8px;font-family:Caveat,cursive;font-size:38px;line-height:1;color:#1cafb9;font-weight:700;">Benvenuto, ${displayName}</p>`,
+    '<tr><td style="padding:32px;background:#1cafb9;text-align:center;">',
+    `<p style="margin:0 0 8px;font-family:Caveat,cursive;font-size:38px;line-height:1;color:#ffffff;font-weight:700;">Benvenuto, ${displayName}</p>`,
     '<h1 style="margin:0;font-size:24px;line-height:1.18;color:#fff;">Il tuo accesso FunniFin è pronto</h1>',
-    `<p style="margin:12px auto 0;color:#c8f0f3;font-size:14px;line-height:1.6;max-width:440px;">Ciao ${displayName}, abbiamo preparato il tuo accesso${requestedRole}.</p>`,
+    `<p style="margin:12px auto 0;color:rgba(255,255,255,0.86);font-size:14px;line-height:1.6;max-width:440px;">Ciao ${displayName}, abbiamo preparato il tuo accesso${requestedRole}.</p>`,
     '</td></tr>',
     '<tr><td style="padding:24px;">',
     `<p style="margin:0 0 12px;color:#444748;font-size:14px;line-height:1.6;">Usa questa email per entrare: <strong>${email}</strong></p>`,
     `<div style="padding:18px;border-radius:14px;background:#fff8dd;border:1px solid #f5cf45;font-size:24px;color:#004f54;font-weight:800;letter-spacing:0.14em;text-align:center;">${code}</div>`,
     '<p style="margin:14px 0 0;color:#444748;font-size:14px;line-height:1.6;">Apri FunniFin e inserisci il codice nella schermata di accesso. Il codice serve solo per completare questo accesso.</p>',
-    `<p style="margin:18px 0 0;text-align:center;"><a href="${appUrl}" style="display:inline-block;padding:12px 26px;background:#004f54;color:#ffffff;border-radius:999px;font-size:14px;font-weight:800;text-decoration:none;">Apri FunniFin</a></p>`,
+    `<p style="margin:18px 0 0;text-align:center;"><a href="${appUrl}" style="display:inline-block;padding:12px 26px;background:#1cafb9;color:#ffffff;border-radius:999px;font-size:14px;font-weight:800;text-decoration:none;">Apri FunniFin</a></p>`,
     `<p style="margin:12px 0 0;color:#7b9698;font-size:12px;line-height:1.5;text-align:center;">Se il bottone non funziona, copia questo link:<br><a href="${appUrl}" style="color:#1cafb9;">${appUrl}</a></p>`,
     '</td></tr>',
     '<tr><td style="padding:18px 24px;background:#f8fcfc;border-top:1px solid #e0f2f4;text-align:center;">',
@@ -2706,17 +2706,13 @@ function buildWorkflowEmailHtml(payload) {
 
   const ctaBlock = payload.actionUrl
     ? "<tr><td align=\"center\" style=\"padding:4px 32px 28px;\">" +
-        "<a href=\"" + payload.actionUrl + "\" style=\"display:inline-block;padding:13px 28px;background:#acafb9;color:#ffffff;border-radius:999px;font-size:14px;font-weight:800;text-decoration:none;letter-spacing:.02em;\">" +
+        "<a href=\"" + payload.actionUrl + "\" style=\"display:inline-block;padding:13px 28px;background:#1cafb9;color:#ffffff;border-radius:999px;font-size:14px;font-weight:800;text-decoration:none;letter-spacing:.02em;\">" +
           escapeHtml(payload.actionLabel || "Apri il progetto") +
         "</a>" +
       "</td></tr>"
     : "";
 
-  var headerBg = copy.accent === "warning"
-    ? "#b8860b"
-    : copy.accent === "success"
-    ? "#1a7a4a"
-    : "#acafb9";
+  var headerBg = copy.accent === "warning" ? "#b8860b" : "#1cafb9";
   var subtitleColor = "rgba(255,255,255,0.82)";
 
   var innerRows =

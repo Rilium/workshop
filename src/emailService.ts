@@ -201,7 +201,7 @@ function buildEmailHtml(payload: WorkshopRequestEmailPayload) {
   ].join("");
 
   const inner = `
-    <tr><td style="padding:36px 32px 28px;background:#acafb9;text-align:center;">
+    <tr><td style="padding:36px 32px 28px;background:#1cafb9;text-align:center;">
       <img src="${LOGO_URL}" alt="FunniFin" height="48" style="display:block;margin:0 auto 20px;max-width:180px;object-fit:contain;" />
       <h1 style="margin:0 0 10px;font-size:24px;line-height:1.18;color:#ffffff;font-weight:800;">Abbiamo ricevuto la tua richiesta</h1>
       <p style="margin:0 auto;color:rgba(255,255,255,0.85);font-size:14px;line-height:1.6;max-width:440px;">Grazie, <strong style="color:#ffffff;">${payload.contact.company}</strong>. Il team FunniFin sta preparando il percorso workshop più adatto.</p>
