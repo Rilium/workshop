@@ -10,11 +10,24 @@ function buttonSpinnerSize(size: AppButtonSize) {
   return 16;
 }
 
-function isIconOnly(children: React.ReactNode) {
-  const visibleChildren = React.Children.toArray(children).filter((child) => {
+function flattenChildren(children: React.ReactNode): React.ReactNode[] {
+  return React.Children.toArray(children).flatMap((child) => {
+    if (React.isValidElement(child) && child.type === React.Fragment) {
+      return flattenChildren((child.props as { children?: React.ReactNode }).children);
+    }
+    return child;
+  });
+}
+
+function getVisibleChildren(children: React.ReactNode) {
+  return flattenChildren(children).filter((child) => {
     if (typeof child === "string") return child.trim().length > 0;
     return child !== null && child !== undefined;
   });
+}
+
+function isIconOnly(children: React.ReactNode) {
+  const visibleChildren = getVisibleChildren(children);
   return visibleChildren.length === 1 && React.isValidElement(visibleChildren[0]);
 }
 
@@ -47,10 +60,14 @@ export function AppButton({
   const disabled = props.disabled || isLoading;
   const content = loadingText && isLoading ? loadingText : children;
   const explicitIcon = leftIcon || rightIcon;
-  const childArray = React.Children.toArray(content);
+  const childArray = flattenChildren(content);
   const firstChild = childArray[0];
   const firstChildIsIcon = !explicitIcon && React.isValidElement(firstChild);
   const iconOnly = !explicitIcon && isIconOnly(content);
+  const inferredLeftIcon = firstChildIsIcon ? firstChild : null;
+  const leftSlot = leftIcon ?? inferredLeftIcon;
+  const showLeftSlot = Boolean(leftSlot || (isLoading && !rightIcon));
+  const buttonContent = inferredLeftIcon ? childArray.slice(1) : content;
   const buttonClasses = [
     "app-btn",
     `app-btn-${variant}`,
@@ -63,22 +80,12 @@ export function AppButton({
 
   return (
     <button {...props} className={buttonClasses} disabled={disabled} aria-busy={isLoading || undefined}>
-      {leftIcon && <span className="app-btn-icon-slot">{isLoading ? <LoadingSpinner size={size} /> : leftIcon}</span>}
-      {!explicitIcon && isLoadable && !firstChildIsIcon && !iconOnly && (
-        <span className="app-btn-icon-slot" aria-hidden={!isLoading}>
-          {isLoading ? <LoadingSpinner size={size} /> : <span className="app-btn-spinner-placeholder" />}
+      {showLeftSlot && (
+        <span className="app-btn-icon-slot">
+          {isLoading ? <LoadingSpinner size={size} /> : leftSlot}
         </span>
       )}
-      {!leftIcon && !rightIcon && firstChildIsIcon && (
-        <span className="app-btn-icon-slot">{isLoading ? <LoadingSpinner size={size} /> : firstChild}</span>
-      )}
-      {!leftIcon && iconOnly ? (
-        isLoading ? <LoadingSpinner size={size} /> : content
-      ) : !rightIcon && firstChildIsIcon ? (
-        childArray.slice(1)
-      ) : (
-        content
-      )}
+      {buttonContent}
       {rightIcon && <span className="app-btn-icon-slot app-btn-icon-slot-right">{isLoading ? <LoadingSpinner size={size} /> : rightIcon}</span>}
     </button>
   );
