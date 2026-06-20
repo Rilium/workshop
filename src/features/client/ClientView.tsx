@@ -115,6 +115,7 @@ export function ClientView({
   const [uploadingAssets, setUploadingAssets] = useState(false);
   const [assetUploadError, setAssetUploadError] = useState("");
   const [requestFinalized, setRequestFinalized] = useState(false);
+  const [sharingCart, setSharingCart] = useState(false);
   const [contactTouched, setContactTouched] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [emailDeliveryMode, setEmailDeliveryMode] = useState<"sent" | "not_sent">("not_sent");
@@ -359,6 +360,200 @@ export function ClientView({
       notify("Richiesta non completata", `${message} Controlla Apps Script e riprova: non marco questa richiesta come reale finche non viene salvata.`);
     } finally {
       setSendingRequest(false);
+    }
+  };
+  const loadCartLogo = () => new Promise<HTMLImageElement | null>((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = "/Logo.png";
+  });
+  const createCartShareImage = async () => {
+    if (typeof document === "undefined") return null;
+
+    const width = 1080;
+    const horizontalPadding = 124;
+    const textMaxWidth = 604;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    const getWrappedLines = (text: string, maxWidth: number) => {
+      const words = text.split(" ");
+      const lines: string[] = [];
+      let line = "";
+
+      words.forEach((word) => {
+        const testLine = line ? `${line} ${word}` : word;
+        if (ctx.measureText(testLine).width > maxWidth && line) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = testLine;
+        }
+      });
+      if (line) lines.push(line);
+      return lines.length > 0 ? lines : [""];
+    };
+
+    const rowLayouts = selectedWorkshopRows.map(({ selection, workshop }) => {
+      ctx.font = "700 30px Arial";
+      const titleLines = getWrappedLines(workshop.title, textMaxWidth);
+      ctx.font = "400 23px Arial";
+      const detail = [
+        selection.duration,
+        selection.format,
+        selection.date ? `${selection.date} ${selection.time}` : "",
+        selection.custom ? "su misura" : "",
+      ].filter(Boolean).join(" · ");
+      const detailLines = getWrappedLines(detail, textMaxWidth);
+      return {
+        titleLines,
+        detailLines,
+        height: Math.max(126, 46 + titleLines.length * 36 + detailLines.length * 29),
+      };
+    });
+    const rowsHeight = rowLayouts.reduce((sum, row) => sum + row.height + 18, 0);
+    const height = 508 + Math.max(rowsHeight, 126);
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const drawLines = (lines: string[], x: number, y: number, lineHeight: number) => {
+      lines.forEach((line, index) => {
+        ctx.fillText(line, x, y + index * lineHeight);
+      });
+    };
+
+    ctx.fillStyle = "#f6faf8";
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.roundRect(48, 48, width - 96, height - 96, 32);
+    ctx.fill();
+
+    ctx.fillStyle = "#123832";
+    ctx.beginPath();
+    ctx.roundRect(72, 72, width - 144, 188, 28);
+    ctx.fill();
+
+    const logo = await loadCartLogo();
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.roundRect(112, 110, 96, 96, 24);
+    ctx.fill();
+    if (logo) {
+      ctx.drawImage(logo, 130, 128, 60, 60);
+    } else {
+      ctx.fillStyle = "#123832";
+      ctx.font = "700 36px Arial";
+      ctx.fillText("F", 146, 170);
+    }
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "700 46px Arial";
+    ctx.fillText("Carrello FunniFin", 232, 145);
+    ctx.font = "400 28px Arial";
+    ctx.fillText(`${selectedWorkshopRows.length} workshop selezionati`, 232, 192);
+    ctx.font = "700 34px Arial";
+    ctx.fillText(money(quote.total), 788, 172);
+
+    let y = 318;
+    if (selectedWorkshopRows.length === 0) {
+      ctx.fillStyle = "#6c7f7a";
+      ctx.font = "400 30px Arial";
+      ctx.fillText("Il percorso e vuoto.", 112, y);
+    }
+
+    selectedWorkshopRows.forEach(({ selection, workshop }, index) => {
+      const price = getWorkshopSelectionPrice(workshop, selection);
+      const layout = rowLayouts[index];
+      ctx.fillStyle = index % 2 === 0 ? "#f2f7f5" : "#ffffff";
+      ctx.beginPath();
+      ctx.roundRect(88, y - 42, width - 176, layout.height, 20);
+      ctx.fill();
+
+      ctx.fillStyle = "#153b36";
+      ctx.font = "700 30px Arial";
+      drawLines(layout.titleLines, horizontalPadding, y, 36);
+      ctx.fillStyle = "#627771";
+      ctx.font = "400 23px Arial";
+      drawLines(layout.detailLines, horizontalPadding, y + layout.titleLines.length * 36 + 14, 29);
+
+      ctx.fillStyle = "#153b36";
+      ctx.font = "700 28px Arial";
+      ctx.textAlign = "right";
+      ctx.fillText(money(price.total), width - 124, y + 16);
+      ctx.textAlign = "left";
+      y += layout.height + 18;
+    });
+
+    ctx.strokeStyle = "#d7e4df";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(88, height - 132);
+    ctx.lineTo(width - 88, height - 132);
+    ctx.stroke();
+
+    ctx.fillStyle = "#627771";
+    ctx.font = "400 28px Arial";
+    ctx.fillText("Totale percorso", 112, height - 82);
+    ctx.fillStyle = "#123832";
+    ctx.font = "700 44px Arial";
+    ctx.textAlign = "right";
+    ctx.fillText(money(quote.total), width - 112, height - 82);
+    ctx.textAlign = "left";
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png", 0.95));
+    return blob ? new File([blob], "carrello-funnifin.png", { type: "image/png" }) : null;
+  };
+  const downloadCartImage = (file: File) => {
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = file.name;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+  const handleShareCart = async () => {
+    if (selectedWorkshopRows.length === 0 || sharingCart) return;
+
+    setSharingCart(true);
+    const cartText = [
+      "Carrello FunniFin",
+      ...selectedWorkshopRows.map(({ selection, workshop }) => {
+        const price = getWorkshopSelectionPrice(workshop, selection);
+        const date = selection.date ? `, ${selection.date} ${selection.time}` : "";
+        return `- ${workshop.title}: ${selection.duration}, ${selection.format}${date} (${money(price.total)})`;
+      }),
+      `Totale: ${money(quote.total)}`,
+    ].join("\n");
+
+    try {
+      const file = await createCartShareImage();
+      const shareData: ShareData = {
+        title: "Carrello FunniFin",
+        text: cartText,
+        url: window.location.href,
+      };
+
+      if (file && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ ...shareData, files: [file] });
+      } else if (navigator.share) {
+        if (file) downloadCartImage(file);
+        await navigator.share(shareData);
+        if (file) notify("Share senza immagine nativa", "Ho scaricato il PNG del carrello con logo e condiviso il riepilogo testuale.");
+      } else {
+        if (file) downloadCartImage(file);
+        await navigator.clipboard?.writeText(cartText);
+        notify("Share non disponibile", file ? "PNG del carrello scaricato e riepilogo copiato negli appunti." : "Riepilogo copiato negli appunti.");
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      const message = error instanceof Error ? error.message : "Condivisione non riuscita.";
+      notify("Condivisione non riuscita", message);
+    } finally {
+      setSharingCart(false);
     }
   };
   const removeTopic = (topicId: string) => {
@@ -1099,8 +1294,8 @@ export function ClientView({
           rows={selectedWorkshopRows}
           quote={quote}
           onRemove={removeWorkshop}
-          onSubmit={submitRequest}
-          submitting={sendingRequest}
+          onShare={handleShareCart}
+          submitting={sharingCart}
         />
       </div>
       <BottomActionBar

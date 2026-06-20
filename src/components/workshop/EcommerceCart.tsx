@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Send } from "lucide-react";
+import React, { useEffect, useRef } from "react";
+import { Share2 } from "lucide-react";
 import type { Quote, Selection, Workshop } from "../../types/domain";
 import { money } from "../../utils/money";
 import { getWorkshopSelectionPrice } from "../../utils/workshop";
@@ -11,13 +11,13 @@ export function EcommerceCart({
   rows,
   quote,
   onRemove,
-  onSubmit,
+  onShare,
   submitting = false,
 }: {
   rows: Array<{ selection: Selection; workshop: Workshop }>;
   quote: Quote;
   onRemove: (workshopId: string) => void;
-  onSubmit: () => void;
+  onShare: () => void | Promise<void>;
   submitting?: boolean;
 }) {
   const cartRef = useRef<HTMLElement | null>(null);
@@ -44,6 +44,7 @@ export function EcommerceCart({
         <div>
           <span>Carrello</span>
           <strong>{rows.length} workshop</strong>
+          {rows.length > 0 && <small>Pronto da condividere</small>}
         </div>
         <div className="cart-head-total">
           <strong>{money(quote.total)}</strong>
@@ -94,8 +95,15 @@ export function EcommerceCart({
       </>
 
       <div className="cart-submit-row">
-        <AppButton variant="secondary" onClick={onSubmit} disabled={rows.length === 0} loading={submitting}>
-          <Send size={17} /> Invia
+        <AppButton
+          variant="secondary"
+          onClick={onShare}
+          disabled={rows.length === 0}
+          loading={submitting}
+          loadingText="Preparo immagine"
+          aria-label="Condividi carrello workshop"
+        >
+          <Share2 size={17} /> Condividi
         </AppButton>
       </div>
     </aside>

@@ -42,6 +42,7 @@ Poi redeploy.
 - FunniFin: `Conferma evento` crea evento Calendar con Meet se il formato include webinar/ibrido.
 - Cliente: invio richiesta manda email al cliente e a FunniFin tramite Apps Script.
 - Cliente: invio richiesta crea prima un record reale su Google Sheet (`Requests`) e poi manda il recap email.
+- Cliente: ogni richiesta crea/aggiorna anche il tab `UtentiClienti`, con i dati di chi compila, stato di avanzamento, preventivo, workshop, date e link operativi.
 - FunniFin: la coda progetti legge `listWorkshopRequests`; status, date, esperto e calendario aggiornano lo stesso record tramite `updateWorkshopRequest`.
 - FunniFin: catalogo, regole prezzo, pool esperti e settings operative possono essere salvati su Google Sheet tramite `listCatalogConfig`, `updateCatalogTopic`, `listPricingRules`, `updatePricingRule`, `listExperts`, `updateExpert`, `listWorkspaceSettings` e `updateWorkspaceSetting`.
 - FunniFin: la tab Google controlla `googleHealth` per Sheets, Calendar, Drive e quota MailApp.

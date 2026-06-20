@@ -2953,6 +2953,7 @@ export function AdminView({
                 <Info label="Workshop" value={String(googleHealth.spreadsheet.catalogWorkshops)} />
                 <Info label="Prezzi" value={String(googleHealth.spreadsheet.pricingRules)} />
                 <Info label="Esperti" value={String(googleHealth.spreadsheet.experts)} />
+                <Info label="Clienti" value={String(googleHealth.spreadsheet.clientUsers)} />
                 <Info label="Utenti" value={String(googleHealth.spreadsheet.authUsers)} />
                 <Info label="Accessi" value={String(googleHealth.spreadsheet.accessRequests)} />
               </div>

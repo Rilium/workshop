@@ -44,6 +44,8 @@ function authorizeFunniFinSetup() {
   const spreadsheet = getRequestsSpreadsheet();
   getRequestsSheet();
   getRequestEventsSheet();
+  getClientUsersSheet();
+  syncClientUsersFromRequests();
   getAuthUsersSheet();
   getAccessRequestsSheet();
   getAuthSessionsSheet();
@@ -580,6 +582,7 @@ function createWorkshopRequest(payload) {
   });
 
   sheet.appendRow(requestToRow(request));
+  syncClientUserFromRequest(request);
   appendRequestEvent(request.id, "request_created", `Richiesta cliente creata per ${request.company}`, request);
 
   return {
@@ -620,6 +623,7 @@ function updateWorkshopRequest(payload) {
     updatedAt: formatTimestamp(new Date()),
   }));
   sheet.getRange(rowIndex + 1, 1, 1, REQUEST_HEADERS.length).setValues([requestToRow(merged)]);
+  syncClientUserFromRequest(merged);
 
   if (payload.event) {
     appendRequestEvent(
@@ -650,6 +654,10 @@ function deleteWorkshopRequest(payload) {
 
   const current = rowToRequest(rows[rowIndex]) || { id: requestId };
   sheet.deleteRow(rowIndex + 1);
+  syncClientUserFromRequest(normalizeWorkshopRequest(Object.assign({}, current, {
+    status: "eliminata",
+    updatedAt: formatTimestamp(new Date()),
+  })), "deleted");
   appendRequestEvent(
     String(requestId),
     "request_deleted",
@@ -1116,6 +1124,7 @@ function getGoogleHealth(params) {
     }
   }
   const spreadsheet = getRequestsSpreadsheet();
+  if (forceRefresh) syncClientUsersFromRequests();
   const calendarId = getRuntimeCalendarId();
   const calendarName = getRuntimeCalendarName();
   const driveRootFolderId = getRuntimeDriveRootFolderId();
@@ -1128,6 +1137,7 @@ function getGoogleHealth(params) {
       url: spreadsheet.getUrl(),
       requests: Math.max(0, getRequestsSheet().getLastRow() - 1),
       events: Math.max(0, getRequestEventsSheet().getLastRow() - 1),
+      clientUsers: Math.max(0, getClientUsersSheet().getLastRow() - 1),
       authUsers: Math.max(0, getAuthUsersSheet().getLastRow() - 1),
       accessRequests: Math.max(0, getAccessRequestsSheet().getLastRow() - 1),
       catalogTopics: Math.max(0, getCatalogTopicsSheet().getLastRow() - 1),
@@ -1235,6 +1245,28 @@ const REQUEST_EVENT_HEADERS = [
   "requestId",
   "type",
   "note",
+  "payloadJson",
+];
+
+const CLIENT_USER_HEADERS = [
+  "requestId",
+  "email",
+  "firstName",
+  "lastName",
+  "displayName",
+  "company",
+  "phone",
+  "progressStatus",
+  "quoteTotal",
+  "workshopIds",
+  "workshopCount",
+  "dateCount",
+  "assignedExpert",
+  "materialsFolderUrl",
+  "calendarEventUrl",
+  "recordStatus",
+  "createdAt",
+  "updatedAt",
   "payloadJson",
 ];
 
@@ -2113,6 +2145,13 @@ function getRequestEventsSheet() {
   return sheet;
 }
 
+function getClientUsersSheet() {
+  const spreadsheet = getRequestsSpreadsheet();
+  const sheet = getOrCreateSheet(spreadsheet, "UtentiClienti", CLIENT_USER_HEADERS);
+  ensureHeaderRow(sheet, CLIENT_USER_HEADERS);
+  return sheet;
+}
+
 function getCatalogTopicsSheet() {
   const spreadsheet = getRequestsSpreadsheet();
   const sheet = getOrCreateSheet(spreadsheet, "CatalogTopics", CATALOG_TOPIC_HEADERS);
@@ -2184,6 +2223,56 @@ function requestToRow(request) {
     sheetText(request.updatedAt),
     sheetText(JSON.stringify(request)),
   ];
+}
+
+function clientUserToRow(request, recordStatus) {
+  const contact = request.contact || {};
+  const displayName = [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim() || request.manager || request.email;
+  const materials = request.materials || {};
+  const calendarEvent = request.calendarEvent || {};
+  return [
+    sheetText(request.id),
+    sheetText(contact.email || request.email || ""),
+    sheetText(contact.firstName || ""),
+    sheetText(contact.lastName || ""),
+    sheetText(displayName || ""),
+    sheetText(contact.company || request.company || ""),
+    sheetText(contact.phone || request.phone || ""),
+    sheetText(request.status || ""),
+    Number(request.quoteTotal || (request.quote && request.quote.total) || 0),
+    sheetText((request.workshopIds || []).join(",")),
+    (request.workshops || []).length,
+    Number(request.dateCount || 0),
+    sheetText(request.assignedExpert || ""),
+    sheetText(materials.folderUrl || ""),
+    sheetText(calendarEvent.htmlLink || ""),
+    sheetText(recordStatus || "active"),
+    sheetText(request.createdAt || ""),
+    sheetText(request.updatedAt || ""),
+    sheetText(JSON.stringify(request)),
+  ];
+}
+
+function syncClientUserFromRequest(request, recordStatus) {
+  if (!request || !request.id) return;
+  const normalized = normalizeWorkshopRequest(request);
+  upsertSheetRow(
+    getClientUsersSheet(),
+    CLIENT_USER_HEADERS,
+    normalized.id,
+    clientUserToRow(normalized, recordStatus || "active"),
+  );
+}
+
+function syncClientUsersFromRequests() {
+  const rows = getRequestsSheet().getDataRange().getValues();
+  if (rows.length <= 1) return 0;
+  let synced = 0;
+  rows.slice(1).map(rowToRequest).filter(Boolean).forEach((request) => {
+    syncClientUserFromRequest(request);
+    synced += 1;
+  });
+  return synced;
 }
 
 function sheetText(value) {
