@@ -151,7 +151,7 @@ async function run() {
     await page.getByText("Visualizza come: FunniFin").click();
     await page.getByRole("button", { name: /^Cliente$/ }).click();
 
-    await page.getByRole("heading", { name: "Come vuoi costruire il tuo percorso?" }).waitFor({ timeout: 30000 });
+    await page.getByRole("heading", { name: /Costruisci il piano formativo/ }).waitFor({ timeout: 30000 });
     await page.getByRole("button", { name: /Inizia/ }).click();
     await page.getByRole("heading", { name: "Su quali temi vuoi generare maggiore impatto?" }).waitFor({ timeout: 5000 });
     await page.getByRole("button", { name: /Retribuzione/ }).click();

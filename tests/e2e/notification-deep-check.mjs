@@ -201,13 +201,13 @@ async function run() {
         await page.getByRole("button", { name: "Visualizza come" }).click();
         await page.locator(".role-switch").getByRole("button", { name: role, exact: true }).click();
         if (role === "Cliente") {
-          await page.getByRole("heading", { name: "Come vuoi costruire il tuo percorso?" }).waitFor({ timeout: 8000 });
+          await page.getByRole("heading", { name: /Costruisci il piano formativo/ }).waitFor({ timeout: 8000 });
         } else {
           await page.getByRole("button", { name: "Visualizza come" }).filter({ hasText: role }).waitFor({ timeout: 5000 });
         }
         const state = await page.evaluate(() => ({
           role: document.querySelector(".role-menu-trigger")?.textContent?.replace("Visualizza come:", "").trim() || "",
-          hasClientEntry: document.body.innerText.includes("Come vuoi costruire il tuo percorso?"),
+          hasClientEntry: document.body.innerText.includes("Costruisci il piano formativo"),
           blank: document.body.innerText.trim().length < 20,
           hasBell: Boolean(document.querySelector(".nc-bell")),
         }));

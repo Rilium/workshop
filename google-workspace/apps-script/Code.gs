@@ -58,7 +58,7 @@ function doGet(event) {
 function handleGet(event) {
   const action = event.parameter.action;
   if (action === "publicCatalog") {
-    return jsonResponse(getPublicCatalog());
+    return jsonResponse(getPublicCatalog(event.parameter));
   }
   if (action === "freeBusy") {
     return jsonResponse(handleFreeBusy(event.parameter));
@@ -122,6 +122,10 @@ function handleGet(event) {
   if (action === "googleHealth") {
     requireFunniFinSession(event.parameter);
     return jsonResponse(getGoogleHealth(event.parameter));
+  }
+  if (action === "listSheetBackups") {
+    requireFunniFinSession(event.parameter);
+    return jsonResponse(listSheetBackups());
   }
   if (action === "listAdminConfig") {
     requireFunniFinSession(event.parameter);
@@ -207,6 +211,30 @@ function handlePost(event) {
   if (body.action === "updateWorkspaceSetting") {
     requireFunniFinSession(body.payload || {});
     return jsonResponse(updateWorkspaceSetting(body.payload || {}));
+  }
+  if (body.action === "clearBackendCaches") {
+    requireFunniFinSession(body.payload || {});
+    return jsonResponse(clearBackendCaches());
+  }
+  if (body.action === "createSheetBackup") {
+    requireFunniFinSession(body.payload || {});
+    return jsonResponse(createSheetBackup(body.payload || {}));
+  }
+  if (body.action === "restoreSheetBackup") {
+    requireFunniFinSession(body.payload || {});
+    return jsonResponse(restoreSheetBackup(body.payload || {}));
+  }
+  if (body.action === "runRetentionCleanup") {
+    requireFunniFinSession(body.payload || {});
+    return jsonResponse(runRetentionCleanup(body.payload || {}));
+  }
+  if (body.action === "runHealthMonitor") {
+    requireFunniFinSession(body.payload || {});
+    return jsonResponse(runHealthMonitor(body.payload || {}));
+  }
+  if (body.action === "runDailyMaintenance") {
+    requireFunniFinSession(body.payload || {});
+    return jsonResponse(runDailyMaintenance(body.payload || {}));
   }
   if (body.action === "seedAdminConfig") {
     requireFunniFinSessionOrSetupSecret(body.payload || {});
@@ -463,7 +491,50 @@ function sendWorkflowNotification(payload) {
     });
     throw error;
   }
+  createServerWorkflowNotifications(payload, roles, sentRecipients, subject);
   return { sent: true, subject, recipients: sentRecipients };
+}
+
+function createServerWorkflowNotifications(payload, roles, recipients, subject) {
+  const project = payload.project || {};
+  const requestId = String(project.id || "");
+  createNotification({
+    title: "Workflow aggiornato",
+    body: `${project.company || "Progetto"}: ${subject}`,
+    sourceRole: "FunniFin",
+    audience: ["FunniFin"],
+    priority: "task",
+    category: "mail",
+    action: { label: "Apri progetto", role: "FunniFin", hash: "#funnifin", projectId: requestId },
+    requestId,
+  });
+  roles.forEach(function(role, index) {
+    const audienceRole = workflowRecipientToNotificationRole(role);
+    if (!audienceRole || audienceRole === "FunniFin") return;
+    createNotification({
+      title: subject,
+      body: `${project.company || "Progetto"}: apri la task collegata per continuare il workflow.`,
+      sourceRole: "FunniFin",
+      audience: [audienceRole],
+      audienceEmails: recipients[index] ? [recipients[index]] : [],
+      priority: "task",
+      category: "mail",
+      action: {
+        label: audienceRole === "Brand" ? "Apri revisione" : "Apri incarichi",
+        role: audienceRole,
+        hash: audienceRole === "Brand" ? "#brand" : "#esperto-candidature",
+        projectId: requestId,
+      },
+      requestId,
+    });
+  });
+}
+
+function workflowRecipientToNotificationRole(role) {
+  if (role === "funnifin") return "FunniFin";
+  if (role === "brand") return "Brand";
+  if (role === "expert") return "Esperto";
+  return "";
 }
 
 function recordMailFailure(requestId, type, title, payload) {
@@ -672,15 +743,29 @@ function listWorkshopRequests(params) {
   };
 }
 
-function getPublicCatalog() {
-  return {
+function getPublicCatalog(params) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = "funnifin_public_catalog_v2";
+  const forceRefresh = params && String(params.refresh || "") === "1";
+  if (!forceRefresh) {
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      parsed.cached = true;
+      return parsed;
+    }
+  }
+  const catalog = {
     ok: true,
     source: "google-sheet",
     topics: listCatalogConfig().topics.filter((topic) => topic.active !== false),
     workshops: listCatalogWorkshops().workshops.filter((workshop) => workshop.active !== false && workshop.state !== "nascosto"),
     rules: listPricingRules().rules,
     updatedAt: formatTimestamp(new Date()),
+    cached: false,
   };
+  cache.put(cacheKey, JSON.stringify(catalog), 300);
+  return catalog;
 }
 
 function listRequestEvents(params) {
@@ -805,6 +890,7 @@ function updateCatalogTopic(payload) {
 
   upsertSheetRow(getCatalogTopicsSheet(), CATALOG_TOPIC_HEADERS, topic.id, catalogTopicToRow(topic));
   appendRequestEvent("catalog", "catalog_topic_updated", `Topic catalogo aggiornato: ${topic.title || topic.id}`, topic);
+  clearBackendCaches();
 
   return {
     ok: true,
@@ -854,6 +940,7 @@ function updateCatalogWorkshop(payload) {
 
   upsertSheetRow(getCatalogWorkshopsSheet(), CATALOG_WORKSHOP_HEADERS, workshop.id, catalogWorkshopToRow(workshop));
   appendRequestEvent("catalog", "catalog_workshop_updated", `Workshop catalogo aggiornato: ${workshop.title || workshop.id}`, workshop);
+  clearBackendCaches();
 
   return {
     ok: true,
@@ -947,6 +1034,7 @@ function updatePricingRule(payload) {
 
   upsertSheetRow(getPricingRulesSheet(), PRICING_RULE_HEADERS, rule.id, pricingRuleToRow(rule));
   appendRequestEvent("pricing", "pricing_rule_updated", `Regola prezzo aggiornata: ${rule.name || rule.id}`, rule);
+  clearBackendCaches();
 
   return {
     ok: true,
@@ -1365,6 +1453,183 @@ function getRuntimeSlidesRootFolderId() {
 
 function getRuntimeInternalRecipient() {
   return getSettingValue("mail.internalRecipient", SETTINGS.internalRecipient);
+}
+
+function getRuntimeBackupFolderId() {
+  return getSettingValue("backup.folderId", getRuntimeDriveRootFolderId() || getRuntimeSlidesRootFolderId());
+}
+
+function clearBackendCaches() {
+  const cache = CacheService.getScriptCache();
+  ["funnifin_google_health_v1", "funnifin_public_catalog_v2"].forEach((key) => cache.remove(key));
+  appendRequestEvent("system", "backend_cache_cleared", "Cache backend svuotata manualmente.", {});
+  return {
+    ok: true,
+    source: "google-cache",
+    cleared: true,
+    keys: ["funnifin_google_health_v1", "funnifin_public_catalog_v2"],
+    clearedAt: formatTimestamp(new Date()),
+  };
+}
+
+function createSheetBackup(payload) {
+  const spreadsheet = getRequestsSpreadsheet();
+  const backupFolderId = String((payload && payload.folderId) || getRuntimeBackupFolderId() || "");
+  if (!backupFolderId) throw new Error("Configura backup.folderId o drive.rootFolderId.");
+  const folder = DriveApp.getFolderById(backupFolderId);
+  const stamp = Utilities.formatDate(new Date(), SETTINGS.timezone, "yyyyMMdd-HHmmss");
+  const name = `FunniFin Sheet Backup ${stamp}`;
+  const copy = DriveApp.getFileById(spreadsheet.getId()).makeCopy(name, folder);
+  const result = {
+    ok: true,
+    source: "google-drive",
+    id: copy.getId(),
+    name: copy.getName(),
+    url: copy.getUrl(),
+    createdAt: formatTimestamp(new Date()),
+  };
+  appendRequestEvent("backup", "sheet_backup_created", `Backup Sheet creato: ${name}`, result);
+  return result;
+}
+
+function listSheetBackups() {
+  const backupFolderId = getRuntimeBackupFolderId();
+  if (!backupFolderId) return { ok: true, source: "google-drive", backups: [] };
+  const folder = DriveApp.getFolderById(backupFolderId);
+  const files = folder.getFiles();
+  const backups = [];
+  while (files.hasNext()) {
+    const file = files.next();
+    if (file.getName().indexOf("FunniFin Sheet Backup") !== 0) continue;
+    backups.push({
+      id: file.getId(),
+      name: file.getName(),
+      url: file.getUrl(),
+      createdAt: Utilities.formatDate(file.getDateCreated(), SETTINGS.timezone, "yyyy-MM-dd HH:mm:ss"),
+    });
+  }
+  backups.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  return { ok: true, source: "google-drive", backups: backups.slice(0, 40) };
+}
+
+function restoreSheetBackup(payload) {
+  const backupSpreadsheetId = String(payload.backupSpreadsheetId || payload.backupId || "");
+  if (!backupSpreadsheetId) throw new Error("Missing backupSpreadsheetId");
+  const before = createSheetBackup({ reason: "pre-restore" });
+  const source = SpreadsheetApp.openById(backupSpreadsheetId);
+  const target = getRequestsSpreadsheet();
+  const names = ["Requests", "Events", "UtentiClienti", "AuthUsers", "AccessRequests", "AuthSessions", "CatalogTopics", "CatalogWorkshops", "PricingRules", "Experts", "Settings", "Notifications"];
+  names.forEach((name) => {
+    const sourceSheet = source.getSheetByName(name);
+    if (!sourceSheet) return;
+    let targetSheet = target.getSheetByName(name);
+    if (!targetSheet) targetSheet = target.insertSheet(name);
+    targetSheet.clearContents();
+    const values = sourceSheet.getDataRange().getValues();
+    if (values.length && values[0].length) {
+      targetSheet.getRange(1, 1, values.length, values[0].length).setValues(values);
+    }
+  });
+  clearBackendCaches();
+  appendRequestEvent("backup", "sheet_backup_restored", `Restore Sheet da backup ${backupSpreadsheetId}`, { backupSpreadsheetId, preRestoreBackupId: before.id });
+  return {
+    ok: true,
+    source: "google-sheet",
+    restored: true,
+    backupSpreadsheetId,
+    preRestoreBackup: before,
+  };
+}
+
+function runRetentionCleanup(payload) {
+  const now = Date.now();
+  const sessionTtlDays = Number((payload && payload.sessionTtlDays) || getSettingValue("retention.sessionsDays", "30"));
+  const codeTtlDays = Number((payload && payload.codeTtlDays) || getSettingValue("retention.codesDays", "30"));
+  const backupDays = Number((payload && payload.backupDays) || getSettingValue("backup.retentionDays", "30"));
+  const deleted = {
+    sessions: deleteRowsByPredicate(getAuthSessionsSheet(), (row) => {
+      const expiresAt = String(row[5] || "");
+      return expiresAt && new Date(expiresAt).getTime() < now - sessionTtlDays * 86400000;
+    }),
+    codes: expireOldAccessCodes(codeTtlDays),
+    backups: trashOldBackups(backupDays),
+  };
+  appendRequestEvent("system", "retention_cleanup", "Retention cleanup eseguito.", deleted);
+  return { ok: true, source: "google-sheet", deleted, cleanedAt: formatTimestamp(new Date()) };
+}
+
+function deleteRowsByPredicate(sheet, predicate) {
+  const rows = sheet.getDataRange().getValues();
+  let deleted = 0;
+  for (let index = rows.length - 1; index >= 1; index -= 1) {
+    if (predicate(rows[index])) {
+      sheet.deleteRow(index + 1);
+      deleted += 1;
+    }
+  }
+  return deleted;
+}
+
+function expireOldAccessCodes(days) {
+  const sheet = getAccessRequestsSheet();
+  const rows = sheet.getDataRange().getValues();
+  const cutoff = Date.now() - days * 86400000;
+  let updated = 0;
+  for (let index = 1; index < rows.length; index += 1) {
+    const request = rowToAccessRequest(rows[index]);
+    if (!request || !request.code) continue;
+    const updatedAt = new Date(request.updatedAt || request.createdAt || 0).getTime();
+    if (updatedAt > cutoff) continue;
+    const next = Object.assign({}, request, { code: "", codeStatus: "expired", updatedAt: formatTimestamp(new Date()) });
+    sheet.getRange(index + 1, 1, 1, ACCESS_REQUEST_HEADERS.length).setValues([accessRequestToRow(next)]);
+    updated += 1;
+  }
+  return updated;
+}
+
+function trashOldBackups(days) {
+  const backupFolderId = getRuntimeBackupFolderId();
+  if (!backupFolderId) return 0;
+  const folder = DriveApp.getFolderById(backupFolderId);
+  const files = folder.getFiles();
+  const cutoff = Date.now() - days * 86400000;
+  let trashed = 0;
+  while (files.hasNext()) {
+    const file = files.next();
+    if (file.getName().indexOf("FunniFin Sheet Backup") !== 0) continue;
+    if (file.getDateCreated().getTime() < cutoff) {
+      file.setTrashed(true);
+      trashed += 1;
+    }
+  }
+  return trashed;
+}
+
+function runHealthMonitor(payload) {
+  const health = getGoogleHealth({ refresh: "1" });
+  const issues = [];
+  if (!health.spreadsheet.id) issues.push("Sheet non leggibile");
+  if (!health.drive.configured) issues.push("Drive non configurato");
+  if (!health.calendar.configured) issues.push("Calendar non configurato");
+  if (Number(health.mail.remainingDailyQuota || 0) < Number(getSettingValue("monitor.mailQuotaMin", "20"))) issues.push(`Quota MailApp bassa: ${health.mail.remainingDailyQuota}`);
+  const alertEmail = String((payload && payload.alertEmail) || getSettingValue("monitor.alertEmail", getRuntimeInternalRecipient()) || "");
+  if (issues.length && alertEmail) {
+    MailApp.sendEmail({
+      to: alertEmail,
+      subject: "FunniFin monitor alert",
+      body: ["Health monitor FunniFin", "", ...issues, "", JSON.stringify(health, null, 2)].join("\n"),
+      name: getSettingValue("mail.fromName", "FunniFin Workshop Planner"),
+    });
+  }
+  appendRequestEvent("system", issues.length ? "health_monitor_alert" : "health_monitor_ok", issues.length ? issues.join(" · ") : "Health monitor OK", { issues, health });
+  return { ok: true, source: "google-workspace", issues, alertSent: Boolean(issues.length && alertEmail), health };
+}
+
+function runDailyMaintenance(payload) {
+  const backup = createSheetBackup(payload || {});
+  const retention = runRetentionCleanup(payload || {});
+  const monitor = runHealthMonitor(payload || {});
+  return { ok: true, source: "google-workspace", backup, retention, monitor, ranAt: formatTimestamp(new Date()) };
 }
 
 function settingToRow(setting) {

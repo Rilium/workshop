@@ -143,6 +143,14 @@ const guidedSurveyQuestions: SurveyQuestion[] = [
   },
 ];
 
+const guidedOutcomePreview = [
+  { label: "Topic consigliati", icon: BadgeCheck },
+  { label: "Workshop selezionati", icon: Presentation },
+  { label: "Esperti associati", icon: UsersRound },
+  { label: "Calendario attività", icon: CalendarCheck },
+  { label: "Stima costi", icon: Banknote },
+];
+
 export function ClientView({
   topics,
   workshops,
@@ -860,42 +868,77 @@ export function ClientView({
   if (clientJourneyStage === "choice") {
     return (
       <section className="guided-entry">
+        <div className="guided-entry-pattern" aria-hidden="true" />
         <div className="guided-choice-head">
-          <span className="eyebrow">Workshop planner</span>
-          <h1>Come vuoi costruire il tuo percorso?</h1>
-          <p>Scegli il metodo più adatto alla tua azienda. Potrai modificare tutto in qualsiasi momento.</p>
+          <span className="eyebrow guided-choice-eyebrow">Workshop planner</span>
+          <h1>
+            Costruisci il <span>piano formativo</span> più adatto alla tua azienda
+          </h1>
+          <p>Scegli se partire da una proposta guidata oppure esplorare il catalogo completo. Potrai modificare workshop, esperti, date e costi in qualsiasi momento.</p>
         </div>
         <div className="guided-choice-grid">
-          <article className="guided-choice-card recommended">
+          <article className="guided-choice-card recommended" aria-label="Percorso guidato consigliato">
             <Sparkles className="guided-choice-bg-icon" aria-hidden="true" />
-            <span className="guided-card-badge">Consigliato</span>
+            <div className="guided-card-topline">
+              <span className="guided-card-badge">Consigliato</span>
+              <span className="guided-time-chip">
+                <Clock3 size={15} aria-hidden="true" />
+                ~2 minuti
+              </span>
+            </div>
             <div>
               <strong>Percorso guidato</strong>
-              <p>Rispondi a poche domande e ricevi una proposta già pronta basata sugli obiettivi della tua azienda.</p>
+              <p>Rispondi a poche domande e ricevi una proposta già pronta, basata su obiettivi, popolazione aziendale e priorità formative.</p>
+              <ul className="guided-choice-benefits" aria-label="Vantaggi percorso guidato">
+                <li><Check size={16} aria-hidden="true" /> Proposta iniziale generata in pochi minuti</li>
+                <li><Check size={16} aria-hidden="true" /> Temi suggeriti in base alle esigenze aziendali</li>
+                <li><Check size={16} aria-hidden="true" /> Workshop modificabili dopo la generazione</li>
+              </ul>
             </div>
             <footer>
-              <span>~2 minuti</span>
-              <AppButton onClick={startGuidedJourney}>
-                Inizia
-                <ArrowRight size={17} />
+              <span>Scelta rapida con proposta FunniFin</span>
+              <AppButton className="guided-primary-cta" onClick={startGuidedJourney} rightIcon={<ArrowRight size={17} />}>
+                Inizia percorso guidato
               </AppButton>
             </footer>
           </article>
-          <article className="guided-choice-card">
+          <article className="guided-choice-card secondary" aria-label="Catalogo completo">
             <BookOpen className="guided-choice-bg-icon" aria-hidden="true" />
+            <div className="guided-card-topline">
+              <span className="guided-card-badge neutral">Manuale</span>
+              <span className="guided-time-chip">
+                <Clock3 size={15} aria-hidden="true" />
+                ~5 minuti
+              </span>
+            </div>
             <div>
-              <strong>Percorso manuale</strong>
-              <p>Accedi direttamente al catalogo completo e costruisci il percorso in autonomia.</p>
+              <strong>Catalogo completo</strong>
+              <p>Accedi al catalogo e costruisci il percorso selezionando direttamente topic, workshop ed eventuali esperti.</p>
+              <ul className="guided-choice-benefits muted" aria-label="Vantaggi catalogo completo">
+                <li><Check size={16} aria-hidden="true" /> Controllo completo</li>
+                <li><Check size={16} aria-hidden="true" /> Ideale se hai già un’idea precisa</li>
+                <li><Check size={16} aria-hidden="true" /> Catalogo sempre modificabile</li>
+              </ul>
             </div>
             <footer>
-              <span>~5 minuti</span>
-              <AppButton variant="secondary" onClick={startManualJourney}>
+              <span>Per chi vuole partire dal catalogo</span>
+              <AppButton variant="secondary" onClick={startManualJourney} rightIcon={<ArrowRight size={17} />}>
                 Esplora catalogo
-                <ArrowRight size={17} />
               </AppButton>
             </footer>
           </article>
         </div>
+        <aside className="guided-outcome-preview" aria-label="Cosa otterrai">
+          <strong>Cosa otterrai</strong>
+          <div>
+            {guidedOutcomePreview.map(({ label, icon: Icon }) => (
+              <span key={label}>
+                <Icon size={16} aria-hidden="true" />
+                {label}
+              </span>
+            ))}
+          </div>
+        </aside>
       </section>
     );
   }

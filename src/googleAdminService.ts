@@ -219,6 +219,30 @@ export async function getGoogleHealth(options?: { refresh?: boolean }): Promise<
   return getAppsScript<GoogleHealth>("googleHealth", options?.refresh ? { refresh: "1" } : undefined);
 }
 
+export async function clearBackendCaches(): Promise<{ cleared: boolean; clearedAt: string }> {
+  return postAppsScript("clearBackendCaches", {});
+}
+
+export async function createSheetBackup(): Promise<{ id: string; name: string; url: string; createdAt: string }> {
+  return postAppsScript("createSheetBackup", {});
+}
+
+export async function runRetentionCleanup(): Promise<{ deleted: { sessions: number; codes: number; backups: number }; cleanedAt: string }> {
+  return postAppsScript("runRetentionCleanup", {});
+}
+
+export async function runHealthMonitor(): Promise<{ issues: string[]; alertSent: boolean }> {
+  return postAppsScript("runHealthMonitor", {});
+}
+
+export async function runDailyMaintenance(): Promise<{
+  backup: { id: string; url: string };
+  retention: { deleted: { sessions: number; codes: number; backups: number } };
+  monitor: { issues: string[]; alertSent: boolean };
+}> {
+  return postAppsScript("runDailyMaintenance", {});
+}
+
 export async function seedAdminConfig(payload: {
   catalogTopics?: CatalogTopicConfig[];
   catalogWorkshops?: CatalogWorkshopConfig[];

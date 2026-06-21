@@ -2244,6 +2244,17 @@
   line-height: 1.1;
 }
 
+.google-ops-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+}
+
+.google-ops-row .app-button {
+  min-height: 40px;
+}
+
 .google-health-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

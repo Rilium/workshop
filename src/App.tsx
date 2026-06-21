@@ -351,6 +351,8 @@ function AppInner() {
       <Topbar
         projectStatus={projectStatus}
         notify={notify}
+        showProjectStatus={role !== "Cliente" || projectStatus !== "draft_cliente" || Boolean(currentRequest)}
+        projectStatusLabel={projectStatus === "draft_cliente" && currentRequest ? "Bozza salvata" : undefined}
         systemControls={
           <SystemBar
             role={role}

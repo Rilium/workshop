@@ -131,7 +131,7 @@ async function run() {
 
     await page.getByRole("button", { name: "Visualizza come" }).click();
     await page.getByRole("button", { name: "Cliente", exact: true }).click();
-    await page.getByRole("heading", { name: "Come vuoi costruire il tuo percorso?" }).waitFor({ timeout: 8000 });
+    await page.getByRole("heading", { name: /Costruisci il piano formativo/ }).waitFor({ timeout: 8000 });
     await page.getByRole("button", { name: /Esplora catalogo/i }).click();
     await page.getByRole("heading", { name: "Scegli interessi e temi", exact: true }).waitFor({ timeout: 5000 });
     await page.evaluate(() => window.scrollTo(0, 0));

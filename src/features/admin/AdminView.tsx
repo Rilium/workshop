@@ -35,7 +35,7 @@ import {
 import { sendWorkflowNotification, type WorkflowNotificationPayload, type WorkflowNotificationRecipientRole } from "../../emailService";
 import { createWorkshopCalendarEvent, getWorkshopAvailability } from "../../googleCalendarService";
 import type { AssetDraftFolder, UploadedAsset } from "../../driveAssetService";
-import { deleteExpert, getGoogleHealth, listCatalogConfig, listCatalogWorkshops, listExperts, listPricingRules, listWorkspaceSettings, updateCatalogTopic, updateExpert, updatePricingRule, updateWorkspaceSetting, type CatalogWorkshopConfig, type GoogleHealth, type WorkspaceSetting } from "../../googleAdminService";
+import { clearBackendCaches, createSheetBackup, deleteExpert, getGoogleHealth, listCatalogConfig, listCatalogWorkshops, listExperts, listPricingRules, listWorkspaceSettings, runDailyMaintenance, runHealthMonitor, runRetentionCleanup, updateCatalogTopic, updateExpert, updatePricingRule, updateWorkspaceSetting, type CatalogWorkshopConfig, type GoogleHealth, type WorkspaceSetting } from "../../googleAdminService";
 import { getDriveFolderPreview, type DriveFolderResponse } from "../../googleDriveService";
 import { deleteWorkshopRequest, listWorkshopRequests, updateWorkshopRequest, type RequestWorkshopRecord, type WorkshopRequestRecord } from "../../requestService";
 import { listAuthUsers, listAccessRequests, requestLoginCode, reviewAccessRequest } from "../../authService";
@@ -1963,6 +1963,17 @@ export function AdminView({
         setGoogleHealthError(error instanceof Error ? error.message : "Health Google non disponibile.");
       });
   };
+  const runGoogleOperation = async (label: string, action: () => Promise<unknown>) => {
+    setGoogleHealthLoading(true);
+    try {
+      const result = await action();
+      notify(label, typeof result === "object" && result ? "Operazione Google completata e registrata negli eventi." : "Operazione Google completata.");
+      refreshGoogleHealth({ refresh: true, preserveCurrent: true });
+    } catch (error) {
+      setGoogleHealthLoading(false);
+      notify(`${label} non riuscita`, error instanceof Error ? error.message : "Operazione Google fallita.");
+    }
+  };
   useEffect(() => {
     if (adminTab !== "Google" || googleHealthLoading) return;
     refreshGoogleHealth({ silent: true, refresh: true, preserveCurrent: Boolean(googleHealth) });
@@ -2921,6 +2932,39 @@ export function AdminView({
                 <span>{googleHealthModeLabel}</span>
                 <strong>{googleHealth ? `${googleHealth.spreadsheet.requests} richieste` : "--"}</strong>
               </div>
+            </div>
+
+            <div className="google-ops-row" aria-label="Operazioni backend Google">
+              <AppButton
+                variant="outline"
+                onClick={() => runGoogleOperation("Cache backend svuotata", clearBackendCaches)}
+              >
+                <RefreshCw size={16} /> Svuota cache
+              </AppButton>
+              <AppButton
+                variant="outline"
+                onClick={() => runGoogleOperation("Backup Sheet creato", createSheetBackup)}
+              >
+                <FileCheck2 size={16} /> Backup Sheet
+              </AppButton>
+              <AppButton
+                variant="outline"
+                onClick={() => runGoogleOperation("Retention cleanup eseguito", runRetentionCleanup)}
+              >
+                <Trash2 size={16} /> Retention
+              </AppButton>
+              <AppButton
+                variant="outline"
+                onClick={() => runGoogleOperation("Monitor Google eseguito", runHealthMonitor)}
+              >
+                <AlertCircle size={16} /> Monitor
+              </AppButton>
+              <AppButton
+                variant="primary"
+                onClick={() => runGoogleOperation("Maintenance giornaliera eseguita", runDailyMaintenance)}
+              >
+                <Settings2 size={16} /> Maintenance
+              </AppButton>
             </div>
 
             {googleHealthError && (

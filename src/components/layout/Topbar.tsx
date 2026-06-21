@@ -12,11 +12,17 @@ export function Topbar({
   projectStatus,
   notify,
   systemControls,
+  showProjectStatus = true,
+  projectStatusLabel,
 }: {
   projectStatus: ProjectStatus;
   notify: (title: string, body: string) => void;
   systemControls?: React.ReactNode;
+  showProjectStatus?: boolean;
+  projectStatusLabel?: string;
 }) {
+  const visibleStatusLabel = projectStatusLabel ?? statusLabel[projectStatus];
+
   return (
     <header className="topbar">
       <div className="brand-mark">
@@ -24,18 +30,20 @@ export function Topbar({
         <div className="brand-copy">
           <div className="brand-title-row">
             <strong>FunniFin <span className="brand-product-detail">Workshop Planner</span></strong>
-            <span className={`request-status-chip ${projectStatus === "confermato" ? "status-confirmed" : projectStatus === "draft_cliente" ? "status-draft" : "status-active"}`} title={statusDescription[projectStatus]}>
-              <strong>{statusLabel[projectStatus]}</strong>
-              <button
-                type="button"
-                className="status-info-button"
-                aria-label={"Dettagli stato: " + statusDescription[projectStatus]}
-                title={statusDescription[projectStatus]}
-                onClick={() => notify(statusLabel[projectStatus], statusDescription[projectStatus])}
-              >
-                <InfoIcon size={14} />
-              </button>
-            </span>
+            {showProjectStatus && (
+              <span className={`request-status-chip ${projectStatus === "confermato" ? "status-confirmed" : projectStatus === "draft_cliente" ? "status-draft" : "status-active"}`} title={statusDescription[projectStatus]}>
+                <strong>{visibleStatusLabel}</strong>
+                <button
+                  type="button"
+                  className="status-info-button"
+                  aria-label={"Dettagli stato: " + statusDescription[projectStatus]}
+                  title={statusDescription[projectStatus]}
+                  onClick={() => notify(visibleStatusLabel, statusDescription[projectStatus])}
+                >
+                  <InfoIcon size={14} />
+                </button>
+              </span>
+            )}
           </div>
         </div>
       </div>
