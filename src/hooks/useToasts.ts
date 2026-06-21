@@ -48,6 +48,14 @@ function compactEmails(values: string[] | undefined): string[] | undefined {
   return next;
 }
 
+function isVisibleForReader(n: AppNotification, readerRole: AppNotificationRole, readerUserId?: string, readerEmail?: string) {
+  const matchesRole = n.audience.includes(readerRole);
+  const matchesUser = !n.audienceUserIds?.length || (readerUserId ? n.audienceUserIds.includes(readerUserId) : false);
+  const normalizedEmail = readerEmail?.toLowerCase();
+  const matchesEmail = !n.audienceEmails?.length || (normalizedEmail ? n.audienceEmails.includes(normalizedEmail) : false);
+  return matchesRole && matchesUser && matchesEmail;
+}
+
 export function useToasts(role: Role, currentUserId?: string, currentUserEmail?: string) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>(readStoredNotifications);
@@ -184,12 +192,8 @@ export function useToasts(role: Role, currentUserId?: string, currentUserEmail?:
       const now = new Date().toISOString();
       let changed = false;
       const next = current.map((n) => {
-        const matchesRole = n.audience.includes(readerRole);
-        const matchesUser = !n.audienceUserIds?.length || (readerUserId ? n.audienceUserIds.includes(readerUserId) : false);
-        const normalizedEmail = readerEmail?.toLowerCase();
-        const matchesEmail = !n.audienceEmails?.length || (normalizedEmail ? n.audienceEmails.includes(normalizedEmail) : false);
         const alreadyRead = readerUserId ? (n.readByUserIds ?? []).includes(readerUserId) : n.readBy.includes(readerRole);
-        if (matchesRole && matchesUser && matchesEmail && !alreadyRead) {
+        if (isVisibleForReader(n, readerRole, readerUserId, readerEmail) && !alreadyRead) {
           changed = true;
           return {
             ...n,
@@ -212,12 +216,8 @@ export function useToasts(role: Role, currentUserId?: string, currentUserEmail?:
       const now = new Date().toISOString();
       let changed = false;
       const next = current.map((n) => {
-        const matchesRole = n.audience.includes(readerRole);
-        const matchesUser = !n.audienceUserIds?.length || (readerUserId ? n.audienceUserIds.includes(readerUserId) : false);
-        const normalizedEmail = readerEmail?.toLowerCase();
-        const matchesEmail = !n.audienceEmails?.length || (normalizedEmail ? n.audienceEmails.includes(normalizedEmail) : false);
         const alreadyRead = readerUserId ? (n.readByUserIds ?? []).includes(readerUserId) : n.readBy.includes(readerRole);
-        if (n.status === "open" && matchesRole && matchesUser && matchesEmail && !alreadyRead) {
+        if (n.status === "open" && isVisibleForReader(n, readerRole, readerUserId, readerEmail) && !alreadyRead) {
           changed = true;
           return {
             ...n,
@@ -236,7 +236,13 @@ export function useToasts(role: Role, currentUserId?: string, currentUserEmail?:
 
   const clearClosedNotifications = (readerRole: AppNotificationRole) => {
     setNotifications((current) =>
-      current.filter((n) => !(n.status === "closed" && n.audience.includes(readerRole))),
+      current.filter((n) => !(n.status === "closed" && isVisibleForReader(n, readerRole, currentUserId, currentUserEmail))),
+    );
+  };
+
+  const deleteClosedNotification = (id: string, readerRole: AppNotificationRole, readerUserId = currentUserId, readerEmail = currentUserEmail) => {
+    setNotifications((current) =>
+      current.filter((n) => !(n.id === id && n.status === "closed" && isVisibleForReader(n, readerRole, readerUserId, readerEmail))),
     );
   };
 
@@ -251,5 +257,6 @@ export function useToasts(role: Role, currentUserId?: string, currentUserEmail?:
     markVisibleNotificationsRead,
     markAllNotificationsRead,
     clearClosedNotifications,
+    deleteClosedNotification,
   };
 }

@@ -42,7 +42,7 @@ import { listAuthUsers, listAccessRequests, requestLoginCode, reviewAccessReques
 import type { AuthRole, AuthUser, AccessRequest } from "../../types/auth";
 import { SECRET_SETTINGS } from "../../secretSettings";
 import { adminSettingDefinitions, adminSettingGroups, appEnv, projectStatuses, statusLabel } from "../../data/workflow";
-import { canvaCatalogSource, experts, initialExpertProfiles, topics, workshops } from "../../data/catalog";
+import { canvaCatalogSource, initialExpertProfiles, topics, workshops } from "../../data/catalog";
 import type { AdminProject, AdminProjectWorkshopRow, AdminWorkspacePanel, AppNotificationRole, CalendarEventRecord, DateApproval, DateDecision, DriveSlideLink, ExpertProfile, Format, NotifyOptions, PricingRule, ProjectStatus, Quote, Selection, Theme, Workshop } from "../../types/domain";
 import type { AdminActionModalState, NotificationChoice } from "../../types/ui";
 import { money } from "../../utils/money";
@@ -179,6 +179,7 @@ export function AdminView({
   systemRefreshToken: number;
   systemSettingsToken: number;
 }) {
+  const adminContentRef = useRef<HTMLDivElement | null>(null);
   const [adminTab, setAdminTab] = useState("Operativo");
   const [catalogView, setCatalogView] = useState<"sheet" | "drive">("sheet");
   const [adminSearch, setAdminSearch] = useState("");
@@ -194,7 +195,7 @@ export function AdminView({
     source: "sheet",
   });
   const [assignmentWorkshopId, setAssignmentWorkshopId] = useState(selections[0]?.workshopId ?? "ws-budget-step");
-  const [expertDraft, setExpertDraft] = useState(experts[0].name);
+  const [expertDraft, setExpertDraft] = useState(`${initialExpertProfiles[0]?.firstName ?? ""} ${initialExpertProfiles[0]?.lastName ?? ""}`.trim());
   const [calendarCheck, setCalendarCheck] = useState<{ checked: boolean; loading: boolean; freeSlots: number; source: string; error?: string }>({
     checked: false,
     loading: false,
@@ -932,8 +933,8 @@ export function AdminView({
           email: savedExpert.email,
           photo: savedExpert.photo,
           bio: savedExpert.bio,
-          topicIds: savedExpert.topicIds,
-          themeIds: savedExpert.themeIds,
+          topicIds: savedExpert.topicIds.length ? savedExpert.topicIds : expert.topicIds,
+          themeIds: savedExpert.themeIds.length ? savedExpert.themeIds : expert.themeIds,
           availability: savedExpert.availability,
         } : item)));
         setExpertsSyncedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
@@ -1612,15 +1613,22 @@ export function AdminView({
   ];
   const activeAdminSection = adminSections.find((section) => section.id === adminTab) ?? adminSections[0];
   const activeAdminNavSection = adminTab === "Operativo" && adminQueueFilter === "da-fare" ? "DaFare" : adminTab;
+  const scrollAdminContentIntoView = () => {
+    window.requestAnimationFrame(() => {
+      adminContentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
   const handleAdminSection = (section: string) => {
     if (section === "DaFare") {
       setAdminTab("Operativo");
       setAdminQueueFilter("da-fare");
       setAdminQueueSort("date_vicine");
+      scrollAdminContentIntoView();
       return;
     }
     setAdminTab(section);
     if (section === "Operativo" && adminQueueFilter === "da-fare") setAdminQueueFilter("tutti");
+    scrollAdminContentIntoView();
   };
   const adminMainAction = (() => {
     if (adminTab === "Utenti") {
@@ -2036,14 +2044,17 @@ export function AdminView({
   const showRequestSkeleton = requestSyncState.loading;
   return (
     <section className="admin-console">
-      <RoleHero
-        eyebrow="FunniFin system"
-        title="Gestione richieste workshop"
-        subtitle={`${selectedProject.company} · ${selectedProjectRows.length} workshop · ${statusLabel[activeAdminStatus]}`}
-      />
-      <OperatorIdentityCard identity={roleIdentities.FunniFin} />
+      <div className="role-header-grid">
+        <RoleHero
+          eyebrow="FunniFin system"
+          title="Gestione richieste workshop"
+          subtitle={`${selectedProject.company} · ${selectedProjectRows.length} workshop · ${statusLabel[activeAdminStatus]}`}
+        />
+        <OperatorIdentityCard identity={roleIdentities.FunniFin} />
+      </div>
 
       <AdminSectionNav sections={adminSections} activeSection={activeAdminNavSection} onSection={handleAdminSection} />
+      <div ref={adminContentRef} className="admin-content-anchor" aria-hidden="true" />
 
       {adminTab === "Operativo" && (
         <>
@@ -2289,8 +2300,10 @@ export function AdminView({
                 {adminWorkspacePanel === "experts" && (
                   <div className="expert-assignment-list">
                     {currentProjectSelections.map((row) => {
-                      const compatibleExperts = experts.filter((expert) => expert.skills.includes(row.workshop.topicId));
-                      const candidates = compatibleExperts.length ? compatibleExperts : experts;
+                      const compatibleExperts = expertDirectory.filter(
+                        (expert) => expert.topicIds.includes(row.workshop.topicId) || expert.themeIds.includes(row.workshop.themeId),
+                      );
+                      const candidates = compatibleExperts.length ? compatibleExperts : expertDirectory;
                       return (
                         <article key={row.workshop.id}>
                           <div>
@@ -2301,10 +2314,10 @@ export function AdminView({
                             {candidates.map((expert) => (
                               <button
                                 key={expert.id}
-                                className={row.assignedExpert === expert.name ? "active" : ""}
-                                onClick={() => setAdminActionModal({ type: "expert", workshopId: row.workshop.id, expertName: expert.name, mode: "assign" })}
+                                className={row.assignedExpert === expertFullName(expert) ? "active" : ""}
+                                onClick={() => setAdminActionModal({ type: "expert", workshopId: row.workshop.id, expertName: expertFullName(expert), mode: "assign" })}
                               >
-                                <strong>{expert.name}</strong>
+                                <strong>{expertFullName(expert)}</strong>
                                 <span>{expert.availability}</span>
                               </button>
                             ))}
@@ -2404,10 +2417,12 @@ export function AdminView({
                 )}
                 {adminWorkspacePanel === "confirm" && (
                   <div className="confirm-flow-panel">
-                    <Info label="Date" value={allProjectDatesApproved ? "approvate" : "ancora da approvare"} />
-                    <Info label="Esperti" value={currentProjectSelections.every((row) => row.assignedExpert) ? "assegnati" : "mancanti"} />
-                    <Info label="Deck Calendar" value={calendarDeckEnabled ? calendarDeckTitle || "abilitato da Brand" : "non abilitato da Brand"} />
-                    <Info label="Evento" value={currentProjectEvent ? currentProjectEvent.id : "da creare"} />
+                    <div className="confirm-status-row">
+                      <Info label="Date" value={allProjectDatesApproved ? "approvate" : "ancora da approvare"} />
+                      <Info label="Esperti" value={currentProjectSelections.every((row) => row.assignedExpert) ? "assegnati" : "mancanti"} />
+                      <Info label="Deck Calendar" value={calendarDeckEnabled ? calendarDeckTitle || "abilitato da Brand" : "non abilitato da Brand"} />
+                      <Info label="Evento" value={currentProjectEvent ? currentProjectEvent.id : "da creare"} />
+                    </div>
                     <WorkshopSessionView
                       title="Workshop live"
                       subtitle="Meet, deck e materiali del progetto corrente."

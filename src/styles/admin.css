@@ -185,6 +185,11 @@
   min-width: 0;
 }
 
+.admin-content-anchor {
+  height: 1px;
+  scroll-margin-top: calc(var(--sticky-topbar-offset) + 18px);
+}
+
 .admin-workbench-v2 {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1402,6 +1407,23 @@
 .confirm-flow-panel {
   display: grid;
   gap: var(--sp-3);
+}
+
+.confirm-status-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-2);
+}
+
+.confirm-status-row .info {
+  min-width: 0;
+  padding: 10px 11px;
+}
+
+.confirm-status-row .info strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
 }
 
 .admin-request-summary {

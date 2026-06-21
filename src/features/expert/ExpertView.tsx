@@ -371,32 +371,34 @@ export function ExpertView({
           onConfirm={confirmExpertCandidacy}
         />
       )}
-      <RoleHero
-        eyebrow="Area esperto"
-        title="Gestisci candidature, incarichi e deck."
-        subtitle={`${activeExpertProject.company} · ${expertRows.length} opportunita aperte · ${candidateCount} candidature inviate`}
-        actions={
-          <>
-          <ToolIconButton onClick={() => setExpertStep("Opportunita")} label="Vedi opportunita">
-            <Megaphone size={22} />
-          </ToolIconButton>
-          <ToolIconButton onClick={() => setExpertStep("Upload deck")} label="Carica deck">
-            <UploadCloud size={22} />
-          </ToolIconButton>
-          <ToolIconButton
-            onClick={() => {
-              setAvailabilityUpdatedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-              setExpertStep("Opportunita");
-              void loadExpertOpportunities(true);
-            }}
-            label="Aggiorna disponibilita"
-          >
-            <CalendarCheck size={22} />
-          </ToolIconButton>
-          </>
-        }
-      />
-      <OperatorIdentityCard identity={roleIdentities.Esperto} />
+      <div className="role-header-grid">
+        <RoleHero
+          eyebrow="Area esperto"
+          title="Gestisci candidature, incarichi e deck."
+          subtitle={`${activeExpertProject.company} · ${expertRows.length} opportunita aperte · ${candidateCount} candidature inviate`}
+          actions={
+            <>
+            <ToolIconButton onClick={() => setExpertStep("Opportunita")} label="Vedi opportunita">
+              <Megaphone size={22} />
+            </ToolIconButton>
+            <ToolIconButton onClick={() => setExpertStep("Upload deck")} label="Carica deck">
+              <UploadCloud size={22} />
+            </ToolIconButton>
+            <ToolIconButton
+              onClick={() => {
+                setAvailabilityUpdatedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+                setExpertStep("Opportunita");
+                void loadExpertOpportunities(true);
+              }}
+              label="Aggiorna disponibilita"
+            >
+              <CalendarCheck size={22} />
+            </ToolIconButton>
+            </>
+          }
+        />
+        <OperatorIdentityCard identity={roleIdentities.Esperto} />
+      </div>
       {availabilityUpdatedAt && (
         <div className="inline-status-card">
           <Check size={18} />

@@ -2,10 +2,10 @@ import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertTriangle,
+  Archive,
   ArrowRight,
   Bell,
   BellRing,
-  Check,
   CheckCheck,
   ClipboardCheck,
   History,
@@ -107,6 +107,7 @@ export function NotificationCenter({
   notifications,
   onCloseNotification,
   onReopenNotification,
+  onDeleteNotification,
   onMarkRead,
   onMarkVisibleRead,
   onMarkAllRead,
@@ -119,6 +120,7 @@ export function NotificationCenter({
   notifications: AppNotification[];
   onCloseNotification: (id: string) => void;
   onReopenNotification: (id: string) => void;
+  onDeleteNotification: (id: string, role: AppNotificationRole, userId?: string, email?: string) => void;
   onMarkRead: (id: string, role: AppNotificationRole, userId?: string) => void;
   onMarkVisibleRead: (role: AppNotificationRole, userId?: string, email?: string) => void;
   onMarkAllRead: (role: AppNotificationRole, userId?: string, email?: string) => void;
@@ -332,15 +334,26 @@ export function NotificationCenter({
                         </button>
                       )}
                       {n.status === "open" ? (
-                        <button type="button" className="nc-btn-ghost" onClick={() => onCloseNotification(n.id)}>
-                          <Check size={14} />
+                        <button type="button" className="nc-btn-ghost" onClick={() => onCloseNotification(n.id)} title="Archivia notifica">
+                          <Archive size={14} />
                           Archivia
                         </button>
                       ) : (
-                        <button type="button" className="nc-btn-ghost" onClick={() => onReopenNotification(n.id)}>
-                          <RotateCcw size={14} />
-                          Riapri
-                        </button>
+                        <>
+                          <button type="button" className="nc-btn-ghost" onClick={() => onReopenNotification(n.id)} title="Riapri notifica">
+                            <RotateCcw size={14} />
+                            Riapri
+                          </button>
+                          <button
+                            type="button"
+                            className="nc-btn-danger"
+                            onClick={() => onDeleteNotification(n.id, notificationRole, currentUserId, currentUserEmail)}
+                            title="Elimina notifica archiviata"
+                          >
+                            <Trash2 size={14} />
+                            Elimina
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>

@@ -3,6 +3,9 @@ import type { Selection, Workshop } from "../types/domain";
 
 export function useWorkshopSelection(workshops: Workshop[], notify: (title: string, body: string) => void) {
   const [selections, setSelections] = useState<Selection[]>([]);
+  const debugNotify = (title: string, body: string) => {
+    if (import.meta.env.DEV) notify(title, body);
+  };
 
   const toggleWorkshop = (workshopId: string) => {
     const workshop = workshops.find((item) => item.id === workshopId)!;
@@ -65,7 +68,7 @@ export function useWorkshopSelection(workshops: Workshop[], notify: (title: stri
       current.map((selection) => (selection.workshopId === workshopId ? { ...selection, ...patch } : selection)),
     );
     if (patch.date || patch.time || patch.format || patch.duration || patch.promo !== undefined) {
-      notify("Configurazione aggiornata", "Preventivo e prossima azione sono stati aggiornati.");
+      debugNotify("Configurazione aggiornata", "Preventivo e prossima azione sono stati aggiornati.");
     }
   };
 

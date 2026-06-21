@@ -5,14 +5,16 @@ export function RoleHero({
   title,
   subtitle,
   actions,
+  className = "",
 }: {
   eyebrow: string;
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <section className="role-hero">
+    <section className={`role-hero ${className}`.trim()}>
       <div>
         <span className="eyebrow">{eyebrow}</span>
         <h1>{title}</h1>

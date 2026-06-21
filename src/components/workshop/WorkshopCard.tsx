@@ -27,7 +27,6 @@ import {
   Sparkles,
   Trash2,
   UploadCloud,
-  UsersRound,
   Video,
   X,
 } from "lucide-react";
@@ -71,10 +70,7 @@ export function WorkshopCard({
           <Clock3 size={15} /> {workshop.durationOptions.join(" / ")}
         </span>
         <span>
-          <Video size={15} /> {workshop.formatOptions.join(" / ")} · {workshop.level.toUpperCase()}
-        </span>
-        <span>
-          <UsersRound size={15} /> {workshop.participants}
+          <Video size={15} /> {workshop.formatOptions.join(" / ")}
         </span>
       </div>
       {selection && (
@@ -89,6 +85,10 @@ export function WorkshopCard({
               <option key={format}>{format}</option>
             ))}
           </select>
+          <div className="selection-detail-row">
+            <span>Livello {workshop.level.toUpperCase()}</span>
+            <span>{workshop.participants}</span>
+          </div>
           {workshop.customAvailable && (
             <div className={`custom-preview-toggle ${selection.custom ? "active" : ""}`}>
               <button

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, BadgeCheck, BriefcaseBusiness, Sparkles, X } from "lucide-react";
+import { ArrowRight, BadgeCheck, BriefcaseBusiness, X } from "lucide-react";
 import { useDarkMode } from "./hooks/useDarkMode";
 import { DarkModeToggle } from "./components/ui/DarkModeToggle";
 import { initialRules } from "./data/pricing";
@@ -29,40 +29,40 @@ import { Skeleton, SkeletonCard } from "./components/ui/Skeleton";
 function getWelcomeCopy(role: Role) {
   if (role === "FunniFin") {
     return {
-      eyebrow: "Bentornato, operations",
-      title: "La console FunniFin e pronta.",
-      body: "Coda, calendario, esperti e materiali sono allineati nello stesso flusso operativo.",
+      eyebrow: "Accesso FunniFin",
+      title: "Console operativa",
+      body: "Riprendi dalla coda progetti e dalle attività aperte.",
       primary: "Vai alla coda",
-      secondary: "Resta qui",
+      secondary: "Chiudi",
       metric: "Progetti sotto controllo",
     };
   }
   if (role === "Esperto") {
     return {
-      eyebrow: "Bentornato, esperto",
-      title: "Nuove opportunita, senza rumore.",
-      body: "Trovi candidature, incarichi e materiali collegati nel punto giusto del percorso.",
+      eyebrow: "Accesso esperto",
+      title: "Area incarichi",
+      body: "Controlla candidature, incarichi e materiali collegati.",
       primary: "Vedi candidature",
-      secondary: "Resta qui",
+      secondary: "Chiudi",
       metric: "Workshop da valutare",
     };
   }
   if (role === "Brand") {
     return {
-      eyebrow: "Bentornato, brand",
-      title: "Revisioni pronte da rifinire.",
-      body: "Deck, asset e approvazioni finali sono raccolti nella vista dedicata al controllo qualita.",
+      eyebrow: "Accesso brand",
+      title: "Revisioni aperte",
+      body: "Rivedi deck, asset e approvazioni finali.",
       primary: "Apri revisioni",
-      secondary: "Resta qui",
+      secondary: "Chiudi",
       metric: "Materiali da chiudere",
     };
   }
   return {
-    eyebrow: "Bentornato",
-    title: "Il tuo spazio e pronto.",
-    body: "Riprendi il percorso e completa i passaggi rimasti quando vuoi.",
+    eyebrow: "Accesso attivo",
+    title: "Percorso cliente",
+    body: "Completa i passaggi rimasti e aggiorna la richiesta.",
     primary: "Continua",
-    secondary: "Resta qui",
+    secondary: "Chiudi",
     metric: "Percorso attivo",
   };
 }
@@ -81,14 +81,8 @@ function WelcomeModal({
   const copy = getWelcomeCopy(role);
 
   return (
-    <div className="modal-backdrop welcome-backdrop" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
-      <section className="welcome-modal">
-        <button className="welcome-close" type="button" onClick={onClose} aria-label="Chiudi benvenuto">
-          <X size={18} />
-        </button>
-        <div className="welcome-orbit" aria-hidden="true">
-          <Sparkles size={28} />
-        </div>
+    <section className="welcome-inline" aria-labelledby="welcome-title">
+      <div className="welcome-main">
         <div className="welcome-copy">
           <span className="welcome-eyebrow">{copy.eyebrow}</span>
           <h2 id="welcome-title">{copy.title}</h2>
@@ -108,20 +102,20 @@ function WelcomeModal({
             {copy.metric}
           </span>
           <span>
-            <Sparkles size={17} />
-            Sessione avviata
+            <BadgeCheck size={17} />
+            Sessione attiva
           </span>
         </div>
-        <footer className="welcome-actions">
-          <AppButton variant="ghost" onClick={onClose}>
-            {copy.secondary}
-          </AppButton>
-          <AppButton variant="primary" onClick={onPrimary}>
-            {copy.primary} <ArrowRight size={17} />
-          </AppButton>
-        </footer>
-      </section>
-    </div>
+      </div>
+      <footer className="welcome-actions">
+        <AppButton variant="ghost" onClick={onClose} leftIcon={<X size={16} />}>
+          {copy.secondary}
+        </AppButton>
+        <AppButton variant="primary" onClick={onPrimary} rightIcon={<ArrowRight size={17} />}>
+          {copy.primary}
+        </AppButton>
+      </footer>
+    </section>
   );
 }
 
@@ -165,6 +159,7 @@ function AppInner() {
     markVisibleNotificationsRead,
     markAllNotificationsRead,
     clearClosedNotifications,
+    deleteClosedNotification,
   } = useToasts(role, currentUser?.id, currentUser?.email);
   const { selections, toggleWorkshop, addWorkshops, updateSelection } = useWorkshopSelection(workshops, notify);
   const quote = useQuote(selections, workshops, rules);
@@ -222,7 +217,6 @@ function AppInner() {
     if (loading || !session || !currentUser) return;
     if (lastConfettiTokenRef.current === session.token) return;
     lastConfettiTokenRef.current = session.token;
-    fireConfetti();
     openWelcome(session.token);
   }, [currentUser, loading, session?.token]);
 
@@ -231,7 +225,6 @@ function AppInner() {
       const token = (event as CustomEvent<{ token?: string }>).detail?.token ?? session?.token ?? null;
       if (!token || lastConfettiTokenRef.current === token) return;
       lastConfettiTokenRef.current = token;
-      fireConfetti();
       openWelcome(token);
     };
     window.addEventListener(AUTH_ENTRY_CONFETTI_EVENT, handleEntryConfetti as EventListener);
@@ -266,17 +259,6 @@ function AppInner() {
   const coveredTopics = new Set(selectedWorkshops.map(({ workshop }) => workshop.topicId)).size;
   const coveredThemes = new Set(selectedWorkshops.map(({ workshop }) => workshop.themeId)).size;
   const totalHours = selectedWorkshops.reduce((total, { selection }) => total + (selection.duration === "2h" ? 2 : 1), 0);
-
-  const topbarContext = (() => {
-    if (role === "Cliente") {
-      return currentRequest ? "Cliente - " + currentRequest.company + " / richiesta inviata" : "Cliente · nuovo percorso";
-    }
-    if (role === "FunniFin") {
-      return currentRequest ? "FunniFin - " + currentRequest.company + " / " + currentRequest.workshops.length + " workshop" : "FunniFin · coda richieste";
-    }
-    if (role === "Esperto") return "Esperto · candidature e incarichi";
-    return "Brand · revisioni materiali";
-  })();
 
   const setStatusWithFeedback = (status: ProjectStatus, title: string, body: string) => {
     setProjectStatus(status);
@@ -314,14 +296,6 @@ function AppInner() {
   return (
     <div className={"app-shell role-" + role.toLowerCase()}>
       <ConfettiBurst active={showCelebrationConfetti} />
-      {welcomeOpen && currentUser && (
-        <WelcomeModal
-          role={role}
-          name={currentUser.displayName || currentUser.email}
-          onPrimary={runWelcomePrimary}
-          onClose={closeWelcome}
-        />
-      )}
       {toasts.length > 0 && <FeedbackToastStack toasts={toasts} onClose={closeToast} />}
       {customModalWorkshop && <CustomModal workshop={customModalWorkshop} onClose={() => setCustomModalWorkshop(null)} />}
       {customRequestWorkshop && (
@@ -349,7 +323,53 @@ function AppInner() {
           }}
         />
       )}
-      <Topbar role={role} context={topbarContext} projectStatus={projectStatus} notify={notify} />
+      <Topbar
+        projectStatus={projectStatus}
+        notify={notify}
+        systemControls={
+          <SystemBar
+            role={role}
+            actualRole={currentUser?.actualRole ?? null}
+            roleMenuOpen={roleMenuOpen}
+            onToggleRoleMenu={() => setRoleMenuOpen((open) => !open)}
+            onRole={changeRole}
+            onSettings={() => setSystemSettingsToken((value) => value + 1)}
+            settingsLabel={role === "FunniFin" ? "Apri Google backend" : "Impostazioni sezione"}
+            onRefresh={() => setSystemRefreshToken((value) => value + 1)}
+            onLogout={logout}
+            onLogin={() => setShowLogin(true)}
+            currentUser={currentUser}
+            darkModeToggle={<DarkModeToggle isDark={isDark} onToggle={toggleDark} />}
+            notificationCenter={
+              <NotificationCenter
+                role={role}
+                currentUserId={currentUser?.id}
+                currentUserEmail={currentUser?.email}
+                notifications={notifications}
+                onCloseNotification={closeNotification}
+                onReopenNotification={reopenNotification}
+                onDeleteNotification={deleteClosedNotification}
+                onMarkRead={markNotificationRead}
+                onMarkVisibleRead={markVisibleNotificationsRead}
+                onMarkAllRead={markAllNotificationsRead}
+                onAction={runNotificationAction}
+                onClearClosed={() => {
+                  const r = role as AppNotificationRole;
+                  clearClosedNotifications(r);
+                }}
+              />
+            }
+          />
+        }
+      />
+      {welcomeOpen && currentUser && (
+        <WelcomeModal
+          role={role}
+          name={currentUser.displayName || currentUser.email}
+          onPrimary={runWelcomePrimary}
+          onClose={closeWelcome}
+        />
+      )}
       {/* Banner impersonificazione */}
       {isImpersonating && (
         <div className="impersonation-banner">
@@ -366,40 +386,6 @@ function AppInner() {
           </button>
         </div>
       )}
-      <SystemBar
-        role={role}
-        actualRole={currentUser?.actualRole ?? null}
-        context={topbarContext}
-        roleMenuOpen={roleMenuOpen}
-        onToggleRoleMenu={() => setRoleMenuOpen((open) => !open)}
-        onRole={changeRole}
-        onSettings={() => setSystemSettingsToken((value) => value + 1)}
-        settingsLabel={role === "FunniFin" ? "Apri Google backend" : "Impostazioni sezione"}
-        onRefresh={() => setSystemRefreshToken((value) => value + 1)}
-        onLogout={logout}
-        onLogin={() => setShowLogin(true)}
-        currentUser={currentUser}
-        darkModeToggle={<DarkModeToggle isDark={isDark} onToggle={toggleDark} />}
-        notificationCenter={
-          <NotificationCenter
-            role={role}
-            currentUserId={currentUser?.id}
-            currentUserEmail={currentUser?.email}
-            notifications={notifications}
-            onCloseNotification={closeNotification}
-            onReopenNotification={reopenNotification}
-            onMarkRead={markNotificationRead}
-            onMarkVisibleRead={markVisibleNotificationsRead}
-            onMarkAllRead={markAllNotificationsRead}
-            onAction={runNotificationAction}
-            onClearClosed={() => {
-              const r = role as import("./types/domain").AppNotificationRole;
-              clearClosedNotifications(r);
-            }}
-          />
-        }
-      />
-
       <main className="main-content">
         {role === "Cliente" && (
           <ClientView

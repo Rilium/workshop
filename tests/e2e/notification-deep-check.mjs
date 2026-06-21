@@ -278,6 +278,12 @@ async function run() {
       await page.locator(".nc-bell").click();
       await page.locator(".nc-tab", { hasText: "Chiuse" }).click();
       await page.getByText("Notifica archiviata").waitFor({ timeout: 5000 });
+      await page.locator(".nc-item", { hasText: "Notifica archiviata" }).getByRole("button", { name: "Elimina" }).click();
+      await page.getByText("Notifica archiviata").waitFor({ state: "detached", timeout: 5000 });
+      await page.waitForFunction(() => {
+        const stored = JSON.parse(window.localStorage.getItem("funnifin_notifications_v1") || "[]");
+        return !stored.some((item) => item.id === "n-closed");
+      }, null, { timeout: 3000 });
       await page.locator(".nc-tab", { hasText: "Da fare" }).click();
       await page.getByText("Apri vista Brand da FunniFin").waitFor({ timeout: 5000 });
       await page.getByRole("button", { name: "Apri Brand" }).click();

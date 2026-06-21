@@ -44,7 +44,7 @@ export function QuoteStrip({
         <strong>{money(quote.total)}</strong>
       </div>
       <AppButton variant="secondary" onClick={onCta} loading={submitting} aria-label="Vai all'invio richiesta">
-        <Send size={17} /> Invia
+        <Send size={17} /> Vai all'invio
       </AppButton>
     </section>
   );

@@ -9,15 +9,13 @@ import { ToolIconButton } from "../ui/IconButton";
 const FUNNIFIN_SWITCH_OPTIONS: Role[] = ["FunniFin", "Cliente", "Esperto", "Brand"];
 
 export function Topbar({
-  role,
-  context,
   projectStatus,
   notify,
+  systemControls,
 }: {
-  role: Role;
-  context: string;
   projectStatus: ProjectStatus;
   notify: (title: string, body: string) => void;
+  systemControls?: React.ReactNode;
 }) {
   return (
     <header className="topbar">
@@ -25,7 +23,7 @@ export function Topbar({
         <img className="logo-bubble" src="/Logo.png" alt="FunniFin" />
         <div className="brand-copy">
           <div className="brand-title-row">
-            <strong>FunniFin Workshop Planner</strong>
+            <strong>FunniFin <span className="brand-product-detail">Workshop Planner</span></strong>
             <span className={`request-status-chip ${projectStatus === "confermato" ? "status-confirmed" : projectStatus === "draft_cliente" ? "status-draft" : "status-active"}`} title={statusDescription[projectStatus]}>
               <strong>{statusLabel[projectStatus]}</strong>
               <button
@@ -39,11 +37,9 @@ export function Topbar({
               </button>
             </span>
           </div>
-          <div className="brand-subline">
-            <span>{context}</span>
-          </div>
         </div>
       </div>
+      {systemControls}
     </header>
   );
 }
@@ -51,7 +47,6 @@ export function Topbar({
 export function SystemBar({
   role,
   actualRole,
-  context,
   roleMenuOpen,
   onToggleRoleMenu,
   onRole,
@@ -67,7 +62,6 @@ export function SystemBar({
   role: Role;
   /** actualRole dell'utente autenticato (null = visitatore anonimo Cliente) */
   actualRole: import("../../types/auth").AuthRole | null;
-  context: string;
   roleMenuOpen: boolean;
   onToggleRoleMenu: () => void;
   onRole: (role: Role) => void;
@@ -83,7 +77,7 @@ export function SystemBar({
   const isFunniFin = actualRole === "FunniFin";
 
   return (
-    <section className="system-bar" aria-label="Barra sistema">
+    <div className={`system-bar ${role === "Cliente" ? "system-bar--minimal" : ""}`.trim()} aria-label="Barra sistema">
       <div className="system-role-area">
         {isFunniFin ? (
           /* Switch ruolo: solo per FunniFin */
@@ -113,13 +107,12 @@ export function SystemBar({
               </div>
             )}
           </div>
-        ) : (
+        ) : role !== "Cliente" ? (
           /* Per Esperto e Brand: mostra solo il ruolo, nessuno switch */
           <div className="role-label-static">
             <span>{role}</span>
           </div>
-        )}
-        <span>{context}</span>
+        ) : null}
       </div>
       <div className="system-actions">
         {darkModeToggle}
@@ -140,6 +133,6 @@ export function SystemBar({
           </ToolIconButton>
         )}
       </div>
-    </section>
+    </div>
   );
 }

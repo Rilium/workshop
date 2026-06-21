@@ -86,13 +86,32 @@ export function BrandView({
     contents: false,
     qrCode: false,
   });
-  const brandItems = {
-    Revisioni: brandDecks.filter((deck) => deck.status === "in_review"),
-    "Da correggere": brandDecks.filter((deck) => deck.status === "changes_requested"),
-    Approvate: brandDecks.filter((deck) => deck.status === "approved"),
-    Storico: brandDecks.filter((deck) => deck.status === "archived"),
+  const deckMatchesStoredReview = (deck: BrandPresentation, project: AdminProject) => {
+    const materials = project.request?.materials;
+    if (!materials) return false;
+    return (
+      Boolean(materials.brandDeckId && deck.id === materials.brandDeckId) ||
+      Boolean(materials.finalDeckUrl && (deck.url === materials.finalDeckUrl || getDeckOpenUrl(deck) === materials.finalDeckUrl)) ||
+      Boolean(materials.finalDeckTitle && deck.title === materials.finalDeckTitle) ||
+      Boolean(materials.folderName && deck.title === materials.folderName)
+    );
   };
-  const selectedBrandDeck = brandDecks.find((deck) => deck.id === selectedBrandDeckId) ?? brandItems[brandFilter as keyof typeof brandItems][0];
+  const effectiveBrandDecks = useMemo(
+    () =>
+      brandDecks.map((deck) => {
+        const reviewedProject = brandProjects.find((project) => deckMatchesStoredReview(deck, project) && project.request?.materials?.brandDeckStatus);
+        const storedStatus = reviewedProject?.request?.materials?.brandDeckStatus;
+        return storedStatus ? { ...deck, status: storedStatus } : deck;
+      }),
+    [brandDecks, brandProjects],
+  );
+  const brandItems = {
+    Revisioni: effectiveBrandDecks.filter((deck) => deck.status === "in_review"),
+    "Da correggere": effectiveBrandDecks.filter((deck) => deck.status === "changes_requested"),
+    Approvate: effectiveBrandDecks.filter((deck) => deck.status === "approved"),
+    Storico: effectiveBrandDecks.filter((deck) => deck.status === "archived"),
+  };
+  const selectedBrandDeck = effectiveBrandDecks.find((deck) => deck.id === selectedBrandDeckId) ?? brandItems[brandFilter as keyof typeof brandItems][0];
   const selectedBrandProject = brandProjects.find((project) => project.id === selectedBrandProjectId) ?? brandProjects[0];
   useEffect(() => {
     if (selectedBrandProject) syncProjectStatus(selectedBrandProject.status);
@@ -146,14 +165,21 @@ export function BrandView({
       return;
     }
     try {
+      const selectedDeckUrl = selectedBrandDeck ? getDeckOpenUrl(selectedBrandDeck) : "";
       const request = await updateWorkshopRequest(
         selectedBrandProject.id,
         {
           status,
           materials: {
             ...(selectedBrandProject.request?.materials ?? {}),
-            folderUrl: selectedBrandDeck ? getDeckOpenUrl(selectedBrandDeck) : selectedBrandProject.request?.materials?.folderUrl,
+            folderUrl: selectedDeckUrl || selectedBrandProject.request?.materials?.folderUrl,
             folderName: selectedBrandDeck?.title ?? selectedBrandProject.request?.materials?.folderName,
+            finalDeckUrl: deckStatus === "approved" ? selectedDeckUrl || selectedBrandProject.request?.materials?.finalDeckUrl : selectedBrandProject.request?.materials?.finalDeckUrl,
+            finalDeckTitle: deckStatus === "approved" ? selectedBrandDeck?.title ?? selectedBrandProject.request?.materials?.finalDeckTitle : selectedBrandProject.request?.materials?.finalDeckTitle,
+            brandDeckId: selectedBrandDeck?.id ?? selectedBrandProject.request?.materials?.brandDeckId,
+            brandDeckStatus: deckStatus ?? selectedBrandProject.request?.materials?.brandDeckStatus,
+            brandDeckReviewedAt: new Date().toLocaleString("sv-SE", { timeZone: "Europe/Rome" }),
+            brandReviewNote: reviewNote,
           },
         },
         {
@@ -254,7 +280,7 @@ export function BrandView({
     if (currentQueue.some((deck) => deck.id === selectedBrandDeckId)) return;
     const firstDeck = currentQueue[0];
     setSelectedBrandDeckId(firstDeck?.id ?? "");
-  }, [brandFilter, brandDecks]);
+  }, [brandFilter, effectiveBrandDecks, selectedBrandDeckId]);
   const approveSelectedDeck = () => {
     if ((!selectedBrandDeck && !selectedBrandProject) || brandActionBusy) return;
     setBrandActionBusy("approve");
@@ -373,19 +399,21 @@ export function BrandView({
 
   return (
     <section className="view-stack">
-      <RoleHero
-        eyebrow="Area brand"
-        title="Revisiona deck, note e versioni prima della conferma finale."
-        subtitle={`${brandProjects.length} progetti reali · ${brandDecks.length} deck in Drive · ${brandItems.Revisioni.length} in revisione`}
-        actions={
-          brandDriveFolder?.url ? (
-            <ToolIconButton onClick={() => window.open(brandDriveFolder.url, "_blank", "noopener,noreferrer")} label="Apri cartella Drive">
-              <ExternalLink size={22} />
-            </ToolIconButton>
-          ) : undefined
-        }
-      />
-      <OperatorIdentityCard identity={roleIdentities.Brand} />
+      <div className="role-header-grid">
+        <RoleHero
+          eyebrow="Area brand"
+          title="Revisiona deck, note e versioni prima della conferma finale."
+          subtitle={`${brandProjects.length} progetti reali · ${brandDecks.length} deck in Drive · ${brandItems.Revisioni.length} in revisione`}
+          actions={
+            brandDriveFolder?.url ? (
+              <ToolIconButton onClick={() => window.open(brandDriveFolder.url, "_blank", "noopener,noreferrer")} label="Apri cartella Drive">
+                <ExternalLink size={22} />
+              </ToolIconButton>
+            ) : undefined
+          }
+        />
+        <OperatorIdentityCard identity={roleIdentities.Brand} />
+      </div>
       <Panel
         title="Progetti in revisione"
         icon={<BadgeCheck size={20} />}

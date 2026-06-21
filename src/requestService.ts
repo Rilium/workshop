@@ -67,6 +67,10 @@ export type WorkshopRequestRecord = {
     fileCount?: number;
     finalDeckUrl?: string;
     finalDeckTitle?: string;
+    brandDeckId?: string;
+    brandDeckStatus?: "in_review" | "changes_requested" | "approved" | "archived";
+    brandDeckReviewedAt?: string;
+    brandReviewNote?: string;
     calendarDeckEnabled?: boolean;
     calendarDeckEnabledAt?: string;
   };

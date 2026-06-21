@@ -13,9 +13,21 @@
 }
 
 .main-content {
-  width: min(1180px, 100%);
+  width: min(var(--main-content-max, 1536px), 100%);
   margin: 0 auto;
   overflow-x: clip;
+}
+
+@media (min-width: 2560px) {
+  .main-content {
+    --main-content-max: 1728px;
+  }
+}
+
+@media (min-width: 3840px) {
+  .main-content {
+    --main-content-max: 2048px;
+  }
 }
 
 .app-shell.role-cliente .quote-strip {
@@ -25,18 +37,18 @@
 .topbar {
   grid-column: 1 / -1;
   isolation: isolate;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--sp-4);
   min-width: 0;
-  gap: 16px;
-  padding: 20px 24px;
-  background: var(--surface-glass);
+  padding: 10px 20px;
+  background: var(--surface-glass-strong);
   border-bottom: 1px solid var(--color-border);
   position: sticky;
   top: 0;
   z-index: 10;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(14px);
 }
 
 .topbar::before {
@@ -50,19 +62,15 @@
 }
 
 .system-bar {
-  grid-column: 1 / -1;
-  position: sticky;
-  top: 101px;
-  z-index: var(--z-nav);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: var(--sp-3);
+  justify-content: flex-end;
+  gap: var(--sp-2);
   min-width: 0;
-  padding: 8px 20px 10px;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--surface-glass);
-  backdrop-filter: blur(8px);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
 }
 
 .system-role-area {
@@ -70,12 +78,13 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
 }
 
 .system-role-area > span {
   min-width: 0;
-  color: var(--neutral-600);
+  color: var(--neutral-500);
+  font-size: var(--text-sm);
   font-weight: var(--fw-bold);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -86,16 +95,38 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--sp-2);
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-pill);
+  background: var(--surface-glass-subtle);
 }
 
 .system-actions .tool-icon-btn,
 .system-actions .nc-bell {
-  width: 38px;
-  min-width: 38px;
-  height: 38px;
-  min-height: 38px;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  border-color: transparent;
+  background: transparent;
   box-shadow: none;
+}
+
+.system-actions .tool-icon-btn:hover,
+.system-actions .tool-icon-btn.active,
+.system-actions .nc-bell:hover,
+.system-actions .nc-bell.active {
+  border-color: var(--neutral-200);
+  background: var(--neutral-50);
+}
+
+.system-bar--minimal {
+  justify-content: flex-end;
+}
+
+.system-bar--minimal .system-role-area {
+  display: none;
 }
 
 .brand-mark,
@@ -120,7 +151,7 @@
 .brand-mark {
   flex: 1 1 auto;
   overflow: hidden;
-  gap: 12px;
+  gap: 10px;
 }
 
 .brand-copy,
@@ -174,9 +205,9 @@
 .logo-bubble {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   background: var(--color-primary);
   color: white;
   font-size: 24px;
@@ -192,29 +223,33 @@
 
 .brand-title-row {
   min-width: 0;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   max-width: 100%;
 }
 
 .brand-title-row > strong {
   color: var(--neutral-900);
-  font-size: var(--text-md);
+  font-size: var(--text-body);
   font-weight: 900;
   line-height: 1.25;
+}
+
+.brand-product-detail {
+  color: inherit;
 }
 
 .brand-mark .role-title-badge {
   flex: 0 0 auto;
   width: fit-content;
-  max-width: 96px;
+  max-width: 88px;
   overflow: hidden;
   border: 1px solid var(--brand-mid);
   border-radius: var(--radius-pill);
   background: var(--brand-light);
   color: var(--brand-dark);
-  padding: 3px 8px;
+  padding: 3px 7px;
   font-size: var(--text-xs);
   font-weight: var(--fw-xbold);
   line-height: 1;
@@ -228,18 +263,19 @@
 }
 
 .role-menu-trigger {
-  min-height: 40px;
+  min-height: 34px;
   min-width: 0;
   display: inline-grid;
   grid-template-columns: minmax(0, 1fr) 18px;
   align-items: center;
   gap: var(--sp-2);
-  padding: 9px 12px 9px 14px;
-  border: 1px solid var(--brand-mid);
+  padding: 7px 10px 7px 12px;
+  border: 1px solid var(--neutral-200);
   border-radius: var(--radius-pill);
   background: var(--white);
-  color: var(--brand-dark);
-  box-shadow: var(--brand-shadow-card);
+  color: var(--neutral-800);
+  box-shadow: none;
+  font-size: var(--text-sm);
   font-weight: var(--fw-xbold);
 }
 
@@ -252,12 +288,13 @@
 
 .role-menu-trigger[aria-expanded="true"] {
   background: var(--brand);
+  border-color: var(--brand);
   color: var(--white);
 }
 
 .role-switch {
   position: fixed;
-  top: 154px;
+  top: 58px;
   left: 20px;
   z-index: var(--z-tooltip);
   width: min(232px, calc(100vw - 40px));
@@ -313,12 +350,12 @@
 .request-status-chip {
   width: fit-content;
   flex: 0 0 auto;
-  max-width: min(290px, 100%);
+  max-width: min(240px, 100%);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 7px 8px 7px 14px;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 6px 5px 10px;
   border: 1px solid var(--brand-mid);
   border-radius: var(--radius-pill);
   background: var(--brand-light);
@@ -362,9 +399,9 @@
 }
 
 .status-info-button {
-  width: 22px;
-  min-width: 22px;
-  height: 22px;
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
   border: 1px solid transparent;
@@ -663,6 +700,19 @@
   border: 0;
 }
 
+.role-header-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-5);
+  align-items: stretch;
+}
+
+.role-header-grid .role-hero,
+.role-header-grid .operator-identity-card {
+  min-width: 0;
+  height: 100%;
+}
+
 .role-hero p {
   margin-top: var(--sp-2);
   color: var(--neutral-600);
@@ -925,6 +975,8 @@ h3 {
 .bottom-action-buttons .bottom-back-btn svg {
   flex: 0 0 auto;
   display: block;
+  color: var(--brand);
+  stroke: currentColor;
 }
 
 /* ─── Bottom bar: project info (left slot, Operativo tab) ─── */
