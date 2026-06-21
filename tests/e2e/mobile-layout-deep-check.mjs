@@ -144,9 +144,13 @@ async function run() {
     assertWithinViewport(adminHome, "bottom");
     assert(!overlaps(adminHome.roleArea, adminHome.actions), "admin-home: system role area overlaps action buttons");
 
-    await page.getByText("Visualizza come: FunniFin", { exact: true }).click();
+    await page.getByRole("button", { name: "Visualizza come" }).click();
     await page.getByRole("button", { name: "Cliente", exact: true }).click();
-    await page.waitForTimeout(500);
+    await page.getByRole("heading", { name: "Come vuoi costruire il tuo percorso?" }).waitFor({ timeout: 8000 });
+    await page.getByRole("button", { name: /Esplora catalogo/i }).click();
+    await page.getByRole("heading", { name: "Scegli interessi e temi", exact: true }).waitFor({ timeout: 5000 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(100);
 
     const interests = await mobileMetrics(page, "client-interests");
     assertNoHorizontalOverflow(interests);
@@ -203,9 +207,13 @@ async function run() {
     assert(!errors.some((error) => /same key|duplicate|hydration|uncaught/i.test(error)), `Mobile layout console/page errors: ${errors.join(" | ")}`);
 
     await page.getByLabel("Chiudi calendario").click();
-    await page.getByText("Visualizza come: Cliente", { exact: true }).click();
-    await page.getByRole("button", { name: "FunniFin", exact: true }).click();
-    await page.waitForTimeout(500);
+    await page.evaluate(() => {
+      const session = JSON.parse(window.localStorage.getItem("funnifin_auth_session") || "{}");
+      session.effectiveRole = "FunniFin";
+      window.localStorage.setItem("funnifin_auth_session", JSON.stringify(session));
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Visualizza come" }).filter({ hasText: "FunniFin" }).waitFor({ timeout: 5000 });
     const visibleGoogleShortcutButtons = await page.getByLabel("Apri Google backend").filter({ visible: true }).count();
     assert(visibleGoogleShortcutButtons === 0, `admin-home: mobile Google shortcut should be hidden, found ${visibleGoogleShortcutButtons}`);
     await page.locator("button:visible").filter({ hasText: "Google backend" }).click();

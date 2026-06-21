@@ -104,15 +104,20 @@
 }
 
 .topic-color-all { --topic: #1cafb9; }
+.topic-color-retribuzione,
 .topic-color-budget { --topic: #1cafb9; }
 .topic-color-risparmio { --topic: #f0ad2e; }
 .topic-color-investimenti { --topic: #6477d5; }
+.topic-color-pensione,
 .topic-color-previdenza { --topic: #37b679; }
 .topic-color-fiscalita { --topic: #ff8a63; }
+.topic-color-finanziamenti,
 .topic-color-credito { --topic: #d85f8c; }
 .topic-color-assicurazioni { --topic: #2aa6a1; }
+.topic-color-genitorialita,
 .topic-color-famiglia { --topic: #8a6bd8; }
 .topic-color-acquisti { --topic: #f3a63b; }
+.topic-color-successione,
 .topic-color-benessere { --topic: #ef6f9b; }
 
 .catalog-display-toolbar {
@@ -515,7 +520,9 @@
   min-width: 40px;
   height: 40px;
   min-height: 40px;
-  display: grid;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   place-items: center;
   line-height: 0;
   border: 1px solid var(--neutral-200);

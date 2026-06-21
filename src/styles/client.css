@@ -81,14 +81,15 @@ label.has-error textarea {
 .guided-loader,
 .guided-generating {
   display: grid;
-  place-items: center;
+  align-content: center;
+  justify-items: center;
   padding: var(--sp-8);
 }
 
 .guided-loader-mark {
   position: relative;
-  width: 156px;
-  height: 156px;
+  width: 210px;
+  height: 225px;
   display: grid;
   justify-items: center;
   align-items: start;
@@ -97,29 +98,29 @@ label.has-error textarea {
   border: 1px solid var(--brand-mid);
   box-shadow: var(--brand-shadow-hover);
   overflow: hidden;
-  padding-top: 22px;
+  padding-top: 30px;
 }
 
 .guided-loader-mark img {
-  width: 70px;
-  height: 70px;
+  width: 82px;
+  height: 82px;
   object-fit: contain;
   animation: guided-logo-pulse 1.5s ease both;
 }
 
 .guided-loader-mark span {
   position: absolute;
-  left: 34px;
-  height: 4px;
+  left: 45px;
+  height: 5px;
   border-radius: var(--radius-pill);
   background: var(--brand);
   transform-origin: left;
-  animation: guided-line-draw 1.2s ease infinite;
+  animation: guided-line-draw 2s ease infinite;
 }
 
-.guided-loader-mark span:nth-child(2) { bottom: 26px; width: 54px; }
-.guided-loader-mark span:nth-child(3) { bottom: 42px; width: 76px; animation-delay: 0.15s; }
-.guided-loader-mark span:nth-child(4) { bottom: 58px; width: 96px; animation-delay: 0.3s; }
+.guided-loader-mark span:nth-child(2) { bottom: 35px; width: 68px; }
+.guided-loader-mark span:nth-child(3) { bottom: 58px; width: 95px; animation-delay: 0.25s; }
+.guided-loader-mark span:nth-child(4) { bottom: 80px; width: 120px; animation-delay: 0.5s; }
 
 .guided-loader-copy,
 .guided-choice-head,
@@ -196,6 +197,11 @@ label.has-error textarea {
   box-shadow: var(--brand-shadow-card);
 }
 
+.guided-choice-card {
+  min-height: 300px;
+  overflow: hidden;
+}
+
 .guided-choice-card.recommended {
   border-color: var(--brand);
   background: linear-gradient(180deg, var(--white), var(--brand-light));
@@ -215,7 +221,24 @@ label.has-error textarea {
   pointer-events: none;
 }
 
+.guided-choice-bg-icon {
+  position: absolute;
+  top: -38px;
+  right: -38px;
+  width: 190px;
+  height: 190px;
+  color: var(--brand);
+  opacity: 0.07;
+  pointer-events: none;
+}
+
+.guided-choice-card.recommended .guided-choice-bg-icon {
+  opacity: 0.1;
+}
+
 .guided-choice-card > div {
+  position: relative;
+  z-index: 1;
   display: grid;
   gap: var(--sp-3);
   align-content: start;
@@ -242,6 +265,8 @@ label.has-error textarea {
 
 .guided-choice-card footer,
 .guided-result-actions {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -255,6 +280,8 @@ label.has-error textarea {
 }
 
 .guided-card-badge {
+  position: relative;
+  z-index: 1;
   width: fit-content;
   border-radius: var(--radius-pill);
   background: var(--color-amber-soft);
@@ -283,21 +310,39 @@ label.has-error textarea {
 
 .survey-topbar button,
 .survey-nav button {
-  display: grid;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   place-items: center;
   border-radius: 50%;
   background: var(--white);
   line-height: 0;
   padding: 0;
+  text-align: center;
 }
 
 .survey-topbar button svg,
 .survey-nav button svg {
+  display: block;
+  flex: 0 0 auto;
   justify-self: center;
   align-self: center;
   margin: 0;
   color: currentColor;
   stroke: currentColor;
+}
+
+.survey-topbar button svg[data-lucide="chevron-left"],
+.survey-nav button svg[data-lucide="chevron-left"],
+.survey-topbar button svg.lucide-chevron-left,
+.survey-nav button svg.lucide-chevron-left {
+  transform: translateX(-1px);
+}
+
+.survey-nav button svg[data-lucide="arrow-right"],
+.survey-nav button svg.lucide-arrow-right {
+  transform: translateX(1px);
 }
 
 .survey-topbar button {

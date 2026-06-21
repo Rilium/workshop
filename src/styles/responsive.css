@@ -594,6 +594,8 @@
 
   .topic-grid {
     grid-template-columns: 1fr;
+    gap: 18px;
+    padding-block: 4px;
   }
 
   .topic-card {

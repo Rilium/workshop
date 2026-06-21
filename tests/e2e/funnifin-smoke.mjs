@@ -96,6 +96,30 @@ async function waitForServer(process) {
   throw new Error("Timed out waiting for Vite");
 }
 
+async function assertIconCentered(page) {
+  const metrics = await page.locator(".survey-nav button").evaluateAll((buttons) =>
+    buttons.map((button) => {
+      const icon = button.querySelector("svg");
+      const buttonRect = button.getBoundingClientRect();
+      const iconRect = icon.getBoundingClientRect();
+      return {
+        dx: Math.abs((buttonRect.left + buttonRect.width / 2) - (iconRect.left + iconRect.width / 2)),
+        dy: Math.abs((buttonRect.top + buttonRect.height / 2) - (iconRect.top + iconRect.height / 2)),
+      };
+    }),
+  );
+  for (const metric of metrics) {
+    if (metric.dx > 2 || metric.dy > 2) {
+      throw new Error(`Survey nav icon not centered: ${JSON.stringify(metrics)}`);
+    }
+  }
+}
+
+async function answerCurrentQuestion(page, answerName) {
+  await page.getByRole("button", { name: answerName }).click();
+  await page.locator(".survey-nav").getByRole("button", { name: "Continua" }).click();
+}
+
 async function run() {
   const googleEnv = loadGoogleEnv();
   const liveSession = await assertLiveSheet(googleEnv);
@@ -126,31 +150,27 @@ async function run() {
     await page.getByText("Visualizza come: FunniFin").click();
     await page.getByRole("button", { name: /^Cliente$/ }).click();
 
-    await page.locator(".ff-stepper-card").waitFor({ timeout: 30000 });
-    const stepper = await page.evaluate(() => {
-      const active = document.querySelector(".ff-tab--active");
-      const card = document.querySelector(".ff-stepper-card");
-      const activeStyle = getComputedStyle(active);
-      const cardStyle = getComputedStyle(card);
-      const label = active.querySelector(".ff-tab-label");
-      const activeRect = active.getBoundingClientRect();
-      const cardRect = card.getBoundingClientRect();
-      return {
-        activeHeight: Math.round(activeRect.height),
-        activeBottom: Math.round(activeRect.bottom),
-        cardTop: Math.round(cardRect.top),
-        activeBorderBottom: activeStyle.borderBottomColor,
-        cardBorderTopWidth: cardStyle.borderTopWidth,
-        labelDisplay: getComputedStyle(label).display,
-      };
-    });
+    await page.getByRole("heading", { name: "Come vuoi costruire il tuo percorso?" }).waitFor({ timeout: 30000 });
+    await page.getByRole("button", { name: /Inizia/ }).click();
+    await page.getByRole("heading", { name: "Su quali temi vuoi generare maggiore impatto?" }).waitFor({ timeout: 5000 });
+    await page.getByRole("button", { name: /Retribuzione/ }).click();
+    await page.getByRole("button", { name: /Risparmio/ }).click();
+    await assertIconCentered(page);
+    await page.locator(".survey-nav").getByRole("button", { name: "Continua" }).click();
 
-    if (stepper.activeHeight !== 42) throw new Error(`Mobile active tab height drifted: ${stepper.activeHeight}`);
-    if (stepper.activeBottom !== stepper.cardTop) throw new Error(`Mobile tab/card seam drifted: ${JSON.stringify(stepper)}`);
-    if (stepper.cardBorderTopWidth !== "0px") throw new Error(`Mobile card top border should be delegated to tabs: ${stepper.cardBorderTopWidth}`);
-    if (stepper.labelDisplay !== "block") throw new Error("Active mobile step label must remain visible");
+    await answerCurrentQuestion(page, /Formazione pratica/);
+    await page.getByRole("button", { name: /51-200/ }).click();
+    await page.locator(".survey-nav").getByRole("button", { name: "Indietro" }).click();
+    await page.getByRole("heading", { name: "Quale risultato vuoi ottenere?" }).waitFor({ timeout: 5000 });
+    await page.locator(".survey-nav").getByRole("button", { name: "Continua" }).click();
+    await answerCurrentQuestion(page, /51-200/);
+    await answerCurrentQuestion(page, /Webinar live/);
+    await answerCurrentQuestion(page, /2.000 - 5.000 €/);
 
-    console.log("PASS e2e: live Google Sheet lifecycle, real sheet auth session, mobile stepper seam");
+    await page.getByRole("heading", { name: "Abbiamo trovato il percorso ideale" }).waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: /Aggiungi percorso consigliato/ }).waitFor({ timeout: 5000 });
+
+    console.log("PASS e2e: live Google Sheet lifecycle, real sheet auth session, guided survey back/forward");
   } finally {
     if (browser) await browser.close();
     server.kill("SIGTERM");

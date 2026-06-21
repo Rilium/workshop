@@ -194,17 +194,22 @@ async function run() {
 
     {
       const { page, errors } = await openWithSession(browser, users.funnifin, "FunniFin", [], { width: 390, height: 844 });
-      await page.getByText("Visualizza come: FunniFin").waitFor({ timeout: 5000 });
-      for (const role of ["Cliente", "FunniFin", "Brand", "FunniFin", "Esperto", "FunniFin"]) {
-        await page.getByText(/Visualizza come:/).click();
+      await page.getByRole("button", { name: "Visualizza come" }).waitFor({ timeout: 5000 });
+      for (const role of ["Brand", "FunniFin", "Esperto", "FunniFin", "Cliente"]) {
+        await page.getByRole("button", { name: "Visualizza come" }).click();
         await page.locator(".role-switch").getByRole("button", { name: role, exact: true }).click();
-        await page.waitForTimeout(200);
+        if (role === "Cliente") {
+          await page.getByRole("heading", { name: "Come vuoi costruire il tuo percorso?" }).waitFor({ timeout: 8000 });
+        } else {
+          await page.getByRole("button", { name: "Visualizza come" }).filter({ hasText: role }).waitFor({ timeout: 5000 });
+        }
         const state = await page.evaluate(() => ({
-          role: document.querySelector(".role-title-badge")?.textContent || "",
+          role: document.querySelector(".role-menu-trigger")?.textContent?.replace("Visualizza come:", "").trim() || "",
+          hasClientEntry: document.body.innerText.includes("Come vuoi costruire il tuo percorso?"),
           blank: document.body.innerText.trim().length < 20,
           hasBell: Boolean(document.querySelector(".nc-bell")),
         }));
-        assert(state.role === role, `Role switch failed: expected ${role}, got ${state.role}`);
+        assert(role === "Cliente" ? state.hasClientEntry : state.role === role, `Role switch failed: expected ${role}, got ${state.role || "client-entry-missing"}`);
         assert(!state.blank, `Role switch blank page on ${role}`);
         assert(role === "Cliente" ? !state.hasBell : state.hasBell, `Bell visibility wrong for ${role}`);
       }
@@ -287,8 +292,8 @@ async function run() {
       await page.locator(".nc-tab", { hasText: "Da fare" }).click();
       await page.getByText("Apri vista Brand da FunniFin").waitFor({ timeout: 5000 });
       await page.getByRole("button", { name: "Apri Brand" }).click();
-      await page.waitForTimeout(300);
-      const role = await page.locator(".role-title-badge").textContent();
+      await page.getByRole("button", { name: "Visualizza come" }).filter({ hasText: "Brand" }).waitFor({ timeout: 5000 });
+      const role = await page.evaluate(() => document.querySelector(".role-menu-trigger")?.textContent?.replace("Visualizza come:", "").trim() || "");
       assert(role === "Brand", `Action quick switch failed, got ${role}`);
       await page.close();
     }

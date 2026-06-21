@@ -63,6 +63,8 @@ async function run() {
     const selectedInterestRemoveButtons = await page.getByLabel(/Rimuovi /).count();
     assert(selectedInterestRemoveButtons === 0, `Client view should start empty, found ${selectedInterestRemoveButtons} selected interest buttons`);
 
+    await page.getByRole("button", { name: /Esplora catalogo/i }).click();
+    await page.getByRole("heading", { name: "Scegli interessi e temi", exact: true }).waitFor({ timeout: 5000 });
     await page.locator("button:visible").filter({ hasText: "Ambito personale" }).first().click();
     await page.getByRole("button", { name: /Vedi consigli/i }).click();
     await page.getByRole("heading", { name: "Workshop consigliati", exact: true }).waitFor({ timeout: 5000 });

@@ -836,10 +836,6 @@ export function ClientView({
           <span />
           <span />
         </div>
-        <div className="guided-loader-copy">
-          <strong>FunniFin</strong>
-          <span>Prepariamo il tuo percorso workshop</span>
-        </div>
       </section>
     );
   }
@@ -854,9 +850,9 @@ export function ClientView({
         </div>
         <div className="guided-choice-grid">
           <article className="guided-choice-card recommended">
+            <Sparkles className="guided-choice-bg-icon" aria-hidden="true" />
             <span className="guided-card-badge">Consigliato</span>
             <div>
-              <Sparkles size={22} />
               <strong>Percorso guidato</strong>
               <p>Rispondi a poche domande e ricevi una proposta già pronta basata sugli obiettivi della tua azienda.</p>
             </div>
@@ -869,8 +865,8 @@ export function ClientView({
             </footer>
           </article>
           <article className="guided-choice-card">
+            <BookOpen className="guided-choice-bg-icon" aria-hidden="true" />
             <div>
-              <BookOpen size={22} />
               <strong>Percorso manuale</strong>
               <p>Accedi direttamente al catalogo completo e costruisci il percorso in autonomia.</p>
             </div>
