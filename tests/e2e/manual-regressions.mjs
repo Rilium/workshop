@@ -40,6 +40,7 @@ async function run() {
       ...process.env,
       VITE_APPS_SCRIPT_DEPLOYMENT_URL: "",
       VITE_ALLOW_LOCAL_FALLBACKS: "true",
+      VITE_STRICT_GOOGLE_BACKEND: "false",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

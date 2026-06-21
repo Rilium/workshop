@@ -53,7 +53,7 @@ export const adminSettingDefinitions: WorkspaceSettingDefinition[] = [
   },
   {
     key: "mail.funnifin",
-    value: SECRET_SETTINGS.google.email.testRecipients.funnifin,
+    value: SECRET_SETTINGS.google.email.roleRecipients.funnifin,
     group: "mail",
     label: "Email FunniFin",
     helper: "Riceve notifiche interne, candidature e handoff.",
@@ -63,7 +63,7 @@ export const adminSettingDefinitions: WorkspaceSettingDefinition[] = [
   },
   {
     key: "mail.expert",
-    value: SECRET_SETTINGS.google.email.testRecipients.expert,
+    value: SECRET_SETTINGS.google.email.roleRecipients.expert,
     group: "mail",
     label: "Email Esperti",
     helper: "Destinatario per inviti candidatura esperto.",
@@ -73,7 +73,7 @@ export const adminSettingDefinitions: WorkspaceSettingDefinition[] = [
   },
   {
     key: "mail.brand",
-    value: SECRET_SETTINGS.google.email.testRecipients.brand,
+    value: SECRET_SETTINGS.google.email.roleRecipients.brand,
     group: "mail",
     label: "Email Brand",
     helper: "Destinatario per revisioni materiali e deck.",

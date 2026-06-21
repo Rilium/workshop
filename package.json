@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npm run check:no-hardcoded-test-data && tsc && vite build",
+    "check:no-hardcoded-test-data": "node scripts/check-no-hardcoded-test-data.mjs",
     "test:e2e": "node tests/e2e/funnifin-smoke.mjs && node tests/e2e/notification-deep-check.mjs && node tests/e2e/manual-regressions.mjs",
     "test:e2e:local": "node tests/e2e/funnifin-local-smoke.mjs && node tests/e2e/notification-deep-check.mjs && node tests/e2e/manual-regressions.mjs && node tests/e2e/mobile-layout-deep-check.mjs",
     "test:e2e:live": "node tests/e2e/funnifin-smoke.mjs",

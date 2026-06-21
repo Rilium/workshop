@@ -1,0 +1,32 @@
+{
+  "mail": {
+    "internalRecipient": "local.funnifin@example.com",
+    "recipients": {
+      "client": "local.client@example.com",
+      "funnifin": "local.ops@example.com",
+      "expert": "local.expert@example.com",
+      "brand": "local.brand@example.com"
+    }
+  },
+  "authUsers": {
+    "funnifin": {
+      "id": "user-funnifin",
+      "email": "local.ops@example.com",
+      "actualRole": "FunniFin",
+      "displayName": "Team FunniFin"
+    },
+    "expert": {
+      "id": "user-esperto-laura",
+      "email": "local.expert@example.com",
+      "actualRole": "Esperto",
+      "expertId": "laura-bianchi",
+      "displayName": "Laura Bianchi"
+    },
+    "brand": {
+      "id": "user-brand",
+      "email": "local.brand@example.com",
+      "actualRole": "Brand",
+      "displayName": "Brand Review"
+    }
+  }
+}

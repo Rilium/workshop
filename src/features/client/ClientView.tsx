@@ -36,7 +36,6 @@ import {
 import { createAssetDraftFolder, deleteAssetDraftFolder, uploadAssetFiles, type AssetDraftFolder, type UploadedAsset } from "../../driveAssetService";
 import { createWorkshopRequest, type RequestWorkshopRecord, type WorkshopRequestRecord } from "../../requestService";
 import { sendWorkshopRequestEmail } from "../../emailService";
-import { topics, workshops } from "../../data/catalog";
 import type { ClientContact, Format, ProjectStatus, Quote, Selection, Topic, Workshop } from "../../types/domain";
 import { money } from "../../utils/money";
 import { AppButton } from "../../components/ui/AppButton";
@@ -74,6 +73,8 @@ type SurveyQuestion = {
   max?: number;
   answers: SurveyAnswer[];
 };
+
+const PRIVACY_NOTICE_VERSION = "privacy-funnifin-mvp-2026-06-22";
 
 const guidedSurveyQuestions: SurveyQuestion[] = [
   {
@@ -143,6 +144,8 @@ const guidedSurveyQuestions: SurveyQuestion[] = [
 ];
 
 export function ClientView({
+  topics,
+  workshops,
   activeTopics,
   activeThemes,
   selections,
@@ -168,6 +171,8 @@ export function ClientView({
   systemSettingsToken,
   onRequestCreated,
 }: {
+  topics: Topic[];
+  workshops: Workshop[];
   activeTopics: string[];
   activeThemes: string[];
   selections: Selection[];
@@ -210,6 +215,7 @@ export function ClientView({
   const [requestFinalized, setRequestFinalized] = useState(false);
   const [sharingCart, setSharingCart] = useState(false);
   const [contactTouched, setContactTouched] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [emailDeliveryMode, setEmailDeliveryMode] = useState<"sent" | "not_sent">("not_sent");
   const [flyToBar, setFlyToBar] = useState<{ id: number; title: string; x: number; y: number } | null>(null);
@@ -328,7 +334,7 @@ export function ClientView({
   }, [requestFinalized]);
   useEffect(() => {
     const handleBeforeUnload = () => {
-      if (assetFolderRef.current && !requestFinalizedRef.current) void deleteAssetDraftFolder(assetFolderRef.current.id);
+      if (assetFolderRef.current && !requestFinalizedRef.current) void deleteAssetDraftFolder(assetFolderRef.current.id, assetFolderRef.current.draftToken);
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
@@ -344,7 +350,7 @@ export function ClientView({
     try {
       const folder = assetFolder ?? (await createAssetDraftFolder(assetClientName));
       setAssetFolder(folder);
-      const uploaded = await uploadAssetFiles(folder.id, list);
+      const uploaded = await uploadAssetFiles(folder.id, list, folder.draftToken);
       setUploadedAssets((current) => [...current, ...uploaded]);
       setProjectStatus("materiali_cliente_in_attesa", "Materiali caricati", `${uploaded.length} file salvati nella cartella ${folder.name}.`);
       notify("Materiali caricati", `${uploaded.length} file salvati in Drive.`);
@@ -371,6 +377,12 @@ export function ClientView({
       setContactTouched(true);
       setClientStep("Invio");
       notify("Dati contatto mancanti", "Compila nome, cognome, azienda, telefono e una email valida per ricevere il recap.");
+      return;
+    }
+    if (!privacyAccepted) {
+      setContactTouched(true);
+      setClientStep("Invio");
+      notify("Consenso privacy mancante", "Conferma il trattamento dei dati per inviare la richiesta.");
       return;
     }
     setSendingRequest(true);
@@ -429,6 +441,11 @@ export function ClientView({
               fileCount: uploadedAssets.length,
             }
           : undefined,
+        privacy: {
+          accepted: true,
+          acceptedAt: new Date().toISOString(),
+          version: PRIVACY_NOTICE_VERSION,
+        },
       });
       const emailResult = await sendWorkshopRequestEmail({
         ...emailPayload,
@@ -1389,6 +1406,7 @@ export function ClientView({
                     key={workshop.id}
                     workshop={workshop}
                     selection={selection}
+                    topics={topics}
                     onToggle={(event) => toggleWorkshopWithFeedback(workshop, event)}
                     onChange={(patch) => updateSelection(workshop.id, patch)}
                     onCustomRequest={() => openCustomRequest(workshop)}
@@ -1652,6 +1670,18 @@ export function ClientView({
                     <span>Riceverai un recap via email; FunniFin verifichera date, esperti e fattibilita operativa.</span>
                   </div>
                 </div>
+                <label className={`approval-card privacy-consent ${contactTouched && !privacyAccepted ? "has-error" : ""}`}>
+                  <input
+                    type="checkbox"
+                    checked={privacyAccepted}
+                    onChange={(event) => setPrivacyAccepted(event.target.checked)}
+                  />
+                  <span>
+                    Autorizzo FunniFin a trattare questi dati per gestire la richiesta workshop, ricontattarmi e preparare materiali/date collegati.
+                    <small>Versione informativa: {PRIVACY_NOTICE_VERSION}</small>
+                    {contactTouched && !privacyAccepted && <small className="field-error">Conferma obbligatoria</small>}
+                  </span>
+                </label>
               </>
             )}
           </Panel>

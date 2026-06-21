@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
+import { localUser } from "./localTestSettings.mjs";
 
 const PORT = 5187;
 const BASE_URL = `http://127.0.0.1:${PORT}/`;
@@ -46,11 +47,11 @@ function makeSession(user, effectiveRole = user.actualRole) {
 }
 
 const users = {
-  funnifin: makeUser("user-funnifin", "rinaldi.rilio@gmail.com", "FunniFin", "Team FunniFin"),
+  funnifin: makeUser(localUser("funnifin").id, localUser("funnifin").email, "FunniFin", localUser("funnifin").displayName),
   funnifin2: makeUser("user-funnifin-2", "ops2@example.com", "FunniFin", "Ops Due"),
-  brand: makeUser("user-brand", "rinaldi.rilio+4@gmail.com", "Brand", "Brand Review"),
+  brand: makeUser(localUser("brand").id, localUser("brand").email, "Brand", localUser("brand").displayName),
   brand2: makeUser("user-brand-2", "brand2@example.com", "Brand", "Brand Due"),
-  expert: makeUser("user-esperto-laura", "rinaldi.rilio+3@gmail.com", "Esperto", "Laura Bianchi", { expertId: "laura-bianchi" }),
+  expert: makeUser(localUser("expert").id, localUser("expert").email, "Esperto", localUser("expert").displayName, { expertId: localUser("expert").expertId }),
   expert2: makeUser("user-esperto-altro", "expert2@example.com", "Esperto", "Esperto Due", { expertId: "altro" }),
 };
 
@@ -183,6 +184,7 @@ async function run() {
       ...process.env,
       VITE_APPS_SCRIPT_DEPLOYMENT_URL: "",
       VITE_ALLOW_LOCAL_FALLBACKS: "true",
+      VITE_STRICT_GOOGLE_BACKEND: "false",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

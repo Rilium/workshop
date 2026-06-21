@@ -12,7 +12,9 @@
    - `DRIVE_ROOT_FOLDER_ID`: opzionale, root Drive generale se diversa dalla root Slides.
    - `REQUEST_SPREADSHEET_ID`: opzionale. Se non lo imposti, lo script usa lo spreadsheet creato per il progetto: `1g0BWyyVw6Fz5krVc1Edd-iTlmYS2CQVUdMgk78veBPs`.
    - `EXPERT_CALENDAR_IDS`: lista separata da virgole degli ID calendario esperti.
-   - `INTERNAL_RECIPIENT`: `rinaldi.rilio@gmail.com`.
+   - `INTERNAL_RECIPIENT`: inbox reale FunniFin per copie operative e fallback email.
+   - `INITIAL_FUNNIFIN_EMAIL`: email reale del primo utente FunniFin da creare nello Sheet, oppure `AUTH_SEED_USERS_JSON` con la lista iniziale.
+   - `INITIAL_EXPERT_EMAIL` / `INITIAL_BRAND_EMAIL`: opzionali, solo se vuoi pre-seedare anche Esperto e Brand.
    - `SETUP_SECRET`: stringa privata usata solo da `npm run google:seed` per il seed iniziale senza sessione browser.
 6. Deploy > New deployment > Web app:
    - Execute as: **Me**.
@@ -46,11 +48,7 @@ Poi redeploy.
 - FunniFin: la coda progetti legge `listWorkshopRequests`; status, date, esperto e calendario aggiornano lo stesso record tramite `updateWorkshopRequest`.
 - FunniFin: catalogo, regole prezzo, pool esperti e settings operative possono essere salvati su Google Sheet tramite `listCatalogConfig`, `updateCatalogTopic`, `listPricingRules`, `updatePricingRule`, `listExperts`, `updateExpert`, `listWorkspaceSettings` e `updateWorkspaceSetting`.
 - FunniFin: la tab Google controlla `googleHealth` per Sheets, Calendar, Drive e quota MailApp.
-- FunniFin: le azioni di fase possono aprire una modal e inviare template HTML ai destinatari test:
-  - Cliente: `rinaldi.rilio+2@gmail.com`
-  - FunniFin: `rinaldi.rilio+1@gmail.com`
-  - Esperto: `rinaldi.rilio+3@gmail.com`
-  - Brand: `rinaldi.rilio+4@gmail.com`
+- FunniFin: le azioni di fase possono aprire una modal e inviare template HTML ai destinatari configurati nello Sheet (`mail.funnifin`, `mail.expert`, `mail.brand`) o nelle variabili env equivalenti.
 - FunniFin: la conferma evento puo creare un evento Calendar `provvisorio` o `definitivo`; il titolo diventa `[PROVVISORIO] ...` o `[CONFERMATO] ...`.
 
 Le azioni admin ora richiedono una sessione FunniFin valida. Per testarle a mano prendi `sessionToken` dal localStorage dopo il login FunniFin e aggiungilo alla query.

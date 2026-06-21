@@ -144,7 +144,7 @@ export const initialExpertProfiles: ExpertProfile[] = experts.map((expert, index
     id: expert.id,
     firstName,
     lastName: lastNameParts.join(" "),
-    email: `rinaldi.rilio+${index + 3}@gmail.com`,
+    email: "",
     photo: "",
     bio: "Profilo esperto FunniFin associato ai workshop del catalogo.",
     topicIds,

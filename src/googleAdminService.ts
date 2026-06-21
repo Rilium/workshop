@@ -79,6 +79,7 @@ export type GoogleHealth = {
     catalogTopics: number;
     catalogWorkshops: number;
     pricingRules: number;
+    notifications?: number;
     experts: number;
     settings: number;
   };

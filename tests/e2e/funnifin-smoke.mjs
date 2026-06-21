@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { chromium } from "playwright";
+import { localUser } from "./localTestSettings.mjs";
 
 const PORT = 5177;
 const BASE_URL = `http://127.0.0.1:${PORT}/`;
@@ -73,7 +74,7 @@ async function assertLiveSheet(env) {
 
   const sessionResult = await postAppsScript(env, "createSmokeTestSession", {
     setupSecret: env.ADMIN_SETUP_SECRET,
-    email: "rinaldi.rilio@gmail.com",
+    email: env.SMOKE_FUNNIFIN_EMAIL || env.INITIAL_FUNNIFIN_EMAIL || "",
     durationMinutes: 30,
   });
   if (!sessionResult.session?.token || sessionResult.source !== "google-sheet") {

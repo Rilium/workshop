@@ -6,6 +6,7 @@ export type AssetDraftFolder = {
   id: string;
   name: string;
   url: string;
+  draftToken?: string;
 };
 
 export type UploadedAsset = {
@@ -59,7 +60,7 @@ export async function createAssetDraftFolder(clientName: string): Promise<AssetD
   return (await response.json()) as AssetDraftFolder;
 }
 
-export async function uploadAssetFiles(folderId: string, files: File[]): Promise<UploadedAsset[]> {
+export async function uploadAssetFiles(folderId: string, files: File[], draftToken?: string): Promise<UploadedAsset[]> {
   const scriptUrl = getScriptUrl();
   const uploaded: UploadedAsset[] = [];
 
@@ -71,6 +72,7 @@ export async function uploadAssetFiles(folderId: string, files: File[]): Promise
       action: "uploadAssetFile",
       payload: withSessionPayload({
         folderId,
+        draftToken,
         fileName: file.name,
         mimeType: file.type || "application/octet-stream",
         data,
@@ -82,7 +84,7 @@ export async function uploadAssetFiles(folderId: string, files: File[]): Promise
   return uploaded;
 }
 
-export async function deleteAssetDraftFolder(folderId?: string) {
+export async function deleteAssetDraftFolder(folderId?: string, draftToken?: string) {
   const scriptUrl = getScriptUrl();
   if (!scriptUrl || !folderId) return;
 
@@ -90,5 +92,6 @@ export async function deleteAssetDraftFolder(folderId?: string) {
   url.searchParams.set("action", "deleteAssetDraftFolder");
   appendSessionParams(url);
   url.searchParams.set("folderId", folderId);
+  if (draftToken) url.searchParams.set("draftToken", draftToken);
   await fetch(url.toString(), { keepalive: true }).catch(() => {});
 }

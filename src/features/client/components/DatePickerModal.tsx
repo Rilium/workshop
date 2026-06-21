@@ -32,7 +32,6 @@ import {
   X,
 } from "lucide-react";
 import { getWorkshopAvailability } from "../../../googleCalendarService";
-import { workshops } from "../../../data/catalog";
 import type { Selection, Workshop } from "../../../types/domain";
 import { Skeleton } from "../../../components/ui/Skeleton";
 
@@ -52,12 +51,14 @@ export function DatePickerModal({
   selection,
   selections,
   workshop,
+  workshops,
   onClose,
   onConfirm,
 }: {
   selection: Selection;
   selections: Selection[];
   workshop: Workshop;
+  workshops: Workshop[];
   onClose: () => void;
   onConfirm: (date: string, time: string) => void;
 }) {

@@ -4,19 +4,19 @@ export const roleOptions: Role[] = ["Cliente", "FunniFin", "Esperto", "Brand"];
 export const roleIdentities: Record<Exclude<Role, "Cliente">, { name: string; email: string; role: string; note: string }> = {
   FunniFin: {
     name: "Team FunniFin",
-    email: "rinaldi.rilio@gmail.com",
+    email: "",
     role: "Operations",
     note: "Gestione richieste, calendario, esperti e avanzamento progetto.",
   },
   Esperto: {
     name: "Laura Bianchi",
-    email: "rinaldi.rilio+3@gmail.com",
+    email: "",
     role: "Esperto",
     note: "Candidature, disponibilita e deck assegnati.",
   },
   Brand: {
     name: "Brand Review",
-    email: "rinaldi.rilio+4@gmail.com",
+    email: "",
     role: "Brand",
     note: "Revisione materiali, versioni e approvazioni finali.",
   },

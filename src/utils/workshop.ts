@@ -24,7 +24,7 @@ export function buildLocalAdminProject(selections: Selection[], quoteTotal: numb
     id: "local-request",
     company: "Richiesta locale",
     manager: "Referente cliente",
-    email: "rinaldi.rilio@gmail.com",
+    email: "",
     phone: "",
     status,
     workshopIds: selections.map((selection) => selection.workshopId),

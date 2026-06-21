@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
+import { localSession } from "./localTestSettings.mjs";
 
 const PORT = 5177;
 const BASE_URL = `http://127.0.0.1:${PORT}/`;
@@ -52,6 +53,7 @@ async function run() {
       ...process.env,
       VITE_APPS_SCRIPT_DEPLOYMENT_URL: "",
       VITE_ALLOW_LOCAL_FALLBACKS: "true",
+      VITE_STRICT_GOOGLE_BACKEND: "false",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -61,26 +63,11 @@ async function run() {
     await waitForServer(server);
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    await page.addInitScript(() => {
+    await page.addInitScript((session) => {
       Math.random = () => 0;
-      const session = {
-        userId: "user-funnifin",
-        token: `local-ui-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-        effectiveRole: "FunniFin",
-        user: {
-          id: "user-funnifin",
-          email: "rinaldi.rilio@gmail.com",
-          actualRole: "FunniFin",
-          displayName: "Team FunniFin",
-          createdAt: "2024-01-01T00:00:00",
-          disabled: false,
-        },
-      };
       window.localStorage.setItem("funnifin_auth_session", JSON.stringify(session));
       window.sessionStorage.setItem(`funnifin_welcome_seen_${session.token}`, "1");
-    });
+    }, localSession("funnifin"));
     await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
 
     await page.getByLabel(/Esci \(Team FunniFin\)/).waitFor({ timeout: 5000 });

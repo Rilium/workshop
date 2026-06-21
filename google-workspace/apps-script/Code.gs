@@ -9,37 +9,12 @@ const SETTINGS = {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean),
-  internalRecipient: PropertiesService.getScriptProperties().getProperty("INTERNAL_RECIPIENT") || "rinaldi.rilio@gmail.com",
+  internalRecipient: PropertiesService.getScriptProperties().getProperty("INTERNAL_RECIPIENT") || "",
 };
 
-const AUTH_SEED_USERS = [
-  {
-    id: "user-funnifin",
-    email: "rinaldi.rilio@gmail.com",
-    actualRole: "FunniFin",
-    displayName: "Team FunniFin",
-    createdAt: "2024-01-01T00:00:00",
-    disabled: false,
-  },
-  {
-    id: "user-esperto-laura",
-    email: "rinaldi.rilio+3@gmail.com",
-    actualRole: "Esperto",
-    expertId: "laura-bianchi",
-    displayName: "Laura Bianchi",
-    createdAt: "2024-01-01T00:00:00",
-    disabled: false,
-  },
-  {
-    id: "user-brand",
-    email: "rinaldi.rilio+4@gmail.com",
-    actualRole: "Brand",
-    displayName: "Brand Review",
-    createdAt: "2024-01-01T00:00:00",
-    disabled: false,
-  },
-];
-
+// Do not hardcode local/demo users here. Configure prod users with
+// INITIAL_* Script Properties or AUTH_SEED_USERS_JSON. Local test identities
+// live in config/local-test-settings.json on the repo side.
 function authorizeFunniFinSetup() {
   const spreadsheet = getRequestsSpreadsheet();
   getRequestsSheet();
@@ -52,6 +27,7 @@ function authorizeFunniFinSetup() {
   getCatalogTopicsSheet();
   getCatalogWorkshopsSheet();
   getPricingRulesSheet();
+  getNotificationsSheet();
   getExpertsSheet();
   getSettingsSheet();
   seedAuthUsersIfNeeded();
@@ -81,6 +57,9 @@ function doGet(event) {
 
 function handleGet(event) {
   const action = event.parameter.action;
+  if (action === "publicCatalog") {
+    return jsonResponse(getPublicCatalog());
+  }
   if (action === "freeBusy") {
     return jsonResponse(handleFreeBusy(event.parameter));
   }
@@ -99,6 +78,18 @@ function handleGet(event) {
   if (action === "listWorkshopRequests") {
     requireSession(event.parameter, ["FunniFin", "Esperto", "Brand"]);
     return jsonResponse(listWorkshopRequests(event.parameter));
+  }
+  if (action === "listRequestEvents") {
+    requireSession(event.parameter, ["FunniFin", "Esperto", "Brand"]);
+    return jsonResponse(listRequestEvents(event.parameter));
+  }
+  if (action === "listNotifications") {
+    const auth = requireSession(event.parameter, ["FunniFin", "Esperto", "Brand"]);
+    return jsonResponse(listNotifications(Object.assign({}, event.parameter, {
+      sessionRole: auth.user.actualRole,
+      sessionUserId: auth.user.id,
+      sessionEmail: auth.user.email,
+    })));
   }
   if (action === "listCatalogConfig") {
     requireFunniFinSession(event.parameter);
@@ -146,7 +137,7 @@ function handleGet(event) {
   return jsonResponse({
     ok: true,
     service: "FunniFin Workshop Planner",
-    actions: ["freeBusy", "calendarLookup", "driveFolder", "brandPresentations", "listWorkshopRequests", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "listAuthUsers", "listAccessRequests", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "deleteWorkshopRequest", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification", "requestLoginCode", "verifyLoginCode", "reviewAccessRequest", "updateAuthUser"],
+    actions: ["freeBusy", "calendarLookup", "driveFolder", "brandPresentations", "publicCatalog", "listWorkshopRequests", "listRequestEvents", "listNotifications", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "listAuthUsers", "listAccessRequests", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "deleteWorkshopRequest", "createNotification", "updateNotification", "deleteNotification", "markNotificationsRead", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification", "requestLoginCode", "verifyLoginCode", "reviewAccessRequest", "updateAuthUser"],
   });
 }
 
@@ -170,6 +161,28 @@ function handlePost(event) {
   if (body.action === "deleteWorkshopRequest") {
     requireFunniFinSession(body.payload || {});
     return jsonResponse(deleteWorkshopRequest(body.payload || {}));
+  }
+  if (body.action === "createNotification") {
+    const auth = requireSession(body.payload || {}, ["FunniFin", "Esperto", "Brand"]);
+    return jsonResponse(createNotification(Object.assign({}, body.payload || {}, {
+      sourceRole: (body.payload && body.payload.sourceRole) || auth.user.actualRole,
+    })));
+  }
+  if (body.action === "updateNotification") {
+    requireSession(body.payload || {}, ["FunniFin", "Esperto", "Brand"]);
+    return jsonResponse(updateNotification(body.payload || {}));
+  }
+  if (body.action === "deleteNotification") {
+    requireSession(body.payload || {}, ["FunniFin", "Esperto", "Brand"]);
+    return jsonResponse(deleteNotification(body.payload || {}));
+  }
+  if (body.action === "markNotificationsRead") {
+    const auth = requireSession(body.payload || {}, ["FunniFin", "Esperto", "Brand"]);
+    return jsonResponse(markNotificationsRead(Object.assign({}, body.payload || {}, {
+      sessionRole: auth.user.actualRole,
+      sessionUserId: auth.user.id,
+      sessionEmail: auth.user.email,
+    })));
   }
   if (body.action === "updateCatalogTopic") {
     requireFunniFinSession(body.payload || {});
@@ -397,15 +410,25 @@ function updateCalendarEvent(eventId, event, calendarId, payload) {
 }
 
 function sendWorkshopRequestEmail(body) {
-  MailApp.sendEmail({
-    to: body.to,
-    cc: body.cc || getRuntimeInternalRecipient(),
-    subject: body.subject,
-    body: body.text || stripHtml(body.html || ""),
-    htmlBody: body.html,
-    name: body.fromName || getSettingValue("mail.fromName", "FunniFin Workshop Planner"),
-  });
-  return { sent: true };
+  try {
+    MailApp.sendEmail({
+      to: body.to,
+      cc: body.cc || getRuntimeInternalRecipient(),
+      subject: body.subject,
+      body: body.text || stripHtml(body.html || ""),
+      htmlBody: body.html,
+      name: body.fromName || getSettingValue("mail.fromName", "FunniFin Workshop Planner"),
+    });
+    return { sent: true };
+  } catch (error) {
+    recordMailFailure("mail", "email_failed", "Email richiesta cliente non inviata", {
+      to: body.to || "",
+      subject: body.subject || "",
+      company: body.payload && body.payload.contact ? body.payload.contact.company : "",
+      error: String(error.message || error),
+    });
+    throw error;
+  }
 }
 
 function sendWorkflowNotification(payload) {
@@ -418,19 +441,43 @@ function sendWorkflowNotification(payload) {
   const roles = Array.isArray(payload.recipientLabels) ? payload.recipientLabels : [];
   const sentRecipients = [];
 
-  recipients.forEach(function(recipient, index) {
-    const role = roles[index] || "";
-    const rolePayload = withMailActionForRole(payload, role);
-    MailApp.sendEmail({
-      to: recipient,
-      subject,
-      body: buildWorkflowEmailText(rolePayload),
-      htmlBody: buildWorkflowEmailHtml(rolePayload),
-      name: payload.fromName || getSettingValue("mail.fromName", "FunniFin Workshop Planner"),
+  try {
+    recipients.forEach(function(recipient, index) {
+      const role = roles[index] || "";
+      const rolePayload = withMailActionForRole(payload, role);
+      MailApp.sendEmail({
+        to: recipient,
+        subject,
+        body: buildWorkflowEmailText(rolePayload),
+        htmlBody: buildWorkflowEmailHtml(rolePayload),
+        name: payload.fromName || getSettingValue("mail.fromName", "FunniFin Workshop Planner"),
+      });
+      sentRecipients.push(recipient);
     });
-    sentRecipients.push(recipient);
-  });
+  } catch (error) {
+    recordMailFailure(payload.project && payload.project.id ? payload.project.id : "mail", "workflow_email_failed", "Email workflow non inviata", {
+      recipients,
+      subject,
+      phase: payload.phase || "",
+      error: String(error.message || error),
+    });
+    throw error;
+  }
   return { sent: true, subject, recipients: sentRecipients };
+}
+
+function recordMailFailure(requestId, type, title, payload) {
+  appendRequestEvent(requestId || "mail", type, title, payload);
+  createNotification({
+    title,
+    body: `${payload.company || payload.phase || "Workflow"}: ${payload.error || "errore invio email"}`,
+    sourceRole: "FunniFin",
+    audience: ["FunniFin"],
+    priority: "critical",
+    category: "mail",
+    action: { label: "Apri console", role: "FunniFin", hash: "#funnifin", projectId: requestId || "" },
+    requestId: requestId || "",
+  });
 }
 
 function stripHtml(html) {
@@ -540,6 +587,9 @@ function buildWorkflowEmailText(payload) {
 }
 
 function createWorkshopRequest(payload) {
+  return withSheetLock(function() {
+  validateWorkshopRequestPayload(payload);
+  rateLimitPublicAction("createWorkshopRequest", `${payload.contact.email}:${payload.contact.company}`, 5, 60 * 60);
   if (!payload.contact || !payload.contact.email || !payload.contact.company) {
     throw new Error("Missing request contact");
   }
@@ -577,6 +627,7 @@ function createWorkshopRequest(payload) {
     workshops: payload.workshops || [],
     quote: payload.quote || {},
     materials: payload.materials || {},
+    privacy: payload.privacy || {},
     createdAt: formatTimestamp(now),
     updatedAt: formatTimestamp(now),
   });
@@ -584,12 +635,23 @@ function createWorkshopRequest(payload) {
   sheet.appendRow(requestToRow(request));
   syncClientUserFromRequest(request);
   appendRequestEvent(request.id, "request_created", `Richiesta cliente creata per ${request.company}`, request);
+  createNotification({
+    title: "Nuova richiesta cliente",
+    body: `${request.company}: ${request.workshops.length} workshop da prendere in carico.`,
+    sourceRole: "Cliente",
+    audience: ["FunniFin"],
+    priority: "task",
+    category: "task",
+    action: { label: "Apri coda", role: "FunniFin", hash: "#funnifin", projectId: request.id },
+    requestId: request.id,
+  });
 
   return {
     ok: true,
     source: "google-sheet",
     request,
   };
+  });
 }
 
 function listWorkshopRequests(params) {
@@ -610,8 +672,49 @@ function listWorkshopRequests(params) {
   };
 }
 
+function getPublicCatalog() {
+  return {
+    ok: true,
+    source: "google-sheet",
+    topics: listCatalogConfig().topics.filter((topic) => topic.active !== false),
+    workshops: listCatalogWorkshops().workshops.filter((workshop) => workshop.active !== false && workshop.state !== "nascosto"),
+    rules: listPricingRules().rules,
+    updatedAt: formatTimestamp(new Date()),
+  };
+}
+
+function listRequestEvents(params) {
+  const sheet = getRequestEventsSheet();
+  const rows = sheet.getDataRange().getValues();
+  const requestId = params && params.requestId ? String(params.requestId) : "";
+  const events = rows.length <= 1 ? [] : rows.slice(1).map(rowToRequestEvent).filter(Boolean);
+  return {
+    ok: true,
+    source: "google-sheet",
+    events: events
+      .filter((event) => !requestId || event.requestId === requestId)
+      .sort((a, b) => String(b.timestamp || "").localeCompare(String(a.timestamp || ""))),
+  };
+}
+
+function rowToRequestEvent(row) {
+  try {
+    return {
+      timestamp: String(row[0] || ""),
+      requestId: String(row[1] || ""),
+      type: String(row[2] || ""),
+      note: String(row[3] || ""),
+      payload: row[4] ? JSON.parse(row[4]) : {},
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
 function updateWorkshopRequest(payload) {
+  return withSheetLock(function() {
   if (!payload.requestId) throw new Error("Missing requestId");
+  validateRequestPatchForRole(payload);
 
   const sheet = getRequestsSheet();
   const rows = sheet.getDataRange().getValues();
@@ -641,9 +744,11 @@ function updateWorkshopRequest(payload) {
     source: "google-sheet",
     request: merged,
   };
+  });
 }
 
 function deleteWorkshopRequest(payload) {
+  return withSheetLock(function() {
   const requestId = payload.requestId || payload.id;
   if (!requestId) throw new Error("Missing requestId");
 
@@ -671,6 +776,7 @@ function deleteWorkshopRequest(payload) {
     deleted: true,
     requestId: String(requestId),
   };
+  });
 }
 
 function listCatalogConfig() {
@@ -847,6 +953,186 @@ function updatePricingRule(payload) {
     source: "google-sheet",
     rule,
   };
+}
+
+function listNotifications(params) {
+  const sheet = getNotificationsSheet();
+  const rows = sheet.getDataRange().getValues();
+  const notifications = rows.length <= 1 ? [] : rows.slice(1).map(rowToNotification).filter(Boolean);
+  return {
+    ok: true,
+    source: "google-sheet",
+    notifications: notifications
+      .filter((notification) => isNotificationVisible(notification, params || {}))
+      .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+      .slice(0, 160),
+  };
+}
+
+function createNotification(payload) {
+  const notification = normalizeNotification(payload || {});
+  upsertSheetRow(getNotificationsSheet(), NOTIFICATION_HEADERS, notification.id, notificationToRow(notification));
+  appendRequestEvent(notification.requestId || "notifications", "notification_created", notification.title, notification);
+  return {
+    ok: true,
+    source: "google-sheet",
+    notification,
+  };
+}
+
+function updateNotification(payload) {
+  const id = String(payload.id || "");
+  if (!id) throw new Error("Missing notification id");
+
+  const sheet = getNotificationsSheet();
+  const rows = sheet.getDataRange().getValues();
+  const rowIndex = rows.findIndex((row, index) => index > 0 && row[0] === id);
+  if (rowIndex < 1) throw new Error(`Notification not found: ${id}`);
+
+  const current = rowToNotification(rows[rowIndex]);
+  const next = normalizeNotification(Object.assign({}, current, payload.patch || payload, {
+    id,
+    createdAt: current.createdAt,
+    updatedAt: formatTimestamp(new Date()),
+  }));
+  sheet.getRange(rowIndex + 1, 1, 1, NOTIFICATION_HEADERS.length).setValues([notificationToRow(next)]);
+  return {
+    ok: true,
+    source: "google-sheet",
+    notification: next,
+  };
+}
+
+function deleteNotification(payload) {
+  const id = String(payload.id || "");
+  if (!id) throw new Error("Missing notification id");
+
+  const sheet = getNotificationsSheet();
+  const rows = sheet.getDataRange().getValues();
+  const rowIndex = rows.findIndex((row, index) => index > 0 && row[0] === id);
+  if (rowIndex > 0) sheet.deleteRow(rowIndex + 1);
+  return {
+    ok: true,
+    source: "google-sheet",
+    deleted: rowIndex > 0,
+    id,
+  };
+}
+
+function markNotificationsRead(payload) {
+  const ids = normalizeStringList(payload.ids || payload.id);
+  const readerRole = String(payload.readerRole || payload.sessionRole || "");
+  const readerUserId = String(payload.readerUserId || payload.sessionUserId || "");
+  const readerEmail = String(payload.readerEmail || payload.sessionEmail || "").toLowerCase();
+  const sheet = getNotificationsSheet();
+  const rows = sheet.getDataRange().getValues();
+  let updated = 0;
+
+  for (let index = 1; index < rows.length; index += 1) {
+    const notification = rowToNotification(rows[index]);
+    if (!notification) continue;
+    if (ids.length && ids.indexOf(notification.id) === -1) continue;
+    if (!ids.length && !isNotificationVisible(notification, Object.assign({}, payload, { sessionRole: readerRole, sessionUserId: readerUserId, sessionEmail: readerEmail }))) continue;
+    const readBy = Array.from(new Set((notification.readBy || []).concat(readerRole ? [readerRole] : []))).filter(Boolean);
+    const readByUserIds = Array.from(new Set((notification.readByUserIds || []).concat(readerUserId ? [readerUserId] : []))).filter(Boolean);
+    const next = normalizeNotification(Object.assign({}, notification, {
+      readBy,
+      readByUserIds,
+      updatedAt: formatTimestamp(new Date()),
+    }));
+    sheet.getRange(index + 1, 1, 1, NOTIFICATION_HEADERS.length).setValues([notificationToRow(next)]);
+    updated += 1;
+  }
+
+  return {
+    ok: true,
+    source: "google-sheet",
+    updated,
+  };
+}
+
+function normalizeNotification(payload) {
+  const now = formatTimestamp(new Date());
+  const id = String(payload.id || `notification-${Utilities.getUuid()}`);
+  const action = payload.action || {};
+  return {
+    id,
+    title: String(payload.title || ""),
+    body: String(payload.body || ""),
+    createdAt: String(payload.createdAt || now),
+    updatedAt: String(payload.updatedAt || now),
+    sourceRole: String(payload.sourceRole || "FunniFin"),
+    audience: normalizeStringList(payload.audience).filter((role) => ["FunniFin", "Brand", "Esperto"].indexOf(role) >= 0),
+    audienceUserIds: normalizeStringList(payload.audienceUserIds),
+    audienceEmails: normalizeStringList(payload.audienceEmails).map((email) => email.toLowerCase()),
+    priority: String(payload.priority || "info"),
+    category: String(payload.category || "feedback"),
+    status: String(payload.status || "open"),
+    readBy: normalizeStringList(payload.readBy).filter((role) => ["FunniFin", "Brand", "Esperto"].indexOf(role) >= 0),
+    readByUserIds: normalizeStringList(payload.readByUserIds),
+    action,
+    requestId: String(payload.requestId || action.projectId || ""),
+  };
+}
+
+function notificationToRow(notification) {
+  return [
+    sheetText(notification.id),
+    sheetText(notification.title),
+    sheetText(notification.body),
+    sheetText(notification.createdAt),
+    sheetText(notification.updatedAt),
+    sheetText(notification.sourceRole),
+    sheetText((notification.audience || []).join(",")),
+    sheetText((notification.audienceUserIds || []).join(",")),
+    sheetText((notification.audienceEmails || []).join(",")),
+    sheetText(notification.priority),
+    sheetText(notification.category),
+    sheetText(notification.status),
+    sheetText((notification.readBy || []).join(",")),
+    sheetText((notification.readByUserIds || []).join(",")),
+    sheetText(JSON.stringify(notification.action || {})),
+    sheetText(notification.requestId || ""),
+    sheetText(JSON.stringify(notification)),
+  ];
+}
+
+function rowToNotification(row) {
+  try {
+    const payload = row[16] ? JSON.parse(row[16]) : {};
+    return normalizeNotification(Object.assign({}, payload, {
+      id: String(row[0] || payload.id || ""),
+      title: String(row[1] || payload.title || ""),
+      body: String(row[2] || payload.body || ""),
+      createdAt: String(row[3] || payload.createdAt || ""),
+      updatedAt: String(row[4] || payload.updatedAt || ""),
+      sourceRole: String(row[5] || payload.sourceRole || "FunniFin"),
+      audience: row[6] ? String(row[6]).split(",").filter(Boolean) : normalizeStringList(payload.audience),
+      audienceUserIds: row[7] ? String(row[7]).split(",").filter(Boolean) : normalizeStringList(payload.audienceUserIds),
+      audienceEmails: row[8] ? String(row[8]).split(",").filter(Boolean) : normalizeStringList(payload.audienceEmails),
+      priority: String(row[9] || payload.priority || "info"),
+      category: String(row[10] || payload.category || "feedback"),
+      status: String(row[11] || payload.status || "open"),
+      readBy: row[12] ? String(row[12]).split(",").filter(Boolean) : normalizeStringList(payload.readBy),
+      readByUserIds: row[13] ? String(row[13]).split(",").filter(Boolean) : normalizeStringList(payload.readByUserIds),
+      action: row[14] ? JSON.parse(row[14]) : payload.action || {},
+      requestId: String(row[15] || payload.requestId || ""),
+    }));
+  } catch (error) {
+    return null;
+  }
+}
+
+function isNotificationVisible(notification, params) {
+  const role = String(params.sessionRole || params.readerRole || params.role || "");
+  const userId = String(params.sessionUserId || params.readerUserId || params.userId || "");
+  const email = String(params.sessionEmail || params.readerEmail || params.email || "").toLowerCase();
+  const audience = notification.audience || [];
+  const audienceUserIds = notification.audienceUserIds || [];
+  const audienceEmails = notification.audienceEmails || [];
+  return audience.indexOf(role) >= 0 &&
+    (!audienceUserIds.length || audienceUserIds.indexOf(userId) >= 0) &&
+    (!audienceEmails.length || audienceEmails.indexOf(email) >= 0);
 }
 
 function upsertSheetRow(sheet, headers, id, row) {
@@ -1143,6 +1429,7 @@ function getGoogleHealth(params) {
       catalogTopics: Math.max(0, getCatalogTopicsSheet().getLastRow() - 1),
       catalogWorkshops: Math.max(0, getCatalogWorkshopsSheet().getLastRow() - 1),
       pricingRules: Math.max(0, getPricingRulesSheet().getLastRow() - 1),
+      notifications: Math.max(0, getNotificationsSheet().getLastRow() - 1),
       experts: Math.max(0, getExpertsSheet().getLastRow() - 1),
       settings: Math.max(0, getSettingsSheet().getLastRow() - 1),
     },
@@ -1222,6 +1509,86 @@ function seedAdminConfig(payload) {
 function normalizeStringList(value) {
   if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean);
   return String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function withSheetLock(work) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    return work();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function rateLimitPublicAction(action, identity, limit, ttlSeconds) {
+  const key = `rate_${action}_${Utilities.base64EncodeWebSafe(String(identity || "anon")).slice(0, 80)}`;
+  const cache = CacheService.getScriptCache();
+  const current = Number(cache.get(key) || 0);
+  if (current >= limit) {
+    throw new Error("Troppe richieste ravvicinate. Riprova tra qualche minuto.");
+  }
+  cache.put(key, String(current + 1), ttlSeconds);
+}
+
+function assertValidEmail(email) {
+  const value = String(email || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new Error("Email non valida.");
+  if (value.length > 180) throw new Error("Email troppo lunga.");
+  return value;
+}
+
+function assertShortText(value, label, maxLength) {
+  const next = String(value || "").trim();
+  if (next.length > maxLength) throw new Error(`${label} troppo lungo.`);
+  return next;
+}
+
+function validateWorkshopRequestPayload(payload) {
+  if (!payload || !payload.contact) throw new Error("Missing request contact");
+  assertValidEmail(payload.contact.email);
+  if (!assertShortText(payload.contact.company, "Azienda", 120)) throw new Error("Azienda obbligatoria.");
+  assertShortText(payload.contact.firstName, "Nome", 80);
+  assertShortText(payload.contact.lastName, "Cognome", 80);
+  assertShortText(payload.contact.phone, "Telefono", 40);
+  const workshops = Array.isArray(payload.workshops) ? payload.workshops : [];
+  if (!workshops.length) throw new Error("Seleziona almeno un workshop.");
+  if (workshops.length > 12) throw new Error("Troppi workshop nella richiesta.");
+  workshops.forEach((workshop) => {
+    assertShortText(workshop.workshopId, "Workshop", 80);
+    assertShortText(workshop.title, "Titolo workshop", 180);
+    if (["1h", "2h"].indexOf(String(workshop.duration || "")) === -1) throw new Error("Durata workshop non valida.");
+    if (["live", "webinar", "ibrido"].indexOf(String(workshop.format || "")) === -1) throw new Error("Formato workshop non valido.");
+    if (Number(workshop.price || 0) < 0 || Number(workshop.price || 0) > 50000) throw new Error("Prezzo workshop non valido.");
+    assertShortText(workshop.customNote, "Nota custom", 1200);
+  });
+  if (payload.quote && Number(payload.quote.total || 0) > 200000) throw new Error("Preventivo fuori scala.");
+  if (!payload.privacy || payload.privacy.accepted !== true || !payload.privacy.version) {
+    throw new Error("Consenso privacy obbligatorio.");
+  }
+}
+
+function validateRequestPatchForRole(payload) {
+  if (payload && payload.system === true) return true;
+  const auth = requireSession(payload || {}, ["FunniFin", "Esperto", "Brand"]);
+  const role = auth.user.actualRole;
+  const patch = payload.patch || {};
+  const keys = Object.keys(patch);
+  if (role === "FunniFin") return true;
+  const allowedByRole = {
+    Esperto: ["workshops", "materials", "status", "updatedAt"],
+    Brand: ["materials", "status", "updatedAt"],
+  };
+  const allowed = allowedByRole[role] || [];
+  const forbidden = keys.filter((key) => allowed.indexOf(key) === -1);
+  if (forbidden.length) throw new Error("Permessi insufficienti per aggiornare questi campi.");
+  if (role === "Esperto" && patch.status && ["in_preparazione_esperto", "in_revisione_brand"].indexOf(String(patch.status)) === -1) {
+    throw new Error("Transizione stato non consentita per Esperto.");
+  }
+  if (role === "Brand" && patch.status && ["in_revisione_brand", "approvazione_finale"].indexOf(String(patch.status)) === -1) {
+    throw new Error("Transizione stato non consentita per Brand.");
+  }
+  return true;
 }
 
 const REQUEST_HEADERS = [
@@ -1316,6 +1683,26 @@ const PRICING_RULE_HEADERS = [
   "payloadJson",
 ];
 
+const NOTIFICATION_HEADERS = [
+  "id",
+  "title",
+  "body",
+  "createdAt",
+  "updatedAt",
+  "sourceRole",
+  "audience",
+  "audienceUserIds",
+  "audienceEmails",
+  "priority",
+  "category",
+  "status",
+  "readBy",
+  "readByUserIds",
+  "actionJson",
+  "requestId",
+  "payloadJson",
+];
+
 const EXPERT_HEADERS = [
   "id",
   "firstName",
@@ -1405,9 +1792,67 @@ function seedAuthUsersIfNeeded() {
   const sheet = getAuthUsersSheet();
   const rows = sheet.getDataRange().getValues();
   if (rows.length > 1) return;
-  AUTH_SEED_USERS.forEach((user) => {
+  getInitialAuthSeedUsers().forEach((user) => {
     upsertSheetRow(sheet, AUTH_USER_HEADERS, user.id, authUserToRow(user));
   });
+}
+
+function getInitialAuthSeedUsers() {
+  const properties = PropertiesService.getScriptProperties();
+  const raw = properties.getProperty("AUTH_SEED_USERS_JSON") || "";
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.map(normalizeSeedAuthUser).filter(Boolean);
+    } catch (error) {
+      throw new Error("AUTH_SEED_USERS_JSON non valido.");
+    }
+  }
+
+  const users = [];
+  const funnifinEmail = properties.getProperty("INITIAL_FUNNIFIN_EMAIL") || "";
+  if (funnifinEmail) {
+    users.push(normalizeSeedAuthUser({
+      id: "user-funnifin",
+      email: funnifinEmail,
+      actualRole: "FunniFin",
+      displayName: properties.getProperty("INITIAL_FUNNIFIN_NAME") || "Team FunniFin",
+    }));
+  }
+  const expertEmail = properties.getProperty("INITIAL_EXPERT_EMAIL") || "";
+  if (expertEmail) {
+    users.push(normalizeSeedAuthUser({
+      id: "user-esperto",
+      email: expertEmail,
+      actualRole: "Esperto",
+      expertId: properties.getProperty("INITIAL_EXPERT_ID") || "",
+      displayName: properties.getProperty("INITIAL_EXPERT_NAME") || "Esperto",
+    }));
+  }
+  const brandEmail = properties.getProperty("INITIAL_BRAND_EMAIL") || "";
+  if (brandEmail) {
+    users.push(normalizeSeedAuthUser({
+      id: "user-brand",
+      email: brandEmail,
+      actualRole: "Brand",
+      displayName: properties.getProperty("INITIAL_BRAND_NAME") || "Brand Review",
+    }));
+  }
+  return users.filter(Boolean);
+}
+
+function normalizeSeedAuthUser(user) {
+  if (!user || !user.email || !user.actualRole) return null;
+  return {
+    id: String(user.id || buildAuthUserId(user.email)),
+    email: String(user.email || "").trim().toLowerCase(),
+    actualRole: String(user.actualRole || ""),
+    expertId: String(user.expertId || ""),
+    displayName: String(user.displayName || user.email || ""),
+    invitedBy: String(user.invitedBy || "setup"),
+    createdAt: String(user.createdAt || "2024-01-01T00:00:00"),
+    disabled: user.disabled === true,
+  };
 }
 
 function listAuthUsers() {
@@ -1434,8 +1879,11 @@ function listAccessRequests() {
 }
 
 function requestLoginCode(payload) {
+  return withSheetLock(function() {
   const email = String(payload.email || "").trim().toLowerCase();
   if (!email) throw new Error("Missing email");
+  assertValidEmail(email);
+  rateLimitPublicAction("requestLoginCode", email, 4, 15 * 60);
 
   seedAuthUsersIfNeeded();
   if (payload.requestedRole) {
@@ -1548,13 +1996,17 @@ function requestLoginCode(payload) {
     request: publicAccessRequest(request),
     user: issuingUser || rowToAuthUser(findAuthUserRowByEmail(email, usersSheet)) || null,
   };
+  });
 }
 
 function verifyLoginCode(payload) {
+  return withSheetLock(function() {
   const email = String(payload.email || "").trim().toLowerCase();
   const code = String(payload.code || "").trim();
   if (!email) throw new Error("Missing email");
   if (!code) throw new Error("Missing code");
+  assertValidEmail(email);
+  rateLimitPublicAction("verifyLoginCode", email, 8, 15 * 60);
 
   seedAuthUsersIfNeeded();
   const usersSheet = getAuthUsersSheet();
@@ -1567,6 +2019,9 @@ function verifyLoginCode(payload) {
 
   if (!request) {
     throw new Error("Codice non valido.");
+  }
+  if (request.codeStatus === "verified") {
+    throw new Error("Codice gia utilizzato.");
   }
   if (!request.codeExpiresAt || new Date(request.codeExpiresAt).getTime() < Date.now()) {
     const expired = Object.assign({}, request, {
@@ -1600,6 +2055,7 @@ function verifyLoginCode(payload) {
     session: session,
     user: user,
   };
+  });
 }
 
 function reviewAccessRequest(payload) {
@@ -1782,8 +2238,10 @@ function findAuthSessionByToken(token) {
 
 function createSmokeTestSession(payload) {
   seedAuthUsersIfNeeded();
-  const email = String(payload.email || "rinaldi.rilio@gmail.com").trim().toLowerCase();
-  const user = rowToAuthUser(findAuthUserRowByEmail(email, getAuthUsersSheet()));
+  const email = String(payload.email || PropertiesService.getScriptProperties().getProperty("SMOKE_FUNNIFIN_EMAIL") || PropertiesService.getScriptProperties().getProperty("INITIAL_FUNNIFIN_EMAIL") || "").trim().toLowerCase();
+  const user = email
+    ? rowToAuthUser(findAuthUserRowByEmail(email, getAuthUsersSheet()))
+    : findFirstAuthUserByRole("FunniFin");
   if (!user || user.disabled) throw new Error(`Smoke user not available: ${email}`);
 
   const durationMinutes = Number(payload.durationMinutes || 30);
@@ -1803,6 +2261,15 @@ function createSmokeTestSession(payload) {
     session,
     user,
   };
+}
+
+function findFirstAuthUserByRole(role) {
+  const rows = getAuthUsersSheet().getDataRange().getValues();
+  for (let index = 1; index < rows.length; index += 1) {
+    const user = rowToAuthUser(rows[index]);
+    if (user && user.actualRole === role && !user.disabled) return user;
+  }
+  return null;
 }
 
 function smokeTestSheetLifecycle(payload) {
@@ -1844,11 +2311,17 @@ function smokeTestSheetLifecycle(payload) {
       packageName: "Smoke",
     },
     materials: {},
+    privacy: {
+      accepted: true,
+      acceptedAt: new Date().toISOString(),
+      version: "smoke-test",
+    },
   }).request;
 
   const listed = listWorkshopRequests({}).requests.some((request) => request.id === requestId);
   const updated = updateWorkshopRequest({
     requestId,
+    system: true,
     patch: { status: "in_verifica_funnifin" },
     event: {
       type: "smoke_test_update",
@@ -2173,6 +2646,13 @@ function getPricingRulesSheet() {
   return sheet;
 }
 
+function getNotificationsSheet() {
+  const spreadsheet = getRequestsSpreadsheet();
+  const sheet = getOrCreateSheet(spreadsheet, "Notifications", NOTIFICATION_HEADERS);
+  ensureHeaderRow(sheet, NOTIFICATION_HEADERS);
+  return sheet;
+}
+
 function getExpertsSheet() {
   const spreadsheet = getRequestsSpreadsheet();
   const sheet = getOrCreateSheet(spreadsheet, "Experts", EXPERT_HEADERS);
@@ -2350,6 +2830,11 @@ function normalizeWorkshopRequest(request) {
       packageName: quote.packageName || "",
     },
     materials: request.materials || {},
+    privacy: {
+      accepted: request.privacy && request.privacy.accepted === true,
+      acceptedAt: request.privacy && request.privacy.acceptedAt ? String(request.privacy.acceptedAt) : "",
+      version: request.privacy && request.privacy.version ? String(request.privacy.version) : "",
+    },
     calendarEvent: request.calendarEvent || null,
   };
 }
@@ -2525,22 +3010,30 @@ function ensurePresentationStructure(payload) {
 }
 
 function createAssetDraftFolder(params) {
+  rateLimitPublicAction("createAssetDraftFolder", String(params.clientName || "cliente"), 6, 60 * 60);
   const parentId = params.parentId || getRuntimeDriveRootFolderId() || getRuntimeSlidesRootFolderId();
   if (!parentId) {
     throw new Error("Missing DRIVE_ROOT_FOLDER_ID or SLIDES_ROOT_FOLDER_ID");
   }
 
   const parent = DriveApp.getFolderById(parentId);
-  const clientName = sanitizeDriveName(params.clientName || "cliente");
+  const clientName = sanitizeDriveName(assertShortText(params.clientName || "cliente", "Nome cliente", 120));
   const dateStamp = Utilities.formatDate(new Date(), SETTINGS.timezone, "dd-MM-yyyy");
   const folderName = `${clientName} ${dateStamp}`;
   const folder = parent.createFolder(folderName);
+  const draftToken = Utilities.getUuid();
+  CacheService.getScriptCache().put(assetDraftCacheKey(folder.getId()), JSON.stringify({
+    token: draftToken,
+    createdAt: new Date().toISOString(),
+    clientName,
+  }), 6 * 60 * 60);
 
   return {
     source: "google-drive",
     id: folder.getId(),
     name: folder.getName(),
     url: folder.getUrl(),
+    draftToken,
   };
 }
 
@@ -2548,9 +3041,12 @@ function uploadAssetFile(payload) {
   if (!payload.folderId || !payload.fileName || !payload.data) {
     throw new Error("Missing folderId, fileName or data");
   }
+  requireAssetDraftAccess(payload);
+  validateAssetUpload(payload);
 
   const folder = DriveApp.getFolderById(payload.folderId);
   const bytes = Utilities.base64Decode(payload.data);
+  if (countFolderFiles(folder) >= 10) throw new Error("Limite file raggiunto per questa cartella.");
   const blob = Utilities.newBlob(bytes, payload.mimeType || "application/octet-stream", sanitizeDriveName(payload.fileName));
   const file = folder.createFile(blob);
 
@@ -2567,6 +3063,7 @@ function deleteAssetDraftFolder(params) {
   if (!params.folderId) {
     throw new Error("Missing folderId");
   }
+  requireAssetDraftAccess(params);
 
   const folder = DriveApp.getFolderById(params.folderId);
   folder.setTrashed(true);
@@ -2575,6 +3072,71 @@ function deleteAssetDraftFolder(params) {
     deleted: true,
     folderId: params.folderId,
   };
+}
+
+function assetDraftCacheKey(folderId) {
+  return `asset_draft_${String(folderId || "").replace(/[^a-zA-Z0-9_-]/g, "")}`;
+}
+
+function requireAssetDraftAccess(payload) {
+  const auth = tryRequireSession(payload, ["FunniFin", "Brand", "Esperto"]);
+  if (auth) return true;
+  const folderId = String(payload.folderId || "");
+  const draftToken = String(payload.draftToken || payload.token || "");
+  const raw = CacheService.getScriptCache().get(assetDraftCacheKey(folderId));
+  if (!raw || !draftToken) throw new Error("Token upload non valido o scaduto.");
+  try {
+    const draft = JSON.parse(raw);
+    if (draft.token && draft.token === draftToken) return true;
+  } catch (error) {
+    // fall through
+  }
+  throw new Error("Token upload non valido o scaduto.");
+}
+
+function tryRequireSession(source, allowedRoles) {
+  try {
+    return requireSession(source || {}, allowedRoles);
+  } catch (error) {
+    return null;
+  }
+}
+
+function validateAssetUpload(payload) {
+  const name = sanitizeDriveName(payload.fileName || "");
+  if (!name || name.length > 160) throw new Error("Nome file non valido.");
+  const mimeType = String(payload.mimeType || "application/octet-stream").toLowerCase();
+  const allowedMime = [
+    "application/pdf",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+  ];
+  const allowedExt = [".pdf", ".ppt", ".pptx", ".xls", ".xlsx", ".doc", ".docx", ".png", ".jpg", ".jpeg", ".webp"];
+  const lowerName = name.toLowerCase();
+  if (allowedMime.indexOf(mimeType) === -1 && !allowedExt.some((ext) => lowerName.endsWith(ext))) {
+    throw new Error("Tipo file non consentito.");
+  }
+  const bytes = Utilities.base64Decode(payload.data);
+  if (bytes.length > 10 * 1024 * 1024) throw new Error("File troppo grande: massimo 10 MB.");
+  if (bytes.length <= 0) throw new Error("File vuoto.");
+}
+
+function countFolderFiles(folder) {
+  const files = folder.getFiles();
+  let count = 0;
+  while (files.hasNext()) {
+    files.next();
+    count += 1;
+    if (count >= 10) return count;
+  }
+  return count;
 }
 
 function listBrandPresentations(params) {

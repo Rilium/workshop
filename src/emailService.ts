@@ -315,7 +315,7 @@ export async function sendWorkshopRequestEmail(payload: WorkshopRequestEmailPayl
     const body = {
       action: SECRET_SETTINGS.google.email.actions.sendWorkshopRequest,
       to: payload.contact.email,
-      cc: payload.mail?.cc || SECRET_SETTINGS.google.email.internalRecipient,
+      cc: payload.mail?.cc || SECRET_SETTINGS.google.email.internalRecipient || undefined,
       fromName: payload.mail?.fromName || SECRET_SETTINGS.google.email.fromName,
       subject,
       html,
@@ -332,15 +332,17 @@ export async function sendWorkshopRequestEmail(payload: WorkshopRequestEmailPayl
     html,
     subject,
     text,
-    recipients: [payload.contact.email, payload.mail?.cc || SECRET_SETTINGS.google.email.internalRecipient],
+    recipients: [payload.contact.email, payload.mail?.cc || SECRET_SETTINGS.google.email.internalRecipient].filter(Boolean),
   };
 }
 
 export async function sendWorkflowNotification(payload: WorkflowNotificationPayload) {
   const env = (import.meta as unknown as { env: Record<string, string | undefined> }).env;
   const scriptUrl = env[SECRET_SETTINGS.google.env.appScriptDeploymentUrl];
-  const recipientMap = SECRET_SETTINGS.google.email.testRecipients;
-  const to = payload.recipients.map((role) => (role === "client" ? payload.project.email : payload.recipientEmails?.[role] || recipientMap[role]));
+  const recipientMap = SECRET_SETTINGS.google.email.roleRecipients;
+  const to = payload.recipients
+    .map((role) => (role === "client" ? payload.project.email : payload.recipientEmails?.[role] || recipientMap[role] || ""))
+    .filter(Boolean);
   const payloadWithAction = {
     ...payload,
     ...buildWorkflowAction(payload),

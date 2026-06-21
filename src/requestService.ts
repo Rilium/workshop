@@ -74,6 +74,11 @@ export type WorkshopRequestRecord = {
     calendarDeckEnabled?: boolean;
     calendarDeckEnabledAt?: string;
   };
+  privacy?: {
+    accepted: boolean;
+    acceptedAt: string;
+    version: string;
+  };
   calendarEvent?: {
     id?: string;
     mode?: "tentative" | "confirmed";
@@ -87,6 +92,7 @@ export type CreateWorkshopRequestPayload = {
   workshops: RequestWorkshopRecord[];
   quote: WorkshopRequestRecord["quote"];
   materials?: WorkshopRequestRecord["materials"];
+  privacy?: WorkshopRequestRecord["privacy"];
 };
 
 function getScriptUrl() {

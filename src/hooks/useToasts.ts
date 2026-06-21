@@ -1,4 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import { allowLocalFallbacks } from "../authTransport";
+import {
+  createNotification,
+  deleteNotification as deleteRemoteNotification,
+  hasNotificationBackend,
+  listNotifications,
+  markNotificationsRead as markRemoteNotificationsRead,
+  updateNotification as updateRemoteNotification,
+} from "../notificationService";
 import type { AppNotification, AppNotificationRole, NotifyOptions, Role, Toast } from "../types/domain";
 
 const NOTIFICATION_STORAGE_KEY = "funnifin_notifications_v1";
@@ -58,8 +67,10 @@ function isVisibleForReader(n: AppNotification, readerRole: AppNotificationRole,
 
 export function useToasts(role: Role, currentUserId?: string, currentUserEmail?: string) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [notifications, setNotifications] = useState<AppNotification[]>(readStoredNotifications);
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => (allowLocalFallbacks() ? readStoredNotifications() : []));
   const toastIdCounter = useRef(0);
+  const remoteReady = useRef(false);
+  const loadToken = useRef(0);
 
   // ── Per-toast timers: un timeout dedicato per ID, nessuna race condition ──
   const toastTimers = useRef<Map<number, number>>(new Map());
@@ -69,6 +80,7 @@ export function useToasts(role: Role, currentUserId?: string, currentUserEmail?:
   const pendingNotifications = useRef<AppNotification[]>(notifications);
 
   const scheduleLsWrite = (next: AppNotification[]) => {
+    if (!allowLocalFallbacks()) return;
     pendingNotifications.current = next;
     if (lsTimer.current) clearTimeout(lsTimer.current);
     lsTimer.current = window.setTimeout(() => {
@@ -84,10 +96,45 @@ export function useToasts(role: Role, currentUserId?: string, currentUserEmail?:
     };
   }, []);
 
+  useEffect(() => {
+    if (allowLocalFallbacks()) setNotifications(readStoredNotifications());
+  }, []);
+
   // ── Sync localStorage quando notifications cambia ──
   useEffect(() => {
     scheduleLsWrite(notifications);
   }, [notifications]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!isNotificationRole(role) || !currentUserId) {
+      remoteReady.current = false;
+      if (!allowLocalFallbacks()) setNotifications([]);
+      return;
+    }
+    if (!hasNotificationBackend() && allowLocalFallbacks()) {
+      remoteReady.current = false;
+      setNotifications(readStoredNotifications());
+      return;
+    }
+
+    let cancelled = false;
+    const token = loadToken.current + 1;
+    loadToken.current = token;
+    listNotifications()
+      .then((remoteNotifications) => {
+        if (cancelled || loadToken.current !== token) return;
+        remoteReady.current = true;
+        setNotifications(remoteNotifications);
+      })
+      .catch(() => {
+        remoteReady.current = false;
+        if (allowLocalFallbacks()) setNotifications(readStoredNotifications());
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [role, currentUserId]);
 
   const dismissToast = (id: number) => {
     const existing = toastTimers.current.get(id);
@@ -145,24 +192,38 @@ export function useToasts(role: Role, currentUserId?: string, currentUserEmail?:
     };
 
     setNotifications((current) => [notification, ...current].slice(0, 120));
+    if (isNotificationRole(role) && currentUserId && hasNotificationBackend()) {
+      void createNotification(notification)
+        .then((saved) => {
+          remoteReady.current = true;
+          setNotifications((current) => current.map((item) => (item.id === notification.id ? saved : item)));
+        })
+        .catch(() => {
+          remoteReady.current = false;
+        });
+    }
   };
 
   const closeToast = (id: number) => dismissToast(id);
 
   const closeNotification = (id: string) => {
+    const patch = { status: "closed" as const, updatedAt: new Date().toISOString() };
     setNotifications((current) =>
       current.map((n) =>
-        n.id === id ? { ...n, status: "closed", updatedAt: new Date().toISOString() } : n,
+        n.id === id ? { ...n, ...patch } : n,
       ),
     );
+    if (remoteReady.current) void updateRemoteNotification(id, patch).catch(() => undefined);
   };
 
   const reopenNotification = (id: string) => {
+    const patch = { status: "open" as const, updatedAt: new Date().toISOString() };
     setNotifications((current) =>
       current.map((n) =>
-        n.id === id ? { ...n, status: "open", updatedAt: new Date().toISOString() } : n,
+        n.id === id ? { ...n, ...patch } : n,
       ),
     );
+    if (remoteReady.current) void updateRemoteNotification(id, patch).catch(() => undefined);
   };
 
   const markNotificationRead = (id: string, readerRole: AppNotificationRole, readerUserId = currentUserId) => {
@@ -184,10 +245,17 @@ export function useToasts(role: Role, currentUserId?: string, currentUserEmail?:
           : n,
       ),
     );
+    if (remoteReady.current) void markRemoteNotificationsRead([id], readerRole).catch(() => undefined);
   };
 
   // Segna tutte le notifiche visibili per il ruolo come lette — un solo setState
   const markVisibleNotificationsRead = (readerRole: AppNotificationRole, readerUserId = currentUserId, readerEmail = currentUserEmail) => {
+    const ids = notifications
+      .filter((n) => {
+        const alreadyRead = readerUserId ? (n.readByUserIds ?? []).includes(readerUserId) : n.readBy.includes(readerRole);
+        return isVisibleForReader(n, readerRole, readerUserId, readerEmail) && !alreadyRead;
+      })
+      .map((n) => n.id);
     setNotifications((current) => {
       const now = new Date().toISOString();
       let changed = false;
@@ -208,10 +276,17 @@ export function useToasts(role: Role, currentUserId?: string, currentUserEmail?:
       });
       return changed ? next : current; // evita re-render se nulla è cambiato
     });
+    if (remoteReady.current && ids.length) void markRemoteNotificationsRead(ids, readerRole).catch(() => undefined);
   };
 
   // Segna tutte le aperte per il ruolo come lette — un solo setState
   const markAllNotificationsRead = (readerRole: AppNotificationRole, readerUserId = currentUserId, readerEmail = currentUserEmail) => {
+    const ids = notifications
+      .filter((n) => {
+        const alreadyRead = readerUserId ? (n.readByUserIds ?? []).includes(readerUserId) : n.readBy.includes(readerRole);
+        return n.status === "open" && isVisibleForReader(n, readerRole, readerUserId, readerEmail) && !alreadyRead;
+      })
+      .map((n) => n.id);
     setNotifications((current) => {
       const now = new Date().toISOString();
       let changed = false;
@@ -232,18 +307,24 @@ export function useToasts(role: Role, currentUserId?: string, currentUserEmail?:
       });
       return changed ? next : current;
     });
+    if (remoteReady.current && ids.length) void markRemoteNotificationsRead(ids, readerRole).catch(() => undefined);
   };
 
   const clearClosedNotifications = (readerRole: AppNotificationRole) => {
+    const ids = notifications
+      .filter((n) => n.status === "closed" && isVisibleForReader(n, readerRole, currentUserId, currentUserEmail))
+      .map((n) => n.id);
     setNotifications((current) =>
       current.filter((n) => !(n.status === "closed" && isVisibleForReader(n, readerRole, currentUserId, currentUserEmail))),
     );
+    if (remoteReady.current) ids.forEach((id) => void deleteRemoteNotification(id).catch(() => undefined));
   };
 
   const deleteClosedNotification = (id: string, readerRole: AppNotificationRole, readerUserId = currentUserId, readerEmail = currentUserEmail) => {
     setNotifications((current) =>
       current.filter((n) => !(n.id === id && n.status === "closed" && isVisibleForReader(n, readerRole, readerUserId, readerEmail))),
     );
+    if (remoteReady.current) void deleteRemoteNotification(id).catch(() => undefined);
   };
 
   return {

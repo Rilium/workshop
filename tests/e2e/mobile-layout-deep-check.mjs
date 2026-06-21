@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
+import { localSession } from "./localTestSettings.mjs";
 
 const PORT = 5187;
 const BASE_URL = `http://127.0.0.1:${PORT}/`;
@@ -113,27 +114,11 @@ async function run() {
     page.on("console", (msg) => {
       if (msg.type() === "error") errors.push(msg.text());
     });
-    await page.addInitScript(() => {
+    await page.addInitScript((session) => {
       Math.random = () => 0;
-      const token = "mobile-layout";
-      const session = {
-        userId: "user-funnifin",
-        token,
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-        effectiveRole: "FunniFin",
-        user: {
-          id: "user-funnifin",
-          email: "rinaldi.rilio@gmail.com",
-          actualRole: "FunniFin",
-          displayName: "Team FunniFin",
-          createdAt: "2024-01-01T00:00:00",
-          disabled: false,
-        },
-      };
       window.localStorage.setItem("funnifin_auth_session", JSON.stringify(session));
-      window.sessionStorage.setItem(`funnifin_welcome_seen_${token}`, "1");
-    });
+      window.sessionStorage.setItem(`funnifin_welcome_seen_${session.token}`, "1");
+    }, localSession("funnifin", { token: "mobile-layout" }));
 
     await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(800);

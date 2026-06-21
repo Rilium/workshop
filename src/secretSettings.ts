@@ -1,3 +1,9 @@
+function envString(key: string) {
+  return (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.[key] || "";
+}
+
+// Prod config must come from env, Script Properties, or Sheet Settings.
+// Local/demo identities belong only in config/local-test-settings.json.
 export const SECRET_SETTINGS = {
   google: {
     env: {
@@ -46,12 +52,12 @@ export const SECRET_SETTINGS = {
       calendarSlotEndHour: 23,
     },
     email: {
-      internalRecipient: "rinaldi.rilio@gmail.com",
-      testRecipients: {
-        client: "rinaldi.rilio+2@gmail.com",
-        funnifin: "rinaldi.rilio+1@gmail.com",
-        expert: "rinaldi.rilio+3@gmail.com",
-        brand: "rinaldi.rilio+4@gmail.com",
+      internalRecipient: envString("VITE_INTERNAL_RECIPIENT"),
+      roleRecipients: {
+        client: envString("VITE_CLIENT_RECIPIENT"),
+        funnifin: envString("VITE_FUNNIFIN_RECIPIENT"),
+        expert: envString("VITE_EXPERT_RECIPIENT"),
+        brand: envString("VITE_BRAND_RECIPIENT"),
       },
       fromName: "FunniFin Workshop Planner",
       actions: {

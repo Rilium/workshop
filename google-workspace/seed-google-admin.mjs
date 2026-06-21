@@ -21,6 +21,11 @@ const scriptUrl = env.VITE_APPS_SCRIPT_DEPLOYMENT_URL;
 if (!scriptUrl) throw new Error("Missing VITE_APPS_SCRIPT_DEPLOYMENT_URL");
 const setupSecret = env.ADMIN_SETUP_SECRET || env.VITE_ADMIN_SETUP_SECRET || "";
 if (!setupSecret) throw new Error("Missing ADMIN_SETUP_SECRET or VITE_ADMIN_SETUP_SECRET");
+const localTestSettingsPath = "config/local-test-settings.json";
+const localTestSettings = fs.existsSync(localTestSettingsPath)
+  ? JSON.parse(fs.readFileSync(localTestSettingsPath, "utf8"))
+  : { mail: { recipients: {} }, authUsers: {} };
+const mailRecipients = localTestSettings.mail?.recipients || {};
 
 const catalogSource = fs.readFileSync("src/data/catalog.ts", "utf8");
 const pricingSource = fs.readFileSync("src/data/pricing.ts", "utf8");
@@ -48,7 +53,7 @@ function buildExpertProfiles() {
       id: expert.id,
       firstName,
       lastName: lastNameParts.join(" "),
-      email: `rinaldi.rilio+${index + 3}@gmail.com`,
+      email: env[`EXPERT_${index + 1}_EMAIL`] || mailRecipients.expert || "",
       photo: "",
       bio: "Profilo esperto FunniFin associato ai workshop del catalogo.",
       topicIds,
@@ -107,14 +112,14 @@ if (missingActions.length > 0) {
 const settings = [
   { key: "mail.provider", value: "Google MailApp", group: "mail", label: "Provider invii" },
   { key: "mail.fromName", value: "FunniFin Workshop Planner", group: "mail", label: "Nome mittente" },
-  { key: "mail.internalRecipient", value: "rinaldi.rilio@gmail.com", group: "mail", label: "Inbox interna" },
-  { key: "mail.funnifin", value: "rinaldi.rilio+1@gmail.com", group: "mail", label: "Email FunniFin" },
-  { key: "mail.expert", value: "rinaldi.rilio+3@gmail.com", group: "mail", label: "Email Esperti" },
-  { key: "mail.brand", value: "rinaldi.rilio+4@gmail.com", group: "mail", label: "Email Brand" },
+  { key: "mail.internalRecipient", value: env.INTERNAL_RECIPIENT || env.VITE_INTERNAL_RECIPIENT || localTestSettings.mail?.internalRecipient || "", group: "mail", label: "Inbox interna" },
+  { key: "mail.funnifin", value: env.FUNNIFIN_RECIPIENT || env.VITE_FUNNIFIN_RECIPIENT || mailRecipients.funnifin || "", group: "mail", label: "Email FunniFin" },
+  { key: "mail.expert", value: env.EXPERT_RECIPIENT || env.VITE_EXPERT_RECIPIENT || mailRecipients.expert || "", group: "mail", label: "Email Esperti" },
+  { key: "mail.brand", value: env.BRAND_RECIPIENT || env.VITE_BRAND_RECIPIENT || mailRecipients.brand || "", group: "mail", label: "Email Brand" },
   { key: "funnifin.name", value: "Team FunniFin", group: "identity", label: "Nome FunniFin" },
-  { key: "funnifin.email", value: "rinaldi.rilio@gmail.com", group: "identity", label: "Email FunniFin" },
+  { key: "funnifin.email", value: env.FUNNIFIN_EMAIL || env.VITE_FUNNIFIN_RECIPIENT || mailRecipients.funnifin || "", group: "identity", label: "Email FunniFin" },
   { key: "brand.name", value: "Brand Review", group: "identity", label: "Nome Brand" },
-  { key: "brand.email", value: "rinaldi.rilio+4@gmail.com", group: "identity", label: "Email Brand" },
+  { key: "brand.email", value: env.BRAND_EMAIL || env.VITE_BRAND_RECIPIENT || mailRecipients.brand || "", group: "identity", label: "Email Brand" },
   { key: "calendar.id", value: env.VITE_FUNNIFIN_CALENDAR_ID || "", group: "google", label: "Calendar ID" },
   { key: "calendar.name", value: env.VITE_FUNNIFIN_CALENDAR_NAME || "", group: "google", label: "Calendar name" },
   { key: "drive.rootFolderId", value: env.VITE_DRIVE_ROOT_FOLDER_ID || "", group: "google", label: "Drive root materiali" },

@@ -272,7 +272,7 @@ export function AdminActionModal({
   const pricePreviewCount = normalizedMax >= 99 ? Math.max(normalizedMin, 6) : normalizedMax;
   const pricePreviewGross = pricePreviewCount * 1000;
   const pricePreviewTotal = Math.round(pricePreviewGross * (1 - normalizedDiscount / 100));
-  const selectedRecipients = notification.recipients.map((role) => `${recipientLabels[role]} · ${role === "client" ? project.email : recipientEmails[role] || SECRET_SETTINGS.google.email.testRecipients[role]}`);
+  const selectedRecipients = notification.recipients.map((role) => `${recipientLabels[role]} · ${role === "client" ? project.email : recipientEmails[role] || SECRET_SETTINGS.google.email.roleRecipients[role] || "non configurata"}`);
   const emailImpact = notification.send && selectedRecipients.length > 0
     ? `Email: al click inviamo un aggiornamento a ${selectedRecipients.join(" / ")}.`
     : "Email: al click salvi solo l'azione, senza inviare messaggi.";

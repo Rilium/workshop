@@ -3,8 +3,9 @@ import { ArrowRight, BadgeCheck, BriefcaseBusiness, X } from "lucide-react";
 import { useDarkMode } from "./hooks/useDarkMode";
 import { DarkModeToggle } from "./components/ui/DarkModeToggle";
 import { initialRules } from "./data/pricing";
-import { workshops } from "./data/catalog";
-import type { AppNotificationRole, ProjectStatus, Role, Selection, Workshop } from "./types/domain";
+import { topics as initialTopics, workshops as initialWorkshops } from "./data/catalog";
+import type { AppNotificationRole, PricingRule, ProjectStatus, Role, Selection, Topic, Workshop } from "./types/domain";
+import { getPublicCatalog } from "./publicCatalogService";
 import { useQuote } from "./hooks/useQuote";
 import { useToasts } from "./hooks/useToasts";
 import { useWorkshopSelection } from "./hooks/useWorkshopSelection";
@@ -141,7 +142,9 @@ function AppInner() {
   const [customModalWorkshop, setCustomModalWorkshop] = useState<Workshop | null>(null);
   const [customRequestWorkshop, setCustomRequestWorkshop] = useState<Workshop | null>(null);
   const [dateModalSelection, setDateModalSelection] = useState<Selection | null>(null);
-  const [rules, setRules] = useState(initialRules);
+  const [catalogTopics, setCatalogTopics] = useState<Topic[]>(initialTopics);
+  const [catalogWorkshops, setCatalogWorkshops] = useState<Workshop[]>(initialWorkshops);
+  const [rules, setRules] = useState<PricingRule[]>(initialRules);
   const [clientAssetFolder, setClientAssetFolder] = useState<AssetDraftFolder | null>(null);
   const [clientUploadedAssets, setClientUploadedAssets] = useState<UploadedAsset[]>([]);
   const [currentRequest, setCurrentRequest] = useState<WorkshopRequestRecord | null>(null);
@@ -161,8 +164,8 @@ function AppInner() {
     clearClosedNotifications,
     deleteClosedNotification,
   } = useToasts(role, currentUser?.id, currentUser?.email);
-  const { selections, toggleWorkshop, addWorkshops, updateSelection } = useWorkshopSelection(workshops, notify);
-  const quote = useQuote(selections, workshops, rules);
+  const { selections, toggleWorkshop, addWorkshops, updateSelection } = useWorkshopSelection(catalogWorkshops, notify);
+  const quote = useQuote(selections, catalogWorkshops, rules);
   const lastConfettiTokenRef = useRef<string | null>(null);
   const lastWelcomeTokenRef = useRef<string | null>(null);
 
@@ -206,6 +209,27 @@ function AppInner() {
     window.addEventListener("hashchange", handleHashIntent);
     return () => window.removeEventListener("hashchange", handleHashIntent);
   }, [currentUser, role, switchEffectiveRole]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPublicCatalog()
+      .then((catalog) => {
+        if (cancelled) return;
+        if (catalog.topics.length) setCatalogTopics(catalog.topics);
+        if (catalog.workshops.length) setCatalogWorkshops(catalog.workshops);
+        if (catalog.rules.length) setRules(catalog.rules);
+        if (catalog.source === "local-fallback") {
+          notify("Catalogo locale attivo", "Apps Script non disponibile: stai usando il seed locale di sviluppo.");
+        }
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : "Catalogo Sheet non disponibile.";
+        notify("Catalogo Sheet non disponibile", message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [systemRefreshToken]);
 
   useEffect(() => {
     if (!loading && currentUser && showLogin) {
@@ -254,7 +278,7 @@ function AppInner() {
   }
 
   const selectedWorkshops = selections
-    .map((selection) => ({ selection, workshop: workshops.find((workshop) => workshop.id === selection.workshopId)! }))
+    .map((selection) => ({ selection, workshop: catalogWorkshops.find((workshop) => workshop.id === selection.workshopId)! }))
     .filter(({ workshop }) => Boolean(workshop));
   const coveredTopics = new Set(selectedWorkshops.map(({ workshop }) => workshop.topicId)).size;
   const coveredThemes = new Set(selectedWorkshops.map(({ workshop }) => workshop.themeId)).size;
@@ -314,7 +338,8 @@ function AppInner() {
         <DatePickerModal
           selection={dateModalSelection}
           selections={selections}
-          workshop={workshops.find((workshop) => workshop.id === dateModalSelection.workshopId)!}
+          workshop={catalogWorkshops.find((workshop) => workshop.id === dateModalSelection.workshopId)!}
+          workshops={catalogWorkshops}
           onClose={() => setDateModalSelection(null)}
           onConfirm={(date, time) => {
             updateSelection(dateModalSelection.workshopId, { date, time, dateConfirmed: true, status: "date_proposte" });
@@ -374,8 +399,8 @@ function AppInner() {
       {isImpersonating && (
         <div className="impersonation-banner">
           <span>
-            Stai visualizzando come <strong>{role}</strong>. Utente reale:{" "}
-            <strong>Team FunniFin</strong>.
+            Vista QA come <strong>{role}</strong>. Utente reale:{" "}
+            <strong>Team FunniFin</strong>; notifiche e permessi restano FunniFin.
           </span>
           <button
             type="button"
@@ -389,6 +414,8 @@ function AppInner() {
       <main className="main-content">
         {role === "Cliente" && (
           <ClientView
+            topics={catalogTopics}
+            workshops={catalogWorkshops}
             activeTopics={activeTopics}
             activeThemes={activeThemes}
             selections={selections}

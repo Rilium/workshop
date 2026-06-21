@@ -30,8 +30,7 @@ import {
   Video,
   X,
 } from "lucide-react";
-import { topics } from "../../data/catalog";
-import type { Duration, Format, Selection, Workshop } from "../../types/domain";
+import type { Duration, Format, Selection, Topic, Workshop } from "../../types/domain";
 import { money } from "../../utils/money";
 import { getWorkshopSelectionPrice } from "../../utils/workshop";
 import { AppButton } from "../ui/AppButton";
@@ -43,9 +42,11 @@ export function WorkshopCard({
   onChange,
   onCustomRequest,
   onCustomInfo,
+  topics,
 }: {
   workshop: Workshop;
   selection?: Selection;
+  topics: Topic[];
   onToggle: (event: React.MouseEvent<HTMLButtonElement>) => void;
   onChange: (patch: Partial<Selection>) => void;
   onCustomRequest: () => void;

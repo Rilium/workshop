@@ -394,9 +394,9 @@ export function AdminView({
   const getWorkspaceSettingValue = (key: string, fallback = "") => workspaceSettingMap.get(key)?.value || fallback;
   const workspaceRecipientEmails = useMemo<Partial<Record<WorkflowNotificationRecipientRole, string>>>(
     () => ({
-      funnifin: getWorkspaceSettingValue("mail.funnifin", SECRET_SETTINGS.google.email.testRecipients.funnifin),
-      expert: getWorkspaceSettingValue("mail.expert", SECRET_SETTINGS.google.email.testRecipients.expert),
-      brand: getWorkspaceSettingValue("mail.brand", SECRET_SETTINGS.google.email.testRecipients.brand),
+      funnifin: getWorkspaceSettingValue("mail.funnifin", SECRET_SETTINGS.google.email.roleRecipients.funnifin),
+      expert: getWorkspaceSettingValue("mail.expert", SECRET_SETTINGS.google.email.roleRecipients.expert),
+      brand: getWorkspaceSettingValue("mail.brand", SECRET_SETTINGS.google.email.roleRecipients.brand),
     }),
     [workspaceSettingMap],
   );
@@ -955,7 +955,7 @@ export function AdminView({
       id,
       firstName: "Nuovo",
       lastName: "Esperto",
-      email: `rinaldi.rilio+${expertDirectory.length + 3}@gmail.com`,
+      email: "",
       photo: "",
       bio: "Descrizione breve del profilo e delle competenze.",
       topicIds: topicId ? [topicId] : [],
