@@ -341,6 +341,26 @@
   min-width: 0;
 }
 
+.expert-console .role-actions {
+  display: none;
+}
+
+.expert-console .role-actions .tool-icon-btn {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--neutral-500);
+}
+
+.expert-console .role-actions .tool-icon-btn:hover,
+.expert-console .role-actions .tool-icon-btn.active {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--brand);
+}
+
 .operational-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -654,7 +654,6 @@ export function ExpertView({
         <Panel>
           <SectionTitle
             title="Opportunità disponibili"
-            icon={<Megaphone size={20} />}
             actions={
               <ToolIconButton onClick={() => refreshExpertSection("Opportunita")} loading={expertSyncState.loading} label="Ricarica opportunita">
                 <RefreshCw size={18} />
@@ -718,7 +717,6 @@ export function ExpertView({
         <Panel>
           <SectionTitle
             title="Workshop assegnati"
-            icon={<CalendarCheck size={20} />}
             actions={
               <ToolIconButton onClick={() => refreshExpertSection("Assegnati")} label="Ricarica workshop assegnati">
                 <RefreshCw size={18} />
@@ -751,7 +749,6 @@ export function ExpertView({
         <Panel>
           <SectionTitle
             title="Upload presentazione"
-            icon={<UploadCloud size={20} />}
             actions={
               <ToolIconButton onClick={() => refreshExpertSection("Upload deck")} loading={expertDriveLoading} label="Ricarica file Drive">
                 <RefreshCw size={18} />
@@ -833,7 +830,6 @@ export function ExpertView({
         <Panel>
           <SectionTitle
             title="Storico workshop"
-            icon={<Presentation size={20} />}
             actions={
               <ToolIconButton onClick={() => refreshExpertSection("Storico")} label="Ricarica storico">
                 <RefreshCw size={18} />

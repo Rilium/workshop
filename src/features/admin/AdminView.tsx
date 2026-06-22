@@ -2882,7 +2882,6 @@ export function AdminView({
         <>
           <SectionTitle
             title="Esperti e candidature"
-            icon={<UsersRound size={20} />}
             actions={
               <>
                 <ToolIconButton onClick={refreshExpertsSection} loading={expertsLoading} label="Ricarica esperti">
