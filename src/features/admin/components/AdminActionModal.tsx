@@ -40,6 +40,7 @@ import type { AdminProject, AdminProjectWorkshopRow, CalendarEventRecord, DateDe
 import type { AdminActionModalState, NotificationChoice } from "../../../types/ui";
 import { money } from "../../../utils/money";
 import { getWorkshopSelectionPrice } from "../../../utils/workshop";
+import { calendarDateLimits, isCalendarDateAllowed } from "../../../utils/dateLimits";
 import { AppButton } from "../../../components/ui/AppButton";
 import { EventLink } from "../../../components/ui/EventLink";
 import { Info } from "../../../components/ui/Info";
@@ -84,6 +85,7 @@ export function AdminActionModal({
   onSaveRule: (ruleId: string, patch: Partial<PricingRule>) => Promise<void> | void;
 }) {
   const rule = modal.type === "price" ? rules.find((item) => item.id === modal.ruleId) ?? rules[0] : rules[0];
+  const dateLimits = calendarDateLimits();
   const [draftRule, setDraftRule] = useState({
     name: rule?.name ?? "",
     min: rule?.min ?? 1,
@@ -412,7 +414,17 @@ export function AdminActionModal({
                           </label>
                           <label>
                             Data
-                            <input value={draft.date} type="date" onChange={(event) => updateDraftWorkshop(workshop.id, { date: event.target.value, approval: "pending" })} />
+                            <input
+                              value={draft.date}
+                              type="date"
+                              min={dateLimits.min}
+                              max={dateLimits.max}
+                              onChange={(event) => {
+                                const nextDate = event.target.value;
+                                if (nextDate && !isCalendarDateAllowed(nextDate)) return;
+                                updateDraftWorkshop(workshop.id, { date: nextDate, approval: "pending" });
+                              }}
+                            />
                           </label>
                           <label>
                             Ora

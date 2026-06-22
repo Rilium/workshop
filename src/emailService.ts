@@ -125,17 +125,46 @@ const APP_URL = typeof window !== "undefined"
   ? window.location.origin
   : "https://funnifin-workshop-planner.vercel.app";
 
-function appUrlForRole(role: WorkflowNotificationRecipientRole) {
-  if (role === "funnifin") return `${APP_URL}#funnifin`;
-  if (role === "expert") return `${APP_URL}#esperto-candidature`;
-  if (role === "brand") return `${APP_URL}#brand`;
-  return `${APP_URL}#login`;
+function workflowMailActionForRole(payload: WorkflowNotificationPayload, role: WorkflowNotificationRecipientRole) {
+  if (role === "expert") {
+    if (payload.phase === "candidacies_open") return "expert-candidacies";
+    if (payload.phase === "expert_assigned" || payload.phase === "brand_review") return "expert-upload";
+    return "expert-calendar";
+  }
+  if (role === "brand") return "brand-review";
+  if (role === "funnifin") {
+    if (payload.phase === "event_tentative" || payload.phase === "event_confirmed" || payload.phase === "final_approval") return "funnifin-calendar";
+    if (payload.phase === "candidacies_open" || payload.phase === "expert_candidate_received" || payload.phase === "expert_assigned") return "funnifin-experts";
+    return "funnifin-project";
+  }
+  return "login";
 }
 
-function actionLabelForRole(role: WorkflowNotificationRecipientRole) {
+function appUrlForRole(role: WorkflowNotificationRecipientRole, payload?: WorkflowNotificationPayload) {
+  const hash = role === "funnifin"
+    ? "#funnifin"
+    : role === "expert"
+      ? "#esperto-candidature"
+      : role === "brand"
+        ? "#brand"
+        : "#login";
+  if (!payload || role === "client") return `${APP_URL}${hash}`;
+  const params = new URLSearchParams({
+    mailAction: workflowMailActionForRole(payload, role),
+    projectId: payload.project.id,
+    phase: payload.phase,
+  });
+  return `${APP_URL}?${params.toString()}${hash}`;
+}
+
+function actionLabelForRole(role: WorkflowNotificationRecipientRole, payload?: WorkflowNotificationPayload) {
+  if (role === "expert" && payload?.phase === "candidacies_open") return "Valuta e candidati";
+  if (role === "expert" && (payload?.phase === "expert_assigned" || payload?.phase === "brand_review")) return "Apri incarico e deck";
+  if (role === "expert") return "Collega Calendar";
+  if (role === "brand") return "Apri revisione materiali";
+  if (role === "funnifin" && (payload?.phase === "event_tentative" || payload?.phase === "event_confirmed")) return "Apri calendario progetto";
+  if (role === "funnifin" && (payload?.phase === "candidacies_open" || payload?.phase === "expert_candidate_received" || payload?.phase === "expert_assigned")) return "Apri gestione esperti";
   if (role === "funnifin") return "Apri la console FunniFin";
-  if (role === "expert") return "Apri l'area Esperto";
-  if (role === "brand") return "Apri l'area Brand";
   return "Apri FunniFin";
 }
 
@@ -143,8 +172,8 @@ function buildWorkflowAction(payload: WorkflowNotificationPayload) {
   const firstInternalRole = payload.recipients.find((role) => role !== "client");
   if (!firstInternalRole) return {};
   return {
-    actionUrl: payload.actionUrl || appUrlForRole(firstInternalRole),
-    actionLabel: payload.actionLabel || actionLabelForRole(firstInternalRole),
+    actionUrl: payload.actionUrl || appUrlForRole(firstInternalRole, payload),
+    actionLabel: payload.actionLabel || actionLabelForRole(firstInternalRole, payload),
   };
 }
 

@@ -64,6 +64,7 @@ export function ExpertView({
   currentUserEmail,
   systemRefreshToken,
   systemSettingsToken,
+  mailAction,
   project,
 }: {
   selections: Selection[];
@@ -75,12 +76,14 @@ export function ExpertView({
   currentUserEmail?: string;
   systemRefreshToken: number;
   systemSettingsToken: number;
+  mailAction?: string;
   project: AdminProject;
 }) {
   const { currentUser } = useAuth();
   const expertSteps = ["Disponibilita", "Opportunita", "Assegnati", "Upload deck", "Storico"];
   // Nome esperto: usa displayName dell'utente autenticato, fallback al roleIdentities mock
   const expertName = currentUser?.displayName ?? roleIdentities.Esperto.name;
+  const lastMailIntentRef = useRef("");
   const [syncedProject, setSyncedProject] = useState<AdminProject>(project);
   const [expertSyncState, setExpertSyncState] = useState<{ loading: boolean; error: string }>({ loading: false, error: "" });
   const [expertStep, setExpertStep] = useState("Opportunita");
@@ -534,6 +537,42 @@ export function ExpertView({
     if (systemSettingsToken === 0) return;
     setExpertStep("Upload deck");
   }, [systemSettingsToken]);
+  useEffect(() => {
+    if (!mailAction || lastMailIntentRef.current === mailAction) return;
+    lastMailIntentRef.current = mailAction;
+    if (mailAction === "expert-calendar") {
+      setExpertStep("Disponibilita");
+      notify("Azione da mail", "Collega o rileggi il Calendar esperto prima di candidarti.", {
+        audience: ["Esperto"],
+        audienceUserIds: currentUserId ? [currentUserId] : undefined,
+        audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+        priority: "task",
+        category: "mail",
+      });
+      return;
+    }
+    if (mailAction === "expert-candidacies") {
+      setExpertStep("Opportunita");
+      notify("Azione da mail", "Valuta i workshop aperti e candidati da questa sezione.", {
+        audience: ["Esperto"],
+        audienceUserIds: currentUserId ? [currentUserId] : undefined,
+        audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+        priority: "task",
+        category: "mail",
+      });
+      return;
+    }
+    if (mailAction === "expert-upload") {
+      setExpertStep("Upload deck");
+      notify("Azione da mail", "Carica o seleziona la presentazione e inviala alla revisione brand.", {
+        audience: ["Esperto"],
+        audienceUserIds: currentUserId ? [currentUserId] : undefined,
+        audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+        priority: "task",
+        category: "mail",
+      });
+    }
+  }, [currentUserEmail, currentUserId, mailAction, notify]);
   const confirmExpertCandidacy = async () => {
     if (!candidateModalRow || candidateSending) return;
     const { selection, workshop } = candidateModalRow;

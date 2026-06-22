@@ -321,6 +321,7 @@ function parsePostBody(event) {
 
 function handleFreeBusy(params) {
   const date = params.date;
+  assertCalendarDateAllowed(date);
   const duration = params.duration === "2h" ? 120 : 60;
   const calendars = buildCalendarIds(params.expertIds);
   const slots = buildFunniFinSlots(date, duration, calendars);
@@ -329,6 +330,7 @@ function handleFreeBusy(params) {
 
 function handleExpertAvailability(params, auth) {
   const date = params.date || Utilities.formatDate(new Date(), SETTINGS.timezone, "yyyy-MM-dd");
+  assertCalendarDateAllowed(date);
   const horizonDays = Math.max(1, Math.min(Number(params.horizonDays || 30), 90));
   const expert = resolveSessionExpert(auth, params);
   const calendarId = String(params.calendarId || (expert && expert.calendarId) || "").trim();
@@ -458,6 +460,7 @@ function saveExpertCalendarConnection(calendarId, calendar, auth, payload, event
 }
 
 function createExpertCalendarEvent(payload, auth) {
+  assertCalendarDateAllowed(payload.date);
   const expert = resolveSessionExpertByPayload(auth, payload);
   if (!expert || !expert.calendarId) {
     throw new Error("Calendar esperto non collegato: salva il Calendar ID nel profilo esperto.");
@@ -531,6 +534,7 @@ function createCalendarEvent(payload) {
   const eventMode = payload.eventMode === "tentative" ? "tentative" : "confirmed";
   const existingEventId = payload.existingEventId || payload.eventId || "";
   const firstWorkshop = payload.workshops[0];
+  assertCalendarDateListAllowed(payload.workshops.map(function(workshop) { return workshop.date; }));
   const start = parseDateTime(firstWorkshop.date, firstWorkshop.time);
   const totalMinutes = payload.workshops.reduce((sum, workshop) => sum + (workshop.duration === "2h" ? 120 : 60), 0);
   const end = new Date(start.getTime() + Math.max(totalMinutes, 60) * 60 * 1000);
@@ -790,25 +794,57 @@ function formatMailMoney(value) {
   return amount.toLocaleString("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 }
 
-function appUrlForRole(role) {
-  if (role === "funnifin") return FUNNIFIN_SITE_URL + "#funnifin";
-  if (role === "expert") return FUNNIFIN_SITE_URL + "#esperto-candidature";
-  if (role === "brand") return FUNNIFIN_SITE_URL + "#brand";
-  return FUNNIFIN_SITE_URL + "#login";
+function workflowMailActionForRole(payload, role) {
+  const phase = String(payload && payload.phase || "");
+  if (role === "expert") {
+    if (phase === "candidacies_open") return "expert-candidacies";
+    if (phase === "expert_assigned" || phase === "brand_review") return "expert-upload";
+    return "expert-calendar";
+  }
+  if (role === "brand") return "brand-review";
+  if (role === "funnifin") {
+    if (phase === "event_tentative" || phase === "event_confirmed" || phase === "final_approval") return "funnifin-calendar";
+    if (phase === "candidacies_open" || phase === "expert_candidate_received" || phase === "expert_assigned") return "funnifin-experts";
+    return "funnifin-project";
+  }
+  return "login";
 }
 
-function appActionLabelForRole(role) {
+function appUrlForRole(role, payload) {
+  var hash = role === "funnifin"
+    ? "#funnifin"
+    : role === "expert"
+      ? "#esperto-candidature"
+      : role === "brand"
+        ? "#brand"
+        : "#login";
+  if (!payload || role === "client") return FUNNIFIN_SITE_URL + hash;
+  var project = payload.project || {};
+  var params = [
+    "mailAction=" + encodeURIComponent(workflowMailActionForRole(payload, role)),
+    "projectId=" + encodeURIComponent(String(project.id || "")),
+    "phase=" + encodeURIComponent(String(payload.phase || "")),
+  ].join("&");
+  return FUNNIFIN_SITE_URL + "?" + params + hash;
+}
+
+function appActionLabelForRole(role, payload) {
+  var phase = String(payload && payload.phase || "");
+  if (role === "expert" && phase === "candidacies_open") return "Valuta e candidati";
+  if (role === "expert" && (phase === "expert_assigned" || phase === "brand_review")) return "Apri incarico e deck";
+  if (role === "expert") return "Collega Calendar";
+  if (role === "brand") return "Apri revisione materiali";
+  if (role === "funnifin" && (phase === "event_tentative" || phase === "event_confirmed")) return "Apri calendario progetto";
+  if (role === "funnifin" && (phase === "candidacies_open" || phase === "expert_candidate_received" || phase === "expert_assigned")) return "Apri gestione esperti";
   if (role === "funnifin") return "Apri la console FunniFin";
-  if (role === "expert") return "Apri l'area Esperto";
-  if (role === "brand") return "Apri l'area Brand";
   return "Apri FunniFin";
 }
 
 function withMailActionForRole(payload, role) {
   const next = Object.assign({}, payload);
   if (role && role !== "client") {
-    next.actionUrl = payload.actionUrl || appUrlForRole(role);
-    next.actionLabel = payload.actionLabel || appActionLabelForRole(role);
+    next.actionUrl = payload.actionUrl || appUrlForRole(role, payload);
+    next.actionLabel = payload.actionLabel || appActionLabelForRole(role, payload);
   } else if (role === "client") {
     next.actionUrl = "";
     next.actionLabel = "";
@@ -3977,6 +4013,32 @@ function buildFunniFinSlots(date, durationMinutes, calendars) {
 
 function parseDateTime(date, time) {
   return new Date(`${date}T${time || "10:00"}:00+01:00`);
+}
+
+function calendarDateLimits() {
+  const now = new Date();
+  const min = Utilities.formatDate(now, SETTINGS.timezone, "yyyy-MM-dd");
+  const max = Utilities.formatDate(new Date(now.getFullYear(), 11, 31, 12, 0, 0), SETTINGS.timezone, "yyyy-MM-dd");
+  return { min: min, max: max };
+}
+
+function calendarDateLimitMessage() {
+  const limits = calendarDateLimits();
+  return "Seleziona una data tra " + limits.min + " e " + limits.max + ". Non sono ammessi eventi nel passato o nell'anno successivo.";
+}
+
+function assertCalendarDateAllowed(date) {
+  const value = String(date || "");
+  const limits = calendarDateLimits();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < limits.min || value > limits.max) {
+    throw new Error(calendarDateLimitMessage() + " Data non valida: " + (value || "-") + ".");
+  }
+}
+
+function assertCalendarDateListAllowed(dates) {
+  (dates || []).forEach(function(date) {
+    assertCalendarDateAllowed(date);
+  });
 }
 
 function overlaps(startA, endA, startB, endB) {

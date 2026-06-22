@@ -34,13 +34,7 @@ import {
 import { getWorkshopAvailability } from "../../../googleCalendarService";
 import type { Selection, Workshop } from "../../../types/domain";
 import { Skeleton } from "../../../components/ui/Skeleton";
-
-function formatDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+import { calendarDateLimitMessage, calendarDateLimits, formatDateKey, isCalendarDateAllowed } from "../../../utils/dateLimits";
 
 function parseDateKey(value: string) {
   const [year, month, day] = value.split("-").map(Number);
@@ -62,8 +56,9 @@ export function DatePickerModal({
   onClose: () => void;
   onConfirm: (date: string, time: string) => void;
 }) {
-  const todayDate = formatDateKey(new Date());
-  const [day, setDay] = useState(selection.date || todayDate);
+  const dateLimits = calendarDateLimits();
+  const initialDate = selection.date && isCalendarDateAllowed(selection.date) ? selection.date : dateLimits.min;
+  const [day, setDay] = useState(initialDate);
   const [time, setTime] = useState(selection.time || "18:00");
   const [availability, setAvailability] = useState<{ source: string; slots: Array<{ time: string; status: "available" | "busy" | "promo" }> }>({
     source: "google-freebusy",
@@ -91,11 +86,20 @@ export function DatePickerModal({
   );
   const scheduledTimesForDay = new Set(scheduledSelections.filter((item) => item.date === formattedDay).map((item) => item.time));
   const currentAlreadyScheduled = Boolean(selection.dateConfirmed && selection.date && selection.time);
+  const selectedDateAllowed = isCalendarDateAllowed(formattedDay);
 
   useEffect(() => {
     let cancelled = false;
     setLoadingSlots(true);
     setAvailabilityError("");
+    if (!selectedDateAllowed) {
+      setAvailability({ source: "google-freebusy", slots: [] });
+      setAvailabilityError(calendarDateLimitMessage());
+      setLoadingSlots(false);
+      return () => {
+        cancelled = true;
+      };
+    }
     getWorkshopAvailability({ date: formattedDay, duration: selection.duration, format: selection.format, expertIds: workshop.experts })
       .then((result) => {
         if (!cancelled) setAvailability(result);
@@ -112,13 +116,16 @@ export function DatePickerModal({
     return () => {
       cancelled = true;
     };
-  }, [formattedDay, selection.duration, selection.format, workshop.experts]);
+  }, [formattedDay, selectedDateAllowed, selection.duration, selection.format, workshop.experts]);
 
   const shiftMonth = (delta: number) => {
     const next = new Date(selectedYear, selectedMonth + delta, 1, 12, 0, 0);
     const nextMaxDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
     next.setDate(Math.min(dayNumber, nextMaxDay));
-    setDay(formatDateKey(next));
+    const nextKey = formatDateKey(next);
+    if (nextKey < dateLimits.min) setDay(dateLimits.min);
+    else if (nextKey > dateLimits.max) setDay(dateLimits.max);
+    else setDay(nextKey);
   };
 
   return (
@@ -150,6 +157,7 @@ export function DatePickerModal({
                 {days.map((item) => (
                   <button
                     key={item}
+                    disabled={!isCalendarDateAllowed(formatDateKey(new Date(selectedYear, selectedMonth, item, 12, 0, 0)))}
                     className={`${item === dayNumber ? "active" : ""} ${scheduledDays.has(item) ? "has-selection" : ""}`}
                     onClick={() => {
                       setDay(formatDateKey(new Date(selectedYear, selectedMonth, item, 12, 0, 0)));
@@ -219,7 +227,7 @@ export function DatePickerModal({
             </div>
             <em>{selection.duration}</em>
           </div>
-          <button className="primary-btn" onClick={() => onConfirm(formattedDay, time)}>
+          <button className="primary-btn" disabled={!selectedDateAllowed} onClick={() => onConfirm(formattedDay, time)}>
             Conferma proposta
           </button>
         </footer>

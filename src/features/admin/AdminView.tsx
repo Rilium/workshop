@@ -162,6 +162,8 @@ export function AdminView({
   requestRefreshToken,
   systemRefreshToken,
   systemSettingsToken,
+  mailAction,
+  mailProjectId,
 }: {
   projectStatus: ProjectStatus;
   quote: Quote;
@@ -180,8 +182,11 @@ export function AdminView({
   requestRefreshToken: number;
   systemRefreshToken: number;
   systemSettingsToken: number;
+  mailAction?: string;
+  mailProjectId?: string;
 }) {
   const adminContentRef = useRef<HTMLDivElement | null>(null);
+  const lastMailIntentRef = useRef("");
   const [adminTab, setAdminTab] = useState("Operativo");
   const [catalogView, setCatalogView] = useState<"sheet" | "drive">("sheet");
   const [adminSearch, setAdminSearch] = useState("");
@@ -702,6 +707,39 @@ export function AdminView({
   useEffect(() => {
     syncProjectStatus(activeAdminStatus);
   }, [activeAdminStatus, syncProjectStatus]);
+  useEffect(() => {
+    if (!mailAction) return;
+    if (mailProjectId && !adminProjects.some((project) => project.id === mailProjectId)) return;
+    const intentKey = `${mailAction}:${mailProjectId || ""}`;
+    if (lastMailIntentRef.current === intentKey) return;
+    lastMailIntentRef.current = intentKey;
+    if (mailProjectId) {
+      setSelectedProjectId(mailProjectId);
+    }
+    if (mailAction === "funnifin-experts") {
+      setAdminWorkspacePanel("experts");
+      notify("Azione da mail", "Scegli l'esperto compatibile e conferma l'assegnazione.", {
+        audience: ["FunniFin"],
+        audienceUserIds: currentUserId ? [currentUserId] : undefined,
+        audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+        priority: "task",
+        category: "mail",
+        toast: true,
+      });
+    } else if (mailAction === "funnifin-calendar") {
+      setAdminWorkspacePanel("confirm");
+      notify("Azione da mail", "Controlla evento, calendario e conferma finale del progetto.", {
+        audience: ["FunniFin"],
+        audienceUserIds: currentUserId ? [currentUserId] : undefined,
+        audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+        priority: "task",
+        category: "mail",
+        toast: true,
+      });
+    } else if (mailAction === "funnifin-project") {
+      setAdminWorkspacePanel("workshops");
+    }
+  }, [adminProjects, currentUserEmail, currentUserId, mailAction, mailProjectId, notify]);
   useEffect(() => {
     let alive = true;
     setRequestSyncState((current) => ({ ...current, loading: true, error: "" }));

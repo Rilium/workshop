@@ -162,6 +162,7 @@ function AppInner() {
   const [clientGuidedLayerActive, setClientGuidedLayerActive] = useState(false);
   const [showCelebrationConfetti, setShowCelebrationConfetti] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
+  const [mailIntent, setMailIntent] = useState<{ action: string; projectId: string }>({ action: "", projectId: "" });
   const {
     toasts,
     notifications,
@@ -198,6 +199,8 @@ function AppInner() {
   useEffect(() => {
     const handleHashIntent = () => {
       const hash = window.location.hash;
+      const params = new URLSearchParams(window.location.search);
+      setMailIntent({ action: params.get("mailAction") || "", projectId: params.get("projectId") || "" });
       const reservedHash = hash === "#login" || hash === "#funnifin" || hash === "#brand" || hash === "#esperto-candidature";
       if (!currentUser && reservedHash) {
         setShowLogin(true);
@@ -514,6 +517,8 @@ function AppInner() {
               requestRefreshToken={requestRefreshToken}
               systemRefreshToken={systemRefreshToken}
               systemSettingsToken={systemSettingsToken}
+              mailAction={mailIntent.action}
+              mailProjectId={mailIntent.projectId}
             />
           )}
           {role === "Esperto" && (
@@ -527,6 +532,7 @@ function AppInner() {
               currentUserEmail={currentUser?.email}
               systemRefreshToken={systemRefreshToken}
               systemSettingsToken={systemSettingsToken}
+              mailAction={mailIntent.action}
               project={{
                 ...(currentRequest ? requestToAdminProject(currentRequest) : buildLocalAdminProject(selections, quote.total, projectStatus)),
                 status: projectStatus,
@@ -546,6 +552,7 @@ function AppInner() {
               currentUserEmail={currentUser?.email}
               systemRefreshToken={systemRefreshToken}
               systemSettingsToken={systemSettingsToken}
+              mailAction={mailIntent.action}
             />
           )}
         </Suspense>

@@ -58,6 +58,7 @@ export function BrandView({
   currentUserEmail,
   systemRefreshToken,
   systemSettingsToken,
+  mailAction,
 }: {
   brandFilter: string;
   setBrandFilter: (filter: string) => void;
@@ -68,11 +69,13 @@ export function BrandView({
   currentUserEmail?: string;
   systemRefreshToken: number;
   systemSettingsToken: number;
+  mailAction?: string;
 }) {
   const [brandDecks, setBrandDecks] = useState<BrandPresentation[]>([]);
   const [brandProjects, setBrandProjects] = useState<AdminProject[]>([]);
   const [selectedBrandProjectId, setSelectedBrandProjectId] = useState("");
   const [brandProjectLoading, setBrandProjectLoading] = useState(false);
+  const lastMailIntentRef = useRef("");
   const [brandProjectError, setBrandProjectError] = useState("");
   const [selectedBrandDeckId, setSelectedBrandDeckId] = useState("");
   const [brandVersion, setBrandVersion] = useState(2);
@@ -116,6 +119,18 @@ export function BrandView({
   useEffect(() => {
     if (selectedBrandProject) syncProjectStatus(selectedBrandProject.status);
   }, [selectedBrandProject?.id, selectedBrandProject?.status, syncProjectStatus]);
+  useEffect(() => {
+    if (mailAction !== "brand-review" || lastMailIntentRef.current === mailAction) return;
+    lastMailIntentRef.current = mailAction;
+    setBrandFilter("Revisioni");
+    notify("Azione da mail", "Apri il deck in revisione e approva o richiedi modifiche.", {
+      audience: ["Brand"],
+      audienceUserIds: currentUserId ? [currentUserId] : undefined,
+      audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+      priority: "task",
+      category: "mail",
+    });
+  }, [currentUserEmail, currentUserId, mailAction, notify, setBrandFilter]);
   const selectedDeckStatus = selectedBrandDeck?.status ?? "in_review";
   const selectedDeckPreviewUrl = selectedBrandDeck ? getDeckPreviewUrl(selectedBrandDeck) : "";
   const selectedDeckOpenUrl = selectedBrandDeck ? getDeckOpenUrl(selectedBrandDeck) : "";

@@ -1,5 +1,6 @@
 import { SECRET_SETTINGS } from "./secretSettings";
 import { withSessionPayload } from "./authTransport";
+import { calendarDateLimitMessage, isCalendarDateAllowed } from "./utils/dateLimits";
 
 export type CalendarSlot = {
   time: string;
@@ -118,12 +119,22 @@ function friendlyCalendarError(error: unknown, fallback: string) {
   return message;
 }
 
+function assertCalendarDateAllowed(date: string) {
+  if (!isCalendarDateAllowed(date)) throw new Error(calendarDateLimitMessage());
+}
+
+function assertCalendarPayloadDatesAllowed(dates: string[]) {
+  const invalidDate = dates.find((date) => !isCalendarDateAllowed(date));
+  if (invalidDate) throw new Error(`${calendarDateLimitMessage()} Data non valida: ${invalidDate}.`);
+}
+
 export async function getWorkshopAvailability(params: {
   date: string;
   duration: "1h" | "2h";
   format: "live" | "webinar" | "ibrido";
   expertIds?: string[];
 }): Promise<CalendarAvailability> {
+  assertCalendarDateAllowed(params.date);
   const scriptUrl = (import.meta as unknown as { env: Record<string, string | undefined> }).env[
     SECRET_SETTINGS.google.env.appScriptDeploymentUrl
   ];
@@ -152,6 +163,7 @@ export async function getExpertFunniFinAvailability(params: {
   date?: string;
   horizonDays?: number;
 } = {}): Promise<CalendarAvailability> {
+  if (params.date) assertCalendarDateAllowed(params.date);
   const scriptUrl = (import.meta as unknown as { env: Record<string, string | undefined> }).env[
     SECRET_SETTINGS.google.env.appScriptDeploymentUrl
   ];
@@ -227,6 +239,7 @@ export async function createExpertCalendar(): Promise<ExpertCalendarConnection> 
 }
 
 export async function createExpertCalendarEvent(payload: ExpertCalendarEventPayload): Promise<ExpertCalendarEventResult> {
+  assertCalendarDateAllowed(payload.date);
   const scriptUrl = (import.meta as unknown as { env: Record<string, string | undefined> }).env[
     SECRET_SETTINGS.google.env.appScriptDeploymentUrl
   ];
@@ -253,6 +266,7 @@ export async function createExpertCalendarEvent(payload: ExpertCalendarEventPayl
 }
 
 export async function createWorkshopCalendarEvent(payload: CalendarEventPayload): Promise<CalendarEventResult> {
+  assertCalendarPayloadDatesAllowed(payload.workshops.map((workshop) => workshop.date));
   const scriptUrl = (import.meta as unknown as { env: Record<string, string | undefined> }).env[
     SECRET_SETTINGS.google.env.appScriptDeploymentUrl
   ];
