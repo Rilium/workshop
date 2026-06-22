@@ -2181,7 +2181,7 @@
 
 .mail-template-toolbar {
   display: grid;
-  grid-template-columns: minmax(260px, 0.6fr) minmax(0, 1fr);
+  grid-template-columns: minmax(260px, 0.55fr) minmax(0, 1fr) minmax(170px, 0.34fr);
   gap: var(--sp-3);
   align-items: start;
   min-width: 0;
@@ -2224,6 +2224,31 @@
   background: var(--white);
   color: var(--brand-dark);
   box-shadow: 0 8px 20px rgba(28, 175, 185, 0.1);
+}
+
+.mail-template-trigger-filter {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  color: var(--neutral-600);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-xbold);
+  text-transform: uppercase;
+}
+
+.mail-template-trigger-filter select {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--neutral-250);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  color: var(--neutral-900);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
+  text-transform: none;
 }
 
 .mail-template-list {

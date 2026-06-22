@@ -708,50 +708,70 @@ export function ExpertView({
               <div className="expert-calendar-head">
                 <div>
                   <span className="topic-badge">{expertCalendarState.connected ? "calendar collegato" : "azione richiesta"}</span>
-                  <h3>Collega Google Calendar</h3>
-                  <p>Un click crea un Calendar esperto dedicato, lo collega a FunniFin e lo condivide con la tua email. Gli eventi intitolati <strong>FunniFin</strong> bloccano quelle fasce nel planner cliente.</p>
+                  <h3>Disponibilita Calendar</h3>
+                  <p>FunniFin usa un calendario dedicato per capire quando non sei disponibile. Gli eventi con titolo <strong>FunniFin</strong> bloccano quelle fasce.</p>
                 </div>
                 <CalendarCheck size={26} />
               </div>
-              <div className="expert-calendar-steps" aria-label="Procedura collegamento Google Calendar">
-                <span><strong>1</strong> Crea e collega</span>
-                <span><strong>2</strong> Ricevi il Calendar</span>
-                <span><strong>3</strong> Blocca con eventi FunniFin</span>
+
+              <div className="expert-calendar-setup-card">
+                <div className="expert-calendar-setup-copy">
+                  <span className="expert-calendar-status-dot" aria-hidden="true">
+                    {expertCalendarState.connected ? <Check size={16} /> : <CalendarCheck size={16} />}
+                  </span>
+                  <div>
+                    <strong>{expertCalendarState.connected ? "Calendar pronto" : "Crea il calendario dedicato"}</strong>
+                    <p>
+                      {expertCalendarState.connected
+                        ? "Puoi aggiungere o aggiornare gli eventi FunniFin dal tuo Google Calendar."
+                        : "Scelta consigliata: FunniFin crea il calendario, lo collega e lo condivide con la tua email."}
+                    </p>
+                  </div>
+                </div>
+                <div className="expert-calendar-primary-actions">
+                  <AppButton variant="primary" onClick={createAndConnectExpertCalendar} loading={expertCalendarState.saving}>
+                    <CalendarCheck size={17} /> {expertCalendarState.connected ? "Ricrea collegamento" : "Crea e collega"}
+                  </AppButton>
+                  <AppButton variant="ghost" onClick={() => refreshExpertCalendar(true)} loading={expertCalendarState.loading}>
+                    <RefreshCw size={17} /> Rileggi
+                  </AppButton>
+                </div>
               </div>
-              <div className="expert-calendar-primary">
-                <AppButton variant="primary" onClick={createAndConnectExpertCalendar} loading={expertCalendarState.saving}>
-                  <CalendarCheck size={17} /> Crea e collega Calendar
-                </AppButton>
-                <span>FunniFin crea il calendario dedicato e lo rende modificabile dalla tua email.</span>
-              </div>
-              <div className="expert-calendar-connect">
-                <label>
-                  <span>Hai gia un calendario? Incolla Calendar ID</span>
-                  <input
-                    type="text"
-                    value={expertCalendarIdInput}
-                    onChange={(event) => setExpertCalendarIdInput(event.target.value)}
-                    placeholder="nome@group.calendar.google.com"
-                  />
-                </label>
-                <AppButton variant="secondary" onClick={saveExpertCalendar} loading={expertCalendarState.saving} disabled={!expertCalendarIdInput.trim()}>
-                  <CalendarCheck size={17} /> Usa questo ID
-                </AppButton>
-                <AppButton variant="ghost" onClick={() => refreshExpertCalendar(true)} loading={expertCalendarState.loading}>
-                  <RefreshCw size={17} /> Rileggi
-                </AppButton>
-                <a className="expert-calendar-settings-link" href="https://calendar.google.com/calendar/u/0/r/settings" target="_blank" rel="noreferrer">
-                  <ExternalLink size={16} /> Apri Google Calendar
-                </a>
-              </div>
-              <p className="expert-calendar-help">
-                Percorso consigliato: usa il pulsante qui sopra. Il collegamento manuale serve solo se vuoi usare un calendario Google gia esistente e condiviso con FunniFin.
-              </p>
-              <div className="expert-calendar-status">
+
+              <div className="expert-calendar-status-grid">
                 <Info label="Stato" value={expertCalendarState.connected ? "Collegato" : "Non collegato"} />
-                <Info label="Calendario" value={expertCalendarState.calendarName || "Da collegare"} />
-                <Info label="Blocchi FunniFin" value={String(expertCalendarSlots.length)} />
+                <Info label="Calendario" value={expertCalendarState.calendarName || "Da creare"} />
+                <Info label="Blocchi rilevati" value={String(expertCalendarSlots.length)} />
                 <Info label="Ultima lettura" value={expertCalendarState.updatedAt || "Mai"} />
+              </div>
+
+              <details className="expert-calendar-manual">
+                <summary>
+                  <Settings2 size={16} />
+                  Usa un Calendar ID esistente
+                </summary>
+                <div className="expert-calendar-connect">
+                  <label>
+                    <span>Calendar ID</span>
+                    <input
+                      type="text"
+                      value={expertCalendarIdInput}
+                      onChange={(event) => setExpertCalendarIdInput(event.target.value)}
+                      placeholder="nome@group.calendar.google.com"
+                    />
+                  </label>
+                  <AppButton variant="secondary" onClick={saveExpertCalendar} loading={expertCalendarState.saving} disabled={!expertCalendarIdInput.trim()}>
+                    <CalendarCheck size={17} /> Usa questo ID
+                  </AppButton>
+                  <a className="expert-calendar-settings-link" href="https://calendar.google.com/calendar/u/0/r/settings" target="_blank" rel="noreferrer">
+                    <ExternalLink size={16} /> Apri Google Calendar
+                  </a>
+                </div>
+              </details>
+
+              <div className="expert-calendar-rule">
+                <InfoIcon size={17} />
+                <span>Per segnare un blocco, crea nel calendario un evento con titolo FunniFin nella fascia in cui non sei disponibile.</span>
               </div>
               {expertCalendarState.error && (
                 <div className="inline-status-card warning">

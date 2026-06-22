@@ -211,13 +211,14 @@ export function EmailTemplatesSection({ notify }: { notify: (title: string, body
               </button>
             ))}
           </div>
-          <div className="mail-template-tabs" aria-label="Momento invio template">
-            {triggerTabs.map((item) => (
-              <button key={item} type="button" className={trigger === item ? "active" : ""} onClick={() => setTrigger(item)}>
-                {item}
-              </button>
-            ))}
-          </div>
+          <label className="mail-template-trigger-filter">
+            <span>Momento invio</span>
+            <select value={trigger} onChange={(event) => setTrigger(event.target.value as "Tutti" | EmailTemplateTrigger)}>
+              {triggerTabs.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+          </label>
         </div>
 
         <div className="mail-template-list" aria-label="Template mail FunniFin">

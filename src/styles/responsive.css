@@ -128,9 +128,9 @@
     justify-content: stretch;
   }
 
-  .expert-calendar-steps,
+  .expert-calendar-setup-card,
   .expert-calendar-connect,
-  .expert-calendar-status {
+  .expert-calendar-status-grid {
     grid-template-columns: 1fr;
   }
 
@@ -138,9 +138,10 @@
     width: 100%;
   }
 
-  .expert-calendar-primary,
-  .expert-calendar-primary .app-btn {
+  .expert-calendar-primary-actions,
+  .expert-calendar-primary-actions .app-btn {
     width: 100%;
+    justify-content: stretch;
   }
 
 .expert-upload-actions .app-btn,

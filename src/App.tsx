@@ -309,6 +309,16 @@ function AppInner() {
 
   // Solo FunniFin può cambiare il ruolo visualizzato (incluso Cliente)
   const changeRole = (item: Role) => {
+    const roleHash: Record<Role, string> = {
+      Cliente: "",
+      FunniFin: "#funnifin",
+      Esperto: "#esperto-candidature",
+      Brand: "#brand",
+    };
+    const nextHash = roleHash[item];
+    if (window.location.hash !== nextHash) {
+      window.history.replaceState(null, "", nextHash || `${window.location.pathname}${window.location.search}`);
+    }
     switchEffectiveRole(item);
     setRoleMenuOpen(false);
     if (item === "Brand") setBrandFilter("Revisioni");
