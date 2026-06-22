@@ -38,6 +38,7 @@ import { getDriveFolderPreview, type DriveFolderItem } from "../../googleDriveSe
 import { listWorkshopRequests, updateWorkshopRequest } from "../../requestService";
 import { roleIdentities } from "../../data/mockData";
 import { workshops } from "../../data/catalog";
+import { statusLabel } from "../../data/workflow";
 import type { AdminProject, NotifyOptions, ProjectStatus, Selection, Workshop } from "../../types/domain";
 import { useAuth } from "../../AuthContext";
 import { requestToAdminProject } from "../../utils/workshop";
@@ -47,9 +48,7 @@ import { Info } from "../../components/ui/Info";
 import { Panel } from "../../components/ui/Panel";
 import { SectionTitle } from "../../components/ui/SectionTitle";
 import { Skeleton, SkeletonCard } from "../../components/ui/Skeleton";
-import { Stepper } from "../../components/ui/Stepper";
 import { BottomActionBar } from "../../components/layout/BottomActionBar";
-import { OperationalStrip } from "../../components/layout/OperationalStrip";
 import { OperatorIdentityCard } from "../../components/layout/OperatorIdentityCard";
 import { RoleHero } from "../../components/layout/RoleHero";
 import { ExpertCandidateModal } from "./components/ExpertCandidateModal";
@@ -78,7 +77,7 @@ export function ExpertView({
   project: AdminProject;
 }) {
   const { currentUser } = useAuth();
-  const expertSteps = ["Opportunita", "Assegnati", "Upload deck", "Storico"];
+  const expertSteps = ["Disponibilita", "Opportunita", "Assegnati", "Upload deck", "Storico"];
   // Nome esperto: usa displayName dell'utente autenticato, fallback al roleIdentities mock
   const expertName = currentUser?.displayName ?? roleIdentities.Esperto.name;
   const [syncedProject, setSyncedProject] = useState<AdminProject>(project);
@@ -134,8 +133,25 @@ export function ExpertView({
     : selections
         .map((selection) => ({ selection, workshop: workshops.find((item) => item.id === selection.workshopId)! }))
         .filter(({ workshop }) => Boolean(workshop));
-  const assignedRow = expertRows.find(({ selection }) => selection.status === "esperto_assegnato") ?? expertRows[0];
+  const assignedStatuses = new Set([
+    "esperto_assegnato",
+    "materiali_cliente_in_attesa",
+    "in_preparazione_esperto",
+    "in_revisione_brand",
+    "approvazione_finale",
+    "evento_provvisorio",
+    "confermato",
+  ]);
+  const historyStatuses = new Set(["candidatura_ricevuta", "non_disponibile", ...assignedStatuses]);
+  const assignedRows = expertRows.filter(({ selection }) => assignedStatuses.has(selection.status));
+  const assignedRow = assignedRows[0];
+  const historyRows = expertRows.filter(({ selection }) => historyStatuses.has(selection.status));
   const candidateCount = expertRows.filter(({ selection }) => selection.status === "candidatura_ricevuta").length;
+  const expertStatusLabel = (status: string) => {
+    if (status === "candidatura_ricevuta") return "Candidatura inviata";
+    if (status === "non_disponibile") return "Non disponibile";
+    return statusLabel[status as ProjectStatus] ?? "Aggiornato";
+  };
   const loadExpertOpportunities = async (showFeedback = false) => {
     setExpertSyncState({ loading: true, error: "" });
     try {
@@ -178,11 +194,16 @@ export function ExpertView({
   }, [currentUserId, currentUserEmail]);
   const expertActiveIndex = expertSteps.indexOf(expertStep);
   const expertCompletedSteps = new Set<string>([
+    ...(expertCalendarState.connected ? ["Disponibilita"] : []),
     ...(candidateCount > 0 ? ["Opportunita"] : []),
     ...(assignedRow ? ["Assegnati"] : []),
     ...(expertDeckFile ? ["Upload deck"] : []),
   ]);
   const expertMainAction = (() => {
+    if (expertStep === "Disponibilita") return { label: "Rileggi Calendar", disabled: false, loading: expertCalendarState.loading, action: () => {
+      setAvailabilityUpdatedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+      void refreshExpertCalendar(true);
+    } };
     if (expertStep === "Opportunita") return { label: "Aggiorna disponibilita", disabled: false, action: () => {
       setAvailabilityUpdatedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
       void refreshExpertCalendar(true);
@@ -192,6 +213,43 @@ export function ExpertView({
     if (expertStep === "Upload deck") return { label: "Invia a brand", disabled: !assignedRow || !expertDeckFile || expertDeckSending, loading: expertDeckSending, action: () => { void sendDeckToBrand(); } };
     return { label: "Vedi opportunita", disabled: false, action: () => setExpertStep("Opportunita") };
   })();
+  const expertFlowTabs = [
+    {
+      id: "Disponibilita",
+      label: "Disponibilita",
+      meta: expertCalendarState.connected ? "Calendar collegato" : "Da collegare",
+      value: expertCalendarSlots.length,
+      icon: <CalendarCheck size={20} />,
+    },
+    {
+      id: "Opportunita",
+      label: "Candidature",
+      meta: `${candidateCount} inviate`,
+      value: expertRows.length,
+      icon: <Megaphone size={20} />,
+    },
+    {
+      id: "Assegnati",
+      label: "Incarichi",
+      meta: assignedRows.length ? "Da lavorare" : "In attesa",
+      value: assignedRows.length,
+      icon: <BriefcaseBusiness size={20} />,
+    },
+    {
+      id: "Upload deck",
+      label: "Deck",
+      meta: expertDeckFile ? "File selezionato" : "Da caricare",
+      value: expertDeckFile ? 1 : 0,
+      icon: <Presentation size={20} />,
+    },
+    {
+      id: "Storico",
+      label: "Stato",
+      meta: historyRows.length ? "Aggiornato" : "Vuoto",
+      value: historyRows.length,
+      icon: <Clock3 size={20} />,
+    },
+  ];
   const refreshExpertCalendar = async (showFeedback = false) => {
     setExpertCalendarState((current) => ({ ...current, loading: true, error: "" }));
     try {
@@ -271,7 +329,10 @@ export function ExpertView({
         calendarName: result.calendarName || current.calendarName,
         updatedAt: result.updatedAt,
       }));
-      notify("Google Calendar creato", `${result.calendarName || "Calendar esperto"} creato, collegato e condiviso con la tua email.`, {
+      const shareCopy = result.shared === false
+        ? `Creato e collegato. Condivisione Google non inviata: ${result.shareError || "controlla permessi Calendar."}`
+        : `${result.calendarName || "Calendar esperto"} creato, collegato e condiviso con la tua email.`;
+      notify("Google Calendar creato", shareCopy, {
         audience: ["Esperto"],
         audienceUserIds: currentUserId ? [currentUserId] : undefined,
         audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
@@ -682,7 +743,17 @@ export function ExpertView({
                     <Info label="Formato" value={`${selection.duration} · ${selection.format}`} />
                     <Info label="Data proposta" value={`${selection.date || "da proporre"} ${selection.time}`} />
                   </div>
-                  <p className="email-entry-hint">Accesso da mail FunniFin: clicca “Mi candido” per inviare la candidatura al team.</p>
+                  <p className={`email-entry-hint ${alreadyCandidate ? "candidate-sent-hint" : ""}`}>
+                    {alreadyCandidate
+                      ? "Candidatura inviata: FunniFin la vede in coda e puo assegnarti il workshop."
+                      : "Accesso da mail FunniFin: clicca “Mi candido” per inviare la candidatura al team."}
+                  </p>
+                  {alreadyCandidate && (
+                    <div className="candidate-sent-status" role="status">
+                      <Check size={17} />
+                      <span>In attesa di assegnazione FunniFin</span>
+                    </div>
+                  )}
                   <div className="button-row">
                     <AppButton
                       variant={alreadyCandidate ? "outline" : "secondary"}
@@ -692,7 +763,15 @@ export function ExpertView({
                         setCandidateModalRow({ selection, workshop });
                       }}
                     >
-                      {alreadyCandidate ? "Candidatura inviata" : "Mi candido"}
+                      {alreadyCandidate ? (
+                        <>
+                          <Check size={17} /> Candidatura inviata
+                        </>
+                      ) : (
+                        <>
+                          <Send size={17} /> Mi candido
+                        </>
+                      )}
                     </AppButton>
                     <AppButton
                       variant="ghost"
@@ -724,10 +803,17 @@ export function ExpertView({
             }
           />
           <div className="expert-opportunity-grid">
-            {(assignedRow ? [assignedRow] : []).map(({ selection, workshop }) => (
+            {assignedRows.length === 0 && (
+              <div className="expert-empty-state">
+                <CalendarCheck size={22} />
+                <strong>Nessun incarico assegnato</strong>
+                <span>Quando FunniFin conferma una candidatura, il workshop compare qui con data, formato e materiali.</span>
+              </div>
+            )}
+            {assignedRows.map(({ selection, workshop }) => (
               <div className="opportunity-card selected" key={workshop.id}>
                 <div className="opportunity-head">
-                  <span className="topic-badge">assegnato</span>
+                  <span className="topic-badge">{expertStatusLabel(selection.status)}</span>
                   <strong>{workshop.title}</strong>
                 </div>
                 <div className="opportunity-meta">
@@ -829,7 +915,7 @@ export function ExpertView({
       {expertStep === "Storico" && (
         <Panel>
           <SectionTitle
-            title="Storico workshop"
+            title="Stato workshop"
             actions={
               <ToolIconButton onClick={() => refreshExpertSection("Storico")} label="Ricarica storico">
                 <RefreshCw size={18} />
@@ -837,10 +923,28 @@ export function ExpertView({
             }
           />
           <div className="expert-history-list">
-            <div className="info">
-              <span>Storico reale</span>
-              <strong>Nessun workshop completato registrato per questo esperto.</strong>
-            </div>
+            {historyRows.length === 0 && (
+              <div className="expert-empty-state">
+                <Clock3 size={22} />
+                <strong>Nessuna attivita registrata</strong>
+                <span>Candidature, incarichi e revisioni compariranno qui appena avviene una prima azione.</span>
+              </div>
+            )}
+            {historyRows.map(({ selection, workshop }) => (
+              <article className="expert-history-card" key={`history-${selection.workshopId}`}>
+                <div>
+                  <span className="topic-badge">{expertStatusLabel(selection.status)}</span>
+                  <strong>{workshop.title}</strong>
+                  <em>{activeExpertProject.company}</em>
+                </div>
+                <div className="opportunity-meta">
+                  <Info label="Data" value={`${selection.date || "da confermare"} ${selection.time}`} />
+                  <Info label="Formato" value={`${selection.duration} · ${selection.format}`} />
+                  <Info label="Target" value={workshop.target} />
+                  <Info label="Fase" value={expertStatusLabel(selection.status)} />
+                </div>
+              </article>
+            ))}
           </div>
         </Panel>
       )}

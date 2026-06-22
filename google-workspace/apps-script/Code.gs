@@ -384,15 +384,16 @@ function createExpertCalendar(payload, auth) {
   const calendarName = sanitizeDriveName(payload.calendarName || `FunniFin - ${fullName}`);
   const calendar = CalendarApp.createCalendar(calendarName, { timeZone: SETTINGS.timezone });
   const expertEmail = String(expert.email || auth.user.email || payload.expertEmail || "").trim();
+  let share = { shared: false, expertEmail };
   if (expertEmail) {
-    shareCalendarWithExpert(calendar.getId(), expertEmail);
+    share = shareCalendarWithExpert(calendar.getId(), expertEmail);
   }
   try {
     calendar.setDescription("Calendario dedicato FunniFin per blocchi e impegni dell'esperto. Gli eventi con titolo FunniFin vengono letti come non disponibilita nel planner cliente.");
   } catch (error) {
     // Some CalendarApp calendar implementations may not expose setDescription.
   }
-  return saveExpertCalendarConnection(calendar.getId(), calendar, auth, payload, "expert_calendar_created");
+  return saveExpertCalendarConnection(calendar.getId(), calendar, auth, payload, "expert_calendar_created", share);
 }
 
 function shareCalendarWithExpert(calendarId, expertEmail) {
@@ -406,16 +407,25 @@ function shareCalendarWithExpert(calendarId, expertEmail) {
     }, calendarId, {
       sendNotifications: true,
     });
+    return {
+      shared: true,
+      expertEmail,
+    };
   } catch (error) {
     appendRequestEvent("experts", "expert_calendar_share_failed", `Condivisione Calendar non riuscita: ${expertEmail}`, {
       calendarId,
       expertEmail,
       error: String(error.message || error),
     });
+    return {
+      shared: false,
+      expertEmail,
+      error: String(error.message || error),
+    };
   }
 }
 
-function saveExpertCalendarConnection(calendarId, calendar, auth, payload, eventType) {
+function saveExpertCalendarConnection(calendarId, calendar, auth, payload, eventType, share) {
   const expert = resolveSessionExpert(auth, payload) || createExpertFromAuth(auth);
   const next = Object.assign({}, expert, {
     calendarId,
@@ -429,6 +439,8 @@ function saveExpertCalendarConnection(calendarId, calendar, auth, payload, event
     email: auth.user.email,
     calendarId,
     calendarName: calendar.getName(),
+    shared: share ? share.shared : undefined,
+    sharedWith: share ? share.expertEmail : undefined,
   });
 
   return {
@@ -439,6 +451,9 @@ function saveExpertCalendarConnection(calendarId, calendar, auth, payload, event
     calendarName: calendar.getName(),
     expertId: next.id,
     updatedAt: next.updatedAt,
+    shared: share ? share.shared : undefined,
+    sharedWith: share ? share.expertEmail : undefined,
+    shareError: share ? share.error || "" : "",
   };
 }
 
@@ -1506,6 +1521,7 @@ function updateExpert(payload) {
   if (!payload.id) throw new Error("Missing expert id");
 
   const now = formatTimestamp(new Date());
+  const previousExpert = findExpertById(String(payload.id));
   const expert = {
     id: String(payload.id),
     firstName: String(payload.firstName || ""),
@@ -1522,13 +1538,98 @@ function updateExpert(payload) {
   };
 
   upsertSheetRow(getExpertsSheet(), EXPERT_HEADERS, expert.id, expertToRow(expert));
-  appendRequestEvent("experts", "expert_updated", `Esperto aggiornato: ${expert.firstName} ${expert.lastName}`.trim(), expert);
+  const propagation = propagateExpertIdentityChange(previousExpert, expert);
+  appendRequestEvent("experts", "expert_updated", `Esperto aggiornato: ${getExpertDisplayName(expert)}`.trim(), Object.assign({}, expert, { propagation }));
 
   return {
     ok: true,
     source: "google-sheet",
     expert,
+    propagation,
   };
+}
+
+function findExpertById(expertId) {
+  if (!expertId) return null;
+  const rows = getExpertsSheet().getDataRange().getValues();
+  for (let index = 1; index < rows.length; index += 1) {
+    const expert = rowToExpert(rows[index]);
+    if (expert && expert.id === expertId) return expert;
+  }
+  return null;
+}
+
+function getExpertDisplayName(expert) {
+  if (!expert) return "";
+  return [expert.firstName, expert.lastName].filter(Boolean).join(" ").trim();
+}
+
+function sameExpertName(left, right) {
+  return normalizeCalendarName(left) === normalizeCalendarName(right);
+}
+
+function propagateExpertIdentityChange(previousExpert, nextExpert) {
+  const result = {
+    authUsers: 0,
+    requests: 0,
+    workshops: 0,
+  };
+  const previousName = getExpertDisplayName(previousExpert);
+  const nextName = getExpertDisplayName(nextExpert);
+  if (!nextExpert || !nextExpert.id || !nextName) return result;
+
+  propagateExpertAuthUserName(nextExpert, nextName, result);
+  if (!previousName || sameExpertName(previousName, nextName)) return result;
+
+  const requestsSheet = getRequestsSheet();
+  const rows = requestsSheet.getDataRange().getValues();
+  for (let index = 1; index < rows.length; index += 1) {
+    const request = rowToRequest(rows[index]);
+    if (!request) continue;
+    let changed = false;
+    if (request.assignedExpert && sameExpertName(request.assignedExpert, previousName)) {
+      request.assignedExpert = nextName;
+      changed = true;
+    }
+    request.workshops = (request.workshops || []).map((workshop) => {
+      if (!workshop.expertName || !sameExpertName(workshop.expertName, previousName)) return workshop;
+      result.workshops += 1;
+      changed = true;
+      return Object.assign({}, workshop, { expertName: nextName });
+    });
+    if (!changed) continue;
+    request.updatedAt = formatTimestamp(new Date());
+    requestsSheet.getRange(index + 1, 1, 1, REQUEST_HEADERS.length).setValues([requestToRow(request)]);
+    syncClientUserFromRequest(request);
+    appendRequestEvent(request.id, "expert_name_propagated", `Nome esperto aggiornato: ${previousName} -> ${nextName}`, {
+      expertId: nextExpert.id,
+      previousName,
+      nextName,
+    });
+    result.requests += 1;
+  }
+  return result;
+}
+
+function propagateExpertAuthUserName(expert, displayName, result) {
+  seedAuthUsersIfNeeded();
+  const usersSheet = getAuthUsersSheet();
+  const rows = usersSheet.getDataRange().getValues();
+  const expertEmail = String(expert.email || "").trim().toLowerCase();
+  for (let index = 1; index < rows.length; index += 1) {
+    const user = rowToAuthUser(rows[index]);
+    if (!user) continue;
+    const userEmail = String(user.email || "").trim().toLowerCase();
+    const isLinkedExpert = user.expertId === expert.id || (expertEmail && userEmail === expertEmail && user.actualRole === "Esperto");
+    if (!isLinkedExpert) continue;
+    const nextUser = Object.assign({}, user, {
+      expertId: expert.id,
+      displayName,
+      updatedAt: formatTimestamp(new Date()),
+    });
+    usersSheet.getRange(index + 1, 1, 1, AUTH_USER_HEADERS.length).setValues([authUserToRow(nextUser)]);
+    result.authUsers += 1;
+  }
 }
 
 function deleteExpert(payload) {

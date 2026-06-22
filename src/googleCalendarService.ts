@@ -24,6 +24,9 @@ export type ExpertCalendarConnection = {
   calendarId: string;
   calendarName?: string;
   expertId?: string;
+  shared?: boolean;
+  sharedWith?: string;
+  shareError?: string;
   updatedAt: string;
 };
 
