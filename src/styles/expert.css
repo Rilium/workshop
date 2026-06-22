@@ -415,6 +415,111 @@
   font-size: var(--text-xl);
 }
 
+.expert-workspace-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.26fr) minmax(0, 1fr);
+  gap: var(--sp-4);
+  align-items: start;
+}
+
+.expert-flow-tabs {
+  position: sticky;
+  top: calc(var(--sticky-topbar-offset) + 18px);
+  display: grid;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.expert-flow-tab {
+  min-width: 0;
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: var(--sp-2);
+  align-items: center;
+  padding: 11px;
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  color: var(--neutral-800);
+  text-align: left;
+  box-shadow: var(--brand-shadow-card);
+}
+
+.expert-flow-tab:hover,
+.expert-flow-tab.active {
+  border-color: var(--brand);
+  background: var(--brand-light);
+  box-shadow: var(--brand-shadow-hover);
+}
+
+.expert-flow-tab.done:not(.active) {
+  border-color: rgba(28, 175, 185, 0.28);
+}
+
+.expert-flow-tab-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--brand-light);
+  color: var(--brand);
+}
+
+.expert-flow-tab.active .expert-flow-tab-icon {
+  background: var(--brand);
+  color: var(--white);
+}
+
+.expert-flow-tab > span:nth-child(2) {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.expert-flow-tab strong,
+.expert-flow-tab em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expert-flow-tab strong {
+  color: var(--neutral-900);
+  font-size: var(--text-sm);
+  line-height: 1.15;
+}
+
+.expert-flow-tab em {
+  color: var(--neutral-600);
+  font-size: var(--text-xs);
+  font-style: normal;
+  font-weight: var(--fw-bold);
+}
+
+.expert-flow-tab b {
+  min-width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--neutral-100);
+  color: var(--brand-dark);
+  font-size: var(--text-sm);
+}
+
+.expert-flow-tab.active b {
+  background: var(--white);
+}
+
+.expert-flow-content {
+  min-width: 0;
+  display: grid;
+  gap: var(--sp-4);
+}
+
 .expert-opportunity-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -1070,4 +1175,47 @@
   background: var(--white);
   color: var(--neutral-900);
   font: inherit;
+}
+
+@media (max-width: 960px) {
+  .expert-workspace-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .expert-flow-tabs {
+    position: static;
+    grid-template-columns: repeat(5, minmax(176px, 1fr));
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scroll-snap-type: x proximity;
+  }
+
+  .expert-flow-tab {
+    scroll-snap-align: start;
+  }
+}
+
+@media (max-width: 640px) {
+  .expert-flow-tabs {
+    grid-template-columns: repeat(5, minmax(152px, 1fr));
+  }
+
+  .expert-flow-tab {
+    min-height: 62px;
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .expert-flow-tab-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .expert-flow-tab b {
+    grid-column: 1 / -1;
+    width: 100%;
+    height: 4px;
+    min-width: 0;
+    overflow: hidden;
+    color: transparent;
+  }
 }

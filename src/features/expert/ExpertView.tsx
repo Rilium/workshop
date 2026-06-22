@@ -634,6 +634,32 @@ export function ExpertView({
         </div>
       )}
 
+      <div className="expert-workspace-layout">
+        <nav className="expert-flow-tabs" aria-label="Sezioni area esperto">
+          {expertFlowTabs.map((tab) => {
+            const active = expertStep === tab.id;
+            const done = expertCompletedSteps.has(tab.id);
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                className={`expert-flow-tab ${active ? "active" : ""} ${done ? "done" : ""}`}
+                onClick={() => setExpertStep(tab.id)}
+                aria-current={active ? "page" : undefined}
+              >
+                <span className="expert-flow-tab-icon">{tab.icon}</span>
+                <span>
+                  <strong>{tab.label}</strong>
+                  <em>{tab.meta}</em>
+                </span>
+                <b>{tab.value}</b>
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="expert-flow-content">
+      {expertStep === "Disponibilita" && (
       <Panel className="expert-calendar-panel">
         <div className="expert-calendar-head">
           <div>
@@ -699,17 +725,7 @@ export function ExpertView({
           </div>
         )}
       </Panel>
-
-      <OperationalStrip
-        label="Riepilogo operativo esperto"
-        items={[
-          { id: "opportunities", label: "Workshop disponibili", value: expertRows.length, icon: <Megaphone size={22} />, active: expertStep === "Opportunita", onClick: () => setExpertStep("Opportunita") },
-          { id: "assigned", label: "Assegnati", value: assignedRow ? 1 : 0, icon: <CalendarCheck size={22} />, active: expertStep === "Assegnati", onClick: () => setExpertStep("Assegnati") },
-          { id: "deck", label: "Deck da caricare", value: 1, icon: <Presentation size={22} />, active: expertStep === "Upload deck", onClick: () => setExpertStep("Upload deck") },
-        ]}
-      />
-
-      <Stepper steps={expertSteps} activeStep={expertStep} completedSteps={expertCompletedSteps} onStep={setExpertStep}>
+      )}
 
       {expertStep === "Opportunita" && (
         <Panel>
@@ -948,7 +964,8 @@ export function ExpertView({
           </div>
         </Panel>
       )}
-      </Stepper>
+        </div>
+      </div>
       <BottomActionBar
         context={`Step ${expertActiveIndex + 1} — ${expertStep}`}
         detail={`${expertRows.length} opportunita · ${candidateCount} candidature inviate`}
