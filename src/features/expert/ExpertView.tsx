@@ -31,7 +31,7 @@ import {
   UsersRound,
   Video,
   X,
-} from "lucide-react";
+} from "../../components/ui/FaIcons";
 import { createAssetDraftFolder, uploadAssetFiles, type AssetDraftFolder, type UploadedAsset } from "../../driveAssetService";
 import { getDriveFolderPreview, type DriveFolderItem } from "../../googleDriveService";
 import { listWorkshopRequests, updateWorkshopRequest } from "../../requestService";

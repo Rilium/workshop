@@ -32,7 +32,7 @@ import {
   UsersRound,
   Video,
   X,
-} from "lucide-react";
+} from "../../components/ui/FaIcons";
 import { createAssetDraftFolder, deleteAssetDraftFolder, uploadAssetFiles, type AssetDraftFolder, type UploadedAsset } from "../../driveAssetService";
 import { createWorkshopRequest, type RequestWorkshopRecord, type WorkshopRequestRecord } from "../../requestService";
 import { sendWorkshopRequestEmail } from "../../emailService";
@@ -51,7 +51,6 @@ import { RoleHero } from "../../components/layout/RoleHero";
 import { EcommerceCart } from "../../components/workshop/EcommerceCart";
 import { QuoteStrip } from "../../components/workshop/QuoteStrip";
 import { ReadinessPanel } from "../../components/workshop/ReadinessPanel";
-import { SelectedInterestSummary } from "../../components/workshop/SelectedInterestSummary";
 import { WorkshopCard } from "../../components/workshop/WorkshopCard";
 import { getWorkshopSelectionPrice, topicColorClass } from "../../utils/workshop";
 
@@ -62,6 +61,7 @@ type SurveyAnswer = {
   label: string;
   description: string;
   meta?: string;
+  pointerEmoji?: string;
   topicIds?: string[];
   themeIds?: string[];
 };
@@ -84,15 +84,15 @@ const guidedSurveyQuestions: SurveyQuestion[] = [
     kind: "multi",
     max: 3,
     answers: [
-      { id: "retribuzione", label: "Retribuzione", description: "Stipendio, bonus e decisioni economiche quotidiane.", meta: "Ambito lavorativo", topicIds: ["fiscalita"], themeIds: ["benefit"] },
-      { id: "assicurazioni", label: "Assicurazioni", description: "Protezione di reddito, famiglia e patrimonio.", meta: "2 workshop disponibili", topicIds: ["assicurazioni"] },
-      { id: "investimenti", label: "Investimenti", description: "Rischio, orizzonte temporale, ETF e strumenti.", meta: "2 workshop disponibili", topicIds: ["investimenti"], themeIds: ["rischio", "etf"] },
-      { id: "genitorialita", label: "Genitorialità", description: "Congedi, spese familiari e pianificazione con figli.", meta: "Ambito famiglia", topicIds: ["fiscalita", "famiglia"], themeIds: ["genitori"] },
-      { id: "pensione", label: "Pensione", description: "TFR, previdenza complementare e scelte di lungo periodo.", meta: "Percorso popolare", topicIds: ["previdenza"], themeIds: ["tfr"] },
-      { id: "finanziamenti", label: "Finanziamenti", description: "Mutui, prestiti e sostenibilità della rata.", meta: "2 workshop disponibili", topicIds: ["credito"], themeIds: ["mutuo", "credito-consumo"] },
-      { id: "risparmio", label: "Risparmio", description: "Fondo emergenza, liquidità e abitudini sostenibili.", meta: "Consigliato", topicIds: ["risparmio"], themeIds: ["fondo-emergenza", "abitudini"] },
-      { id: "fiscalita", label: "Fiscalità", description: "Bonus, detrazioni, IRPEF e novità normative.", meta: "Ambito lavorativo", topicIds: ["fiscalita"], themeIds: ["dichiarazione", "benefit"] },
-      { id: "successione", label: "Successione", description: "Diritti economici, famiglia ed eredità.", meta: "Ambito familiare", topicIds: ["famiglia"], themeIds: ["famiglia-diritti"] },
+      { id: "retribuzione", label: "Retribuzione", description: "Stipendio, bonus e decisioni economiche quotidiane.", meta: "Ambito lavorativo", pointerEmoji: "💼", topicIds: ["fiscalita"], themeIds: ["benefit"] },
+      { id: "assicurazioni", label: "Assicurazioni", description: "Protezione di reddito, famiglia e patrimonio.", meta: "2 workshop disponibili", pointerEmoji: "🛡️", topicIds: ["assicurazioni"] },
+      { id: "investimenti", label: "Investimenti", description: "Rischio, orizzonte temporale, ETF e strumenti.", meta: "2 workshop disponibili", pointerEmoji: "📈", topicIds: ["investimenti"], themeIds: ["rischio", "etf"] },
+      { id: "genitorialita", label: "Genitorialità", description: "Congedi, spese familiari e pianificazione con figli.", meta: "Ambito famiglia", pointerEmoji: "👶", topicIds: ["fiscalita", "famiglia"], themeIds: ["genitori"] },
+      { id: "pensione", label: "TFR & Previdenza", description: "TFR, previdenza complementare e scelte di lungo periodo.", meta: "Percorso popolare", pointerEmoji: "🌱", topicIds: ["previdenza"], themeIds: ["tfr"] },
+      { id: "finanziamenti", label: "Finanziamenti", description: "Mutui, prestiti e sostenibilità della rata.", meta: "2 workshop disponibili", pointerEmoji: "🏠", topicIds: ["credito"], themeIds: ["mutuo", "credito-consumo"] },
+      { id: "risparmio", label: "Risparmio", description: "Fondo emergenza, liquidità e abitudini sostenibili.", meta: "Consigliato", pointerEmoji: "💰", topicIds: ["risparmio"], themeIds: ["fondo-emergenza", "abitudini"] },
+      { id: "fiscalita", label: "Fiscalità", description: "Bonus, detrazioni, IRPEF e novità normative.", meta: "Ambito lavorativo", pointerEmoji: "🧾", topicIds: ["fiscalita"], themeIds: ["dichiarazione", "benefit"] },
+      { id: "successione", label: "Successione", description: "Diritti economici, famiglia ed eredità.", meta: "Ambito familiare", pointerEmoji: "🏛️", topicIds: ["famiglia"], themeIds: ["famiglia-diritti"] },
     ],
   },
   {
@@ -144,11 +144,11 @@ const guidedSurveyQuestions: SurveyQuestion[] = [
 ];
 
 const guidedOutcomePreview = [
-  { label: "Topic consigliati", icon: BadgeCheck },
-  { label: "Workshop selezionati", icon: Presentation },
-  { label: "Esperti associati", icon: UsersRound },
-  { label: "Calendario attività", icon: CalendarCheck },
-  { label: "Stima costi", icon: Banknote },
+  { label: "Topic", tooltip: "Topic consigliati in base alle priorità formative", icon: BadgeCheck },
+  { label: "Workshop", tooltip: "Workshop selezionati per costruire il percorso", icon: Presentation },
+  { label: "Esperti", tooltip: "Esperti associati ai workshop scelti", icon: UsersRound },
+  { label: "Calendario", tooltip: "Calendario attività con date e momenti formativi", icon: CalendarCheck },
+  { label: "Costi", tooltip: "Stima costi aggiornata sul percorso", icon: Banknote },
 ];
 
 export function ClientView({
@@ -177,6 +177,7 @@ export function ClientView({
   setUploadedAssets,
   systemRefreshToken,
   systemSettingsToken,
+  onGuidedLayerChange,
   onRequestCreated,
 }: {
   topics: Topic[];
@@ -204,6 +205,7 @@ export function ClientView({
   setUploadedAssets: (value: UploadedAsset[] | ((current: UploadedAsset[]) => UploadedAsset[])) => void;
   systemRefreshToken: number;
   systemSettingsToken: number;
+  onGuidedLayerChange?: (active: boolean) => void;
   onRequestCreated: (request: WorkshopRequestRecord) => void;
 }) {
   const clientSteps = ["Interessi", "Consigliati", "Workshop", "Personalizza", "Date", "Materiali", "Invio"];
@@ -212,6 +214,8 @@ export function ClientView({
   };
   const [clientStep, setClientStep] = useState(clientSteps[0]);
   const [clientJourneyStage, setClientJourneyStage] = useState<ClientJourneyStage>("loader");
+  const [choiceSheet, setChoiceSheet] = useState<"guided" | "catalog" | null>(null);
+  const [topicPointer, setTopicPointer] = useState<{ emoji: string; x: number; y: number } | null>(null);
   const [surveyIndex, setSurveyIndex] = useState(0);
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string[]>>({});
   const [workshopFilters, setWorkshopFilters] = useState({ topic: "all", theme: "all", format: "all" });
@@ -230,6 +234,8 @@ export function ClientView({
   const [expandedTopicCards, setExpandedTopicCards] = useState<string[]>([]);
   const assetFolderRef = useRef<AssetDraftFolder | null>(null);
   const requestFinalizedRef = useRef(false);
+  const topicPointerTimerRef = useRef<number | null>(null);
+  const surveyQuestionPanelRef = useRef<HTMLElement | null>(null);
   const [contact, setContact] = useState<ClientContact>({
     firstName: "",
     lastName: "",
@@ -238,9 +244,6 @@ export function ClientView({
     phone: "",
   });
   const selectedTopics = topics.filter((item) => activeTopics.includes(item.id));
-  const availableThemes = Array.from(new Map(selectedTopics.flatMap((item) => item.themes).map((theme) => [theme.id, theme])).values());
-  const selectedThemes = availableThemes.filter((theme) => activeThemes.includes(theme.id));
-  const unselectedThemes = availableThemes.filter((theme) => !activeThemes.includes(theme.id));
   const selectedTopicTitles = selectedTopics.map((item) => item.title).join(", ") || "nessun ambito";
   const allThemes = Array.from(new Map(topics.flatMap((item) => item.themes).map((theme) => [theme.id, theme])).values());
   const activeStructuredFilterCount = [workshopFilters.topic, workshopFilters.theme, workshopFilters.format].filter((value) => value !== "all").length;
@@ -314,7 +317,6 @@ export function ClientView({
   const addRecommendedWorkshops = () => {
     addWorkshops(recommendedWorkshops.map((workshop) => workshop.id));
     setClientStep("Workshop");
-    notify("Consigli aggiunti", `${recommendedWorkshops.length} workshop consigliati sono nel percorso. Puoi modificarli o sostituirli dal catalogo.`);
   };
   const missingDateRows = selectedWorkshopRows.filter(({ selection }) => !selection.dateConfirmed);
   const allDatesSelected = selectedWorkshopRows.length > 0 && missingDateRows.length === 0;
@@ -679,11 +681,6 @@ export function ClientView({
     const removedThemeIds = topics.find((item) => item.id === topicId)?.themes.map((theme) => theme.id) ?? [];
     setActiveTopics(nextTopics);
     setActiveThemes(activeThemes.filter((themeId) => !removedThemeIds.includes(themeId)));
-    notify("Interesse rimosso", "I temi collegati sono stati tolti dal percorso.");
-  };
-  const removeTheme = (themeId: string) => {
-    setActiveThemes(activeThemes.filter((id) => id !== themeId));
-    notify("Tema rimosso", "Il tema e stato tolto dai filtri del percorso.");
   };
   const removeWorkshop = (workshopId: string) => {
     const workshop = workshops.find((item) => item.id === workshopId);
@@ -716,14 +713,11 @@ export function ClientView({
     const nextTopics = [...activeTopics, topicItem.id];
     setActiveTopics(nextTopics);
     setActiveThemes([...new Set([...activeThemes, ...themeIds])]);
-    const count = workshops.filter((workshop) => workshop.topicId === topicItem.id || themeIds.includes(workshop.themeId)).length;
-    notify("Interesse aggiunto", `${topicItem.title}: ${topicItem.themes.length} temi e ${count} workshop disponibili.`);
   };
   const selectAllTopics = () => {
     setActiveTopics(topics.map((item) => item.id));
     setActiveThemes([...new Set(topics.flatMap((item) => item.themes.map((theme) => theme.id)))]);
     setClientStep("Workshop");
-    notify("Tutto il catalogo", "Salto i consigli: stai esplorando tutto il catalogo, ora scegli i workshop.");
   };
   const clearWorkshopDiscovery = () => {
     setWorkshopFilters({ topic: "all", theme: "all", format: "all" });
@@ -734,7 +728,6 @@ export function ClientView({
     setActiveThemes([...new Set(topics.flatMap((item) => item.themes.map((theme) => theme.id)))]);
     clearWorkshopDiscovery();
     setFiltersOpen(false);
-    notify("Vedi tutti i workshop", "Filtri azzerati: stai guardando tutto il catalogo.");
   };
   const currentSurveyQuestion = guidedSurveyQuestions[surveyIndex];
   const currentSurveyAnswers = surveyAnswers[currentSurveyQuestion.id] ?? [];
@@ -757,6 +750,18 @@ export function ClientView({
   const employeesLabel = guidedSurveyQuestions.find((question) => question.id === "employees")?.answers.find((answer) => surveyAnswers.employees?.includes(answer.id))?.label ?? "Da definire";
   const formatLabel = guidedSurveyQuestions.find((question) => question.id === "format")?.answers.find((answer) => surveyAnswers.format?.includes(answer.id))?.label ?? "Consigliato da FunniFin";
   const budgetLabel = guidedSurveyQuestions.find((question) => question.id === "budget")?.answers.find((answer) => surveyAnswers.budget?.includes(answer.id))?.label ?? "Non ancora definito";
+  const topicProfileLabel =
+    guidedSurveyQuestions
+      .find((question) => question.id === "topics")
+      ?.answers.filter((answer) => surveyAnswers.topics?.includes(answer.id))
+      .map((answer) => answer.label)
+      .join(", ") || "Da definire";
+  const profileGridItems = [
+    { label: "Temi prioritari", value: topicProfileLabel },
+    { label: "Dipendenti", value: employeesLabel },
+    { label: "Formato", value: formatLabel },
+    { label: "Budget", value: budgetLabel },
+  ];
   const matchScore = Math.min(95, 20 + Object.values(surveyAnswers).filter((answer) => answer.length > 0).length * 15);
   const surveyCanContinue = currentSurveyAnswers.length > 0;
   const applyGuidedProfile = () => {
@@ -765,13 +770,41 @@ export function ClientView({
     clearWorkshopDiscovery();
   };
   const startManualJourney = () => {
+    setChoiceSheet(null);
     setClientJourneyStage("manual");
     setClientStep("Interessi");
   };
   const startGuidedJourney = () => {
+    setChoiceSheet(null);
+    setTopicPointer(null);
     setSurveyIndex(0);
     setSurveyAnswers({});
     setClientJourneyStage("survey");
+  };
+  const showTopicPointer = (answer: SurveyAnswer, event: React.PointerEvent<HTMLButtonElement>) => {
+    if (currentSurveyQuestion.id !== "topics" || !answer.pointerEmoji) return;
+    if (topicPointerTimerRef.current) window.clearTimeout(topicPointerTimerRef.current);
+    setTopicPointer({ emoji: answer.pointerEmoji, x: event.clientX, y: event.clientY });
+  };
+  const hideTopicPointer = () => {
+    if (topicPointerTimerRef.current) window.clearTimeout(topicPointerTimerRef.current);
+    setTopicPointer(null);
+  };
+  const holdTopicPointerOnTap = () => {
+    if (topicPointerTimerRef.current) window.clearTimeout(topicPointerTimerRef.current);
+    topicPointerTimerRef.current = window.setTimeout(() => setTopicPointer(null), 900);
+  };
+  const scrollSurveyQuestionTop = () => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+      if (surveyQuestionPanelRef.current) {
+        const top = surveyQuestionPanelRef.current.getBoundingClientRect().top + window.scrollY - 80;
+        window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        return;
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
   };
   const toggleSurveyAnswer = (answer: SurveyAnswer) => {
     setSurveyAnswers((current) => {
@@ -789,6 +822,8 @@ export function ClientView({
     if (!surveyCanContinue) return;
     if (surveyIndex < guidedSurveyQuestions.length - 1) {
       setSurveyIndex(surveyIndex + 1);
+      setTopicPointer(null);
+      scrollSurveyQuestionTop();
       return;
     }
     applyGuidedProfile();
@@ -798,6 +833,8 @@ export function ClientView({
   const goBackSurvey = () => {
     if (surveyIndex > 0) {
       setSurveyIndex(surveyIndex - 1);
+      setTopicPointer(null);
+      scrollSurveyQuestionTop();
       return;
     }
     setClientJourneyStage("choice");
@@ -806,7 +843,6 @@ export function ClientView({
     addWorkshops(resultWorkshops.map((workshop) => workshop.id));
     setClientJourneyStage("manual");
     setClientStep("Personalizza");
-    notify("Percorso guidato creato", `${resultWorkshops.length} workshop consigliati sono stati aggiunti. Puoi modificarli dal catalogo.`);
   };
   const openGuidedCatalog = () => {
     applyGuidedProfile();
@@ -851,6 +887,15 @@ export function ClientView({
     const timer = window.setTimeout(() => setClientJourneyStage("choice"), 1500);
     return () => window.clearTimeout(timer);
   }, [clientJourneyStage]);
+  useEffect(() => {
+    if (clientJourneyStage !== "survey") return;
+    setTopicPointer(null);
+    scrollSurveyQuestionTop();
+  }, [clientJourneyStage, surveyIndex]);
+  useEffect(() => {
+    onGuidedLayerChange?.(["survey", "generating", "result"].includes(clientJourneyStage));
+    return () => onGuidedLayerChange?.(false);
+  }, [clientJourneyStage, onGuidedLayerChange]);
 
   if (clientJourneyStage === "loader") {
     return (
@@ -866,6 +911,28 @@ export function ClientView({
   }
 
   if (clientJourneyStage === "choice") {
+    const activeChoiceSheet = choiceSheet === "guided"
+      ? {
+        badge: "Consigliato",
+        title: "Percorso guidato",
+        description: "Rispondi a poche domande e ricevi una proposta già pronta.",
+        benefits: ["Topic consigliati", "Workshop suggeriti", "Esperti associati", "Modificabile in seguito"],
+        time: "~2 minuti",
+        cta: "Inizia percorso guidato",
+        action: startGuidedJourney,
+      }
+      : choiceSheet === "catalog"
+        ? {
+          badge: "Manuale",
+          title: "Catalogo completo",
+          description: "Esplora l’intero catalogo e costruisci il percorso da zero.",
+          benefits: ["Controllo totale", "Tutti i workshop disponibili", "Configurazione personalizzata"],
+          time: "~5 minuti",
+          cta: "Esplora catalogo",
+          action: startManualJourney,
+        }
+        : null;
+
     return (
       <section className="guided-entry">
         <div className="guided-entry-pattern" aria-hidden="true" />
@@ -878,13 +945,9 @@ export function ClientView({
         </div>
         <div className="guided-choice-grid">
           <article className="guided-choice-card recommended" aria-label="Percorso guidato consigliato">
-            <Sparkles className="guided-choice-bg-icon" aria-hidden="true" />
+            <BadgeCheck className="guided-choice-bg-icon" aria-hidden="true" />
             <div className="guided-card-topline">
-              <span className="guided-card-badge">Consigliato</span>
-              <span className="guided-time-chip">
-                <Clock3 size={15} aria-hidden="true" />
-                ~2 minuti
-              </span>
+              <span className="guided-card-badge">Consigliato · ~2 minuti</span>
             </div>
             <div>
               <strong>Percorso guidato</strong>
@@ -901,15 +964,15 @@ export function ClientView({
                 Inizia percorso guidato
               </AppButton>
             </footer>
+            <button type="button" className="guided-mobile-detail-button" onClick={() => setChoiceSheet("guided")}>
+              Vedi dettagli
+              <ArrowRight size={17} aria-hidden="true" />
+            </button>
           </article>
           <article className="guided-choice-card secondary" aria-label="Catalogo completo">
             <BookOpen className="guided-choice-bg-icon" aria-hidden="true" />
             <div className="guided-card-topline">
-              <span className="guided-card-badge neutral">Manuale</span>
-              <span className="guided-time-chip">
-                <Clock3 size={15} aria-hidden="true" />
-                ~5 minuti
-              </span>
+              <span className="guided-card-badge neutral">Manuale · ~5 minuti</span>
             </div>
             <div>
               <strong>Catalogo completo</strong>
@@ -926,19 +989,48 @@ export function ClientView({
                 Esplora catalogo
               </AppButton>
             </footer>
+            <button type="button" className="guided-mobile-detail-button" onClick={() => setChoiceSheet("catalog")}>
+              Vedi dettagli
+              <ArrowRight size={17} aria-hidden="true" />
+            </button>
           </article>
         </div>
         <aside className="guided-outcome-preview" aria-label="Cosa otterrai">
           <strong>Cosa otterrai</strong>
           <div>
-            {guidedOutcomePreview.map(({ label, icon: Icon }) => (
-              <span key={label}>
+            {guidedOutcomePreview.map(({ label, tooltip, icon: Icon }) => (
+              <span key={label} className="guided-outcome-chip" title={tooltip} aria-label={tooltip} data-tooltip={tooltip}>
                 <Icon size={16} aria-hidden="true" />
                 {label}
               </span>
             ))}
           </div>
         </aside>
+        {activeChoiceSheet && (
+          <div className="guided-choice-sheet-backdrop" role="presentation" onClick={() => setChoiceSheet(null)}>
+            <aside className="guided-choice-sheet" role="dialog" aria-modal="true" aria-labelledby="guided-choice-sheet-title" onClick={(event) => event.stopPropagation()}>
+              <button type="button" className="guided-choice-sheet-close" aria-label="Chiudi dettagli" onClick={() => setChoiceSheet(null)}>
+                <X size={18} />
+              </button>
+              <span className={`guided-card-badge ${choiceSheet === "catalog" ? "neutral" : ""}`}>{activeChoiceSheet.badge}</span>
+              <div>
+                <h2 id="guided-choice-sheet-title">{activeChoiceSheet.title}</h2>
+                <p>{activeChoiceSheet.description}</p>
+              </div>
+              <ul className="guided-choice-benefits" aria-label={`Vantaggi ${activeChoiceSheet.title}`}>
+                {activeChoiceSheet.benefits.map((benefit) => (
+                  <li key={benefit}><Check size={16} aria-hidden="true" /> {benefit}</li>
+                ))}
+              </ul>
+              <div className="guided-choice-sheet-footer">
+                <span>{activeChoiceSheet.time}</span>
+                <AppButton onClick={activeChoiceSheet.action} rightIcon={<ArrowRight size={17} />}>
+                  {activeChoiceSheet.cta}
+                </AppButton>
+              </div>
+            </aside>
+          </div>
+        )}
       </section>
     );
   }
@@ -952,13 +1044,13 @@ export function ClientView({
           </button>
           <strong>{currentSurveyQuestion.id === "topics" ? "Temi" : currentSurveyQuestion.title}</strong>
         </header>
-        <main className="survey-question-panel">
+        <main className="survey-question-panel" ref={surveyQuestionPanelRef}>
           <div className="survey-question-box">
             <h1>{currentSurveyQuestion.title}</h1>
             {currentSurveyQuestion.subtitle && <p>{currentSurveyQuestion.subtitle}</p>}
           </div>
           <div className={currentSurveyQuestion.id === "topics" ? "survey-option-list survey-option-grid" : "survey-option-list"}>
-            {currentSurveyQuestion.answers.map((answer) => {
+            {currentSurveyQuestion.answers.map((answer, answerIndex) => {
               const selected = currentSurveyAnswers.includes(answer.id);
               const disabled =
                 currentSurveyQuestion.kind === "multi" &&
@@ -969,7 +1061,15 @@ export function ClientView({
                   key={answer.id}
                   type="button"
                   className={`survey-option ${selected ? "selected" : ""}`}
+                  style={{ "--survey-option-delay": `${Math.min(answerIndex, 8) * 90}ms` } as React.CSSProperties}
                   onClick={() => toggleSurveyAnswer(answer)}
+                  onPointerEnter={(event) => showTopicPointer(answer, event)}
+                  onPointerMove={(event) => showTopicPointer(answer, event)}
+                  onPointerDown={(event) => {
+                    showTopicPointer(answer, event);
+                    if (event.pointerType !== "mouse") holdTopicPointerOnTap();
+                  }}
+                  onPointerLeave={hideTopicPointer}
                   disabled={disabled}
                 >
                   <span>
@@ -982,6 +1082,15 @@ export function ClientView({
               );
             })}
           </div>
+          {topicPointer && (
+            <div
+              className="survey-magic-pointer"
+              aria-hidden="true"
+              style={{ "--pointer-x": `${topicPointer.x}px`, "--pointer-y": `${topicPointer.y}px` } as React.CSSProperties}
+            >
+              <span>{topicPointer.emoji}</span>
+            </div>
+          )}
         </main>
         <aside className="survey-profile">
           <strong>Profilo percorso</strong>
@@ -989,15 +1098,19 @@ export function ClientView({
             <span style={{ "--score": `${matchScore}%` } as React.CSSProperties} />
             <b>{matchScore}%</b>
           </div>
-          {guidedSurveyQuestions.map((question) => {
-            const selected = question.answers.filter((answer) => surveyAnswers[question.id]?.includes(answer.id));
-            return (
-              <div className={selected.length ? "filled" : ""} key={question.id}>
-                <span>{question.title.replace("?", "")}</span>
-                <em>{selected.length ? selected.map((answer) => answer.label).join(", ") : "In attesa"}</em>
+          <div className="survey-profile-grid">
+            {profileGridItems.map((item) => (
+              <div
+                className={item.value === "Da definire" || item.value === "Non ancora definito" || item.value === "Consigliato da FunniFin" ? "" : "filled"}
+                key={item.label}
+                title={`${item.label}: ${item.value}`}
+                aria-label={`${item.label}: ${item.value}`}
+              >
+                <span>{item.label}</span>
+                <em>{item.value}</em>
               </div>
-            );
-          })}
+            ))}
+          </div>
         </aside>
         <footer className="survey-footer">
           <div className="survey-progress">
@@ -1089,7 +1202,6 @@ export function ClientView({
           <ToolIconButton
             onClick={() => {
               setClientStep("Date");
-              notify("Vai alle date", "Compila almeno una proposta per ogni workshop selezionato.");
             }}
             label="Vai alle date"
           >
@@ -1138,13 +1250,16 @@ export function ClientView({
               <span>{topics.length} interessi · {allThemes.length} temi · {workshops.length} workshop</span>
             </div>
             <div className="topic-grid">
-              <button className="topic-card all-topics-card topic-color-all" onClick={selectAllTopics}>
+              <article className="topic-card all-topics-card topic-color-all" aria-labelledby="all-catalog-title">
                 <span className="topic-icon"><BookOpen size={22} /></span>
                 <span className="topic-badge">vedi tutti</span>
-                <strong>Tutto il catalogo</strong>
+                <strong id="all-catalog-title">Tutto il catalogo</strong>
                 <small>Salta i consigli e vai direttamente al catalogo completo →</small>
                 <em>{allThemes.length} temi catalogo · {workshops.length} workshop</em>
-              </button>
+                <AppButton className="all-topics-cta" variant="secondary" onClick={selectAllTopics} rightIcon={<ArrowRight size={16} />}>
+                  Apri catalogo
+                </AppButton>
+              </article>
               {topics.map((topicItem) => {
                 const themeIds = topicItem.themes.map((theme) => theme.id);
                 const count = workshops.filter((workshop) => workshop.topicId === topicItem.id || themeIds.includes(workshop.themeId)).length;
@@ -1202,64 +1317,6 @@ export function ClientView({
                   </article>
                 );
               })}
-            </div>
-            <div className="interest-theme-block">
-            {selectedTopics.length === 0 ? (
-              <div className="empty-state">
-                <strong>Nessun interesse selezionato</strong>
-                <span>Scegli almeno un interesse del catalogo per vedere i temi disponibili.</span>
-              <AppButton variant="secondary" onClick={selectAllTopics}>
-                Scegli interessi
-              </AppButton>
-              </div>
-            ) : (
-              <>
-            <SelectedInterestSummary topics={selectedTopics} activeThemeIds={activeThemes} onRemoveTopic={removeTopic} onRemoveTheme={removeTheme} />
-            <div className="step-toolbar">
-              <AppButton
-                variant="secondary"
-                onClick={() => {
-                  setActiveThemes(availableThemes.map((theme) => theme.id));
-                  debugNotify("Vedi tutti i temi", "Tutti i temi degli interessi selezionati sono attivi.");
-                }}
-              >
-                Vedi tutti
-              </AppButton>
-              <AppButton
-                variant="ghost"
-                onClick={() => {
-                  setActiveThemes([]);
-                  debugNotify("Temi svuotati", "Nessun tema attivo: puoi selezionarli manualmente.");
-                }}
-              >
-                Svuota
-              </AppButton>
-            </div>
-            <div className="theme-picker-section">
-              <div>
-                <strong>Aggiungi temi</strong>
-                <span>{unselectedThemes.length ? `${unselectedThemes.length} disponibili` : "Tutti i temi degli interessi sono gia selezionati"}</span>
-              </div>
-              {unselectedThemes.length > 0 && (
-                <div className="chip-row">
-                  {unselectedThemes.map((theme) => (
-                  <button
-                    key={theme.id}
-                    className="theme-chip"
-                    onClick={() => {
-                      setActiveThemes([...activeThemes, theme.id]);
-                      debugNotify("Tema aggiunto", `${theme.title} aggiunto al percorso.`);
-                    }}
-                  >
-                    <Plus size={15} />
-                    {theme.title}
-                  </button>
-                  ))}
-                </div>
-              )}
-            </div>
-              </>
-            )}
             </div>
           </Panel>
       )}

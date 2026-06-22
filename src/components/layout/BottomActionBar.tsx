@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "../../components/ui/FaIcons";
 import { AppButton } from "../ui/AppButton";
 
 export function BottomActionBar({

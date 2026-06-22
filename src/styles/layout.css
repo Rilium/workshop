@@ -113,6 +113,19 @@
   box-shadow: none;
 }
 
+.system-actions .system-action-login {
+  width: auto;
+  min-width: 0;
+  padding: 0 12px;
+  gap: 6px;
+  border-radius: var(--radius-pill);
+  line-height: 1;
+  color: var(--brand-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
+  white-space: nowrap;
+}
+
 .system-actions .tool-icon-btn:hover,
 .system-actions .tool-icon-btn.active,
 .system-actions .nc-bell:hover,
@@ -963,22 +976,43 @@ h3 {
 }
 
 .bottom-action-buttons .bottom-back-btn {
+  position: relative;
   width: 44px;
   min-width: 44px;
   height: 44px;
+  min-height: 44px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   place-items: center;
+  line-height: 0;
 }
 
-.bottom-action-buttons .bottom-back-btn svg {
+.bottom-action-buttons .bottom-back-btn svg,
+.bottom-action-buttons .bottom-back-btn .fa-icon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
   flex: 0 0 auto;
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--brand);
   stroke: currentColor;
+  font-size: 22px;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+}
+
+.bottom-action-buttons .bottom-back-btn svg[data-lucide="chevron-left"],
+.bottom-action-buttons .bottom-back-btn .fa-icon[data-lucide="chevron-left"],
+.bottom-action-buttons .bottom-back-btn svg.lucide-chevron-left,
+.bottom-action-buttons .bottom-back-btn .fa-icon.lucide-chevron-left {
+  transform: translate(calc(-50% - 1px), -50%);
 }
 
 /* ─── Bottom bar: project info (left slot, Operativo tab) ─── */

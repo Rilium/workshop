@@ -1,5 +1,5 @@
 import React from "react";
-import { CalendarCheck, FolderKanban, Presentation, Video } from "lucide-react";
+import { CalendarCheck, FolderKanban, Presentation, Video } from "../../components/ui/FaIcons";
 import type { CalendarEventRecord } from "../../types/domain";
 import { EventLink } from "../ui/EventLink";
 import { Info } from "../ui/Info";

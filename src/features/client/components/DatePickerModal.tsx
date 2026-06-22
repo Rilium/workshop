@@ -30,7 +30,7 @@ import {
   UsersRound,
   Video,
   X,
-} from "lucide-react";
+} from "../../../components/ui/FaIcons";
 import { getWorkshopAvailability } from "../../../googleCalendarService";
 import type { Selection, Workshop } from "../../../types/domain";
 import { Skeleton } from "../../../components/ui/Skeleton";

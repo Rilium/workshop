@@ -371,7 +371,8 @@
   box-shadow: var(--brand-shadow-hover);
 }
 
-.operational-strip svg {
+.operational-strip svg,
+.operational-strip .fa-icon {
   color: var(--brand);
 }
 
@@ -494,11 +495,15 @@
   background: var(--white);
 }
 
-.expert-upload-dropzone > svg {
+.expert-upload-dropzone > svg,
+.expert-upload-dropzone > .fa-icon {
   grid-row: 1 / span 2;
+  transform: scale(0.82);
+  transform-origin: center;
 }
 
 .expert-upload-dropzone svg,
+.expert-upload-dropzone .fa-icon,
 .expert-upload-dropzone strong {
   color: var(--brand-dark);
 }

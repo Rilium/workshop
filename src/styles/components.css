@@ -127,8 +127,11 @@
 }
 
 .app-btn svg,
-.app-btn-icon-slot svg {
-  display: block;
+.app-btn .fa-icon,
+.app-btn-icon-slot svg,
+.app-btn-icon-slot .fa-icon,
+.app-btn-icon-slot .fa-icon {
+  display: inline-block;
   margin: auto;
   vertical-align: middle;
 }
@@ -517,11 +520,15 @@
   }
 }
 
-button svg {
+button svg,
+button .fa-icon,
+.fa-icon {
   flex: 0 0 auto;
-  display: block;
+  display: inline-block;
   pointer-events: none;
   vertical-align: middle;
+  line-height: 1;
+  text-align: center;
 }
 
 .app-btn-icon-only,
@@ -543,15 +550,24 @@ button svg {
 }
 
 .app-btn-icon-only > svg,
+.app-btn-icon-only > .fa-icon,
 .app-btn-icon-only .app-btn-icon-slot,
 .tool-icon-btn > svg,
+.tool-icon-btn > .fa-icon,
 .action-icon-btn > svg,
+.action-icon-btn > .fa-icon,
 .app-btn-dangerIcon > svg,
+.app-btn-dangerIcon > .fa-icon,
 .nc-bell > svg,
+.nc-bell > .fa-icon,
 .modal-close > svg,
+.modal-close > .fa-icon,
 .nc-action-btn > svg,
-.nc-close-btn > svg {
-  display: block;
+.nc-action-btn > .fa-icon,
+.nc-close-btn > svg,
+.nc-close-btn > .fa-icon,
+.nc-close-btn > .fa-icon {
+  display: inline-block;
   flex: 0 0 auto;
   justify-self: center;
   align-self: center;
@@ -580,7 +596,9 @@ button svg {
 }
 
 .app-btn-primary svg,
-.primary-btn svg {
+.app-btn-primary .fa-icon,
+.primary-btn svg,
+.primary-btn .fa-icon {
   color: var(--white);
   stroke: currentColor;
 }
@@ -597,7 +615,9 @@ button svg {
 }
 
 .app-btn-secondary svg,
-.secondary-btn svg {
+.app-btn-secondary .fa-icon,
+.secondary-btn svg,
+.secondary-btn .fa-icon {
   color: var(--color-primary-dark);
   stroke: currentColor;
 }
@@ -687,6 +707,92 @@ button svg {
 .action-icon-btn.danger:hover {
   border-color: var(--accent-pink);
   background: var(--color-surface-pink-2);
+}
+
+/* Font Awesome contrast rules: solid brand/accent backgrounds get white icons,
+   white/neutral controls keep neutral icons, tinted surfaces keep accent icons. */
+.app-btn-primary .fa-icon,
+.primary-btn .fa-icon,
+.survey-nav button:last-child .fa-icon,
+.admin-section-nav button.active .admin-section-nav-icon .fa-icon,
+.brand-queue-card button.active .fa-icon,
+.brand-queue-card button.active strong,
+.topic-card.selected .topic-icon .fa-icon,
+.guided-choice-card.selected .topic-icon .fa-icon,
+.step.active .fa-icon,
+.step.done .fa-icon {
+  color: var(--white);
+}
+
+.app-btn-ghost .fa-icon,
+.ghost-btn .fa-icon,
+.small-btn .fa-icon,
+.tool-icon-btn .fa-icon,
+.action-icon-btn .fa-icon,
+.app-btn-icon .fa-icon,
+.nc-bell .fa-icon,
+.modal-close .fa-icon,
+.nc-action-btn .fa-icon,
+.nc-close-btn .fa-icon {
+  color: currentColor;
+}
+
+.tool-icon-btn,
+.action-icon-btn,
+.app-btn-icon,
+.nc-bell,
+.modal-close,
+.nc-action-btn,
+.nc-close-btn {
+  color: var(--neutral-600);
+}
+
+.tool-icon-btn:hover,
+.tool-icon-btn.active,
+.action-icon-btn:hover,
+.action-icon-btn.neutral:hover,
+.app-btn-icon:hover,
+.nc-bell:hover,
+.nc-bell.active,
+.nc-action-btn:hover {
+  color: var(--brand-dark);
+}
+
+.topic-icon .fa-icon,
+.section-title-icon .fa-icon,
+.panel-title .fa-icon,
+.guided-outcome-preview .fa-icon,
+.readiness-panel .fa-icon,
+.metric-card .fa-icon,
+.admin-section-nav-icon .fa-icon {
+  color: currentColor;
+}
+
+.topic-icon .fa-icon,
+.admin-section-nav-icon .fa-icon,
+.section-title-icon .fa-icon,
+.nc-head-icon .fa-icon,
+.nc-item-icon .fa-icon,
+.readiness-panel .fa-icon,
+.metric-card .fa-icon,
+.inline-status-card .fa-icon,
+.admin-settings-section-head > .fa-icon,
+.admin-secret-state .fa-icon,
+.calendar-selection .fa-icon,
+.workflow-impact-panel li .fa-icon,
+.modal-points .fa-icon {
+  width: 1em;
+  transform: scale(0.72);
+  transform-origin: center;
+}
+
+.guided-outcome-preview .fa-icon,
+.cart-head .fa-icon,
+.folder-row .fa-icon,
+.folder-preview-row .fa-icon {
+  width: 1em;
+  transform: scale(0.78);
+  transform-origin: center;
 }
 
 .app-btn-dangerIcon.compact {
@@ -1745,12 +1851,16 @@ button:disabled {
   box-shadow: none;
 }
 
-.panel-title-actions .tool-icon-btn svg {
+.panel-title-actions .tool-icon-btn svg,
+.panel-title-actions .tool-icon-btn .fa-icon,
+.panel-title-actions .tool-icon-btn .fa-icon {
   width: 24px;
   height: 24px;
 }
 
-.panel-title svg {
+.panel-title svg,
+.panel-title .fa-icon,
+.panel-title .fa-icon {
   color: var(--color-primary);
 }
 
@@ -2158,6 +2268,7 @@ button:disabled {
 }
 
 .calendar-selection svg,
+.calendar-selection .fa-icon,
 .calendar-selection strong {
   color: var(--brand-dark);
 }
@@ -2276,7 +2387,8 @@ button:disabled {
   line-height: 1.35;
 }
 
-.workflow-impact-panel li svg {
+.workflow-impact-panel li svg,
+.workflow-impact-panel li .fa-icon {
   margin-top: 1px;
   color: var(--brand);
 }
@@ -2514,7 +2626,8 @@ button:disabled {
   line-height: 1.3;
 }
 
-.modal-points svg {
+.modal-points svg,
+.modal-points .fa-icon {
   flex: 0 0 auto;
   color: var(--brand);
 }

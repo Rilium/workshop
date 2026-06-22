@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, BadgeCheck, BriefcaseBusiness, X } from "lucide-react";
+import { ArrowRight, BadgeCheck, BriefcaseBusiness, X } from "./components/ui/FaIcons";
 import { useDarkMode } from "./hooks/useDarkMode";
 import { DarkModeToggle } from "./components/ui/DarkModeToggle";
 import { initialRules } from "./data/pricing";
@@ -149,6 +149,7 @@ function AppInner() {
   const [clientUploadedAssets, setClientUploadedAssets] = useState<UploadedAsset[]>([]);
   const [currentRequest, setCurrentRequest] = useState<WorkshopRequestRecord | null>(null);
   const [requestRefreshToken, setRequestRefreshToken] = useState(0);
+  const [clientGuidedLayerActive, setClientGuidedLayerActive] = useState(false);
   const [showCelebrationConfetti, setShowCelebrationConfetti] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const {
@@ -316,6 +317,14 @@ function AppInner() {
     if (action.hash) window.history.replaceState(null, "", action.hash);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+  const isAuthenticated = Boolean(currentUser);
+  const isClientView = role === "Cliente";
+  const isPublicClientDemo = isClientView && !isAuthenticated;
+  const showTopbarSettings = !isClientView;
+  const showTopbarRefresh = !isClientView;
+  const showTopbarThemeToggle = !isClientView;
+  const showTopbarLogin = isPublicClientDemo;
+  const showAppTopbar = !(isClientView && clientGuidedLayerActive);
 
   return (
     <div className={"app-shell role-" + role.toLowerCase()}>
@@ -330,7 +339,6 @@ function AppInner() {
           onSave={(note) => {
             updateSelection(customRequestWorkshop.id, { custom: true, customNote: note });
             setCustomRequestWorkshop(null);
-            notify("Su misura attivato", "Note salvate per " + customRequestWorkshop.title + ".");
           }}
         />
       )}
@@ -344,10 +352,10 @@ function AppInner() {
           onConfirm={(date, time) => {
             updateSelection(dateModalSelection.workshopId, { date, time, dateConfirmed: true, status: "date_proposte" });
             setDateModalSelection(null);
-            notify("Date scelte", "La proposta è stata salvata nel progetto. FunniFin verificherà la disponibilità prima della conferma.");
           }}
         />
       )}
+      {showAppTopbar && (
       <Topbar
         projectStatus={projectStatus}
         notify={notify}
@@ -356,6 +364,7 @@ function AppInner() {
         systemControls={
           <SystemBar
             role={role}
+            userRole={role}
             actualRole={currentUser?.actualRole ?? null}
             roleMenuOpen={roleMenuOpen}
             onToggleRoleMenu={() => setRoleMenuOpen((open) => !open)}
@@ -366,6 +375,11 @@ function AppInner() {
             onLogout={logout}
             onLogin={() => setShowLogin(true)}
             currentUser={currentUser}
+            isAuthenticated={isAuthenticated}
+            showSettings={showTopbarSettings}
+            showRefresh={showTopbarRefresh}
+            showThemeToggle={showTopbarThemeToggle}
+            showLogin={showTopbarLogin}
             darkModeToggle={<DarkModeToggle isDark={isDark} onToggle={toggleDark} />}
             notificationCenter={
               <NotificationCenter
@@ -389,6 +403,7 @@ function AppInner() {
           />
         }
       />
+      )}
       {welcomeOpen && currentUser && (
         <WelcomeModal
           role={role}
@@ -441,6 +456,7 @@ function AppInner() {
             setUploadedAssets={setClientUploadedAssets}
             systemRefreshToken={systemRefreshToken}
             systemSettingsToken={systemSettingsToken}
+            onGuidedLayerChange={setClientGuidedLayerActive}
             onRequestCreated={(request) => {
               setCurrentRequest(request);
               setRequestRefreshToken((value) => value + 1);

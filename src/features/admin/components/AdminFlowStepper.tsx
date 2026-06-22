@@ -1,5 +1,5 @@
 import React from "react";
-import { Check } from "lucide-react";
+import { Check } from "../../../components/ui/FaIcons";
 import type { AdminWorkspacePanel } from "../../../types/domain";
 
 export function AdminFlowStepper({

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Share2 } from "lucide-react";
+import { Share2 } from "../../components/ui/FaIcons";
 import type { Quote, Selection, Workshop } from "../../types/domain";
 import { money } from "../../utils/money";
 import { getWorkshopSelectionPrice } from "../../utils/workshop";

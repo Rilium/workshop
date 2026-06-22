@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Check } from "lucide-react";
+import { Check } from "../../components/ui/FaIcons";
 
 export function Stepper({
   steps,

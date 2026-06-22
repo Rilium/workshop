@@ -238,11 +238,13 @@
 }
 
 .brand-queue-card button svg,
+.brand-queue-card button .fa-icon,
 .brand-queue-card button strong {
   color: var(--brand);
 }
 
 .brand-queue-card button.active svg,
+.brand-queue-card button.active .fa-icon,
 .brand-queue-card button.active strong {
   color: var(--white);
 }

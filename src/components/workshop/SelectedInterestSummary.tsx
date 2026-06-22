@@ -1,5 +1,5 @@
 import React from "react";
-import { X } from "lucide-react";
+import { X } from "../../components/ui/FaIcons";
 import type { Topic } from "../../types/domain";
 import { topicColorClass } from "../../utils/workshop";
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink } from "../../components/ui/FaIcons";
 
 export function EventLink({ href, label }: { href: string; label: string }) {
   return (

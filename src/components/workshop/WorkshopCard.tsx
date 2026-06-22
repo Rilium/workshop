@@ -29,7 +29,7 @@ import {
   UploadCloud,
   Video,
   X,
-} from "lucide-react";
+} from "../../components/ui/FaIcons";
 import type { Duration, Format, Selection, Topic, Workshop } from "../../types/domain";
 import { money } from "../../utils/money";
 import { getWorkshopSelectionPrice } from "../../utils/workshop";

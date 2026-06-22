@@ -1,5 +1,5 @@
 import React from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2 } from "../../components/ui/FaIcons";
 import { AppButton } from "./AppButton";
 
 export function RemoveWorkshopButton({ onClick, label, compact }: { onClick: () => void; label: string; compact?: boolean }) {

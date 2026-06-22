@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowRight, Mail, RefreshCw, ShieldCheck } from "lucide-react";
+import { ArrowRight, Mail, RefreshCw, ShieldCheck } from "../../components/ui/FaIcons";
 import { useAuth } from "../../AuthContext";
 import { AppButton } from "../../components/ui/AppButton";
 

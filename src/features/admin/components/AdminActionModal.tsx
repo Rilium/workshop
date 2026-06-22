@@ -30,7 +30,7 @@ import {
   UsersRound,
   Video,
   X,
-} from "lucide-react";
+} from "../../../components/ui/FaIcons";
 import type { WorkflowNotificationRecipientRole } from "../../../emailService";
 import type { RequestWorkshopRecord } from "../../../requestService";
 import { workshops } from "../../../data/catalog";

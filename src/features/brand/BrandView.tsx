@@ -30,7 +30,7 @@ import {
   UsersRound,
   Video,
   X,
-} from "lucide-react";
+} from "../../components/ui/FaIcons";
 import { getBrandPresentations, type BrandPresentation } from "../../googleDriveService";
 import { listWorkshopRequests, updateWorkshopRequest } from "../../requestService";
 import { roleIdentities } from "../../data/mockData";

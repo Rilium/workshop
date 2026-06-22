@@ -1,5 +1,5 @@
 import React from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "../../components/ui/FaIcons";
 
 function IconButtonSpinner({ size = 18 }: { size?: number }) {
   return <Loader2 className="app-btn-spinner" size={size} aria-hidden="true" />;

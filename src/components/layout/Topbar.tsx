@@ -1,5 +1,5 @@
 import React from "react";
-import { InfoIcon, LogIn, LogOut, Menu, RefreshCw, Settings2 } from "lucide-react";
+import { InfoIcon, LogIn, LogOut, Menu, RefreshCw, Settings2 } from "../../components/ui/FaIcons";
 import { statusDescription, statusLabel } from "../../data/workflow";
 import type { ProjectStatus, Role } from "../../types/domain";
 import type { AuthUser } from "../../types/auth";
@@ -54,6 +54,7 @@ export function Topbar({
 
 export function SystemBar({
   role,
+  userRole = role,
   actualRole,
   roleMenuOpen,
   onToggleRoleMenu,
@@ -66,8 +67,14 @@ export function SystemBar({
   currentUser,
   notificationCenter,
   darkModeToggle,
+  isAuthenticated = Boolean(currentUser),
+  showSettings = true,
+  showRefresh = true,
+  showThemeToggle = true,
+  showLogin = true,
 }: {
   role: Role;
+  userRole?: Role;
   /** actualRole dell'utente autenticato (null = visitatore anonimo Cliente) */
   actualRole: import("../../types/auth").AuthRole | null;
   roleMenuOpen: boolean;
@@ -81,8 +88,17 @@ export function SystemBar({
   currentUser: AuthUser | null;
   notificationCenter?: React.ReactNode;
   darkModeToggle?: React.ReactNode;
+  isAuthenticated?: boolean;
+  showSettings?: boolean;
+  showRefresh?: boolean;
+  showThemeToggle?: boolean;
+  showLogin?: boolean;
 }) {
   const isFunniFin = actualRole === "FunniFin";
+  const canShowSettings = userRole !== "Cliente" && showSettings;
+  const canShowRefresh = Boolean(showRefresh);
+  const canShowLogin = !isAuthenticated && showLogin;
+  const canShowThemeToggle = Boolean(showThemeToggle);
 
   return (
     <div className={`system-bar ${role === "Cliente" ? "system-bar--minimal" : ""}`.trim()} aria-label="Barra sistema">
@@ -123,23 +139,28 @@ export function SystemBar({
         ) : null}
       </div>
       <div className="system-actions">
-        {darkModeToggle}
+        {canShowThemeToggle && darkModeToggle}
         {notificationCenter}
-        <ToolIconButton onClick={onSettings} label={settingsLabel} className="system-action-settings">
-          <Settings2 size={18} />
-        </ToolIconButton>
-        <ToolIconButton onClick={onRefresh} label="Ricarica sezione" className="system-action-refresh">
-          <RefreshCw size={18} />
-        </ToolIconButton>
+        {canShowSettings && (
+          <ToolIconButton onClick={onSettings} label={settingsLabel} className="system-action-settings">
+            <Settings2 size={18} />
+          </ToolIconButton>
+        )}
+        {canShowRefresh && (
+          <ToolIconButton onClick={onRefresh} label="Ricarica sezione" className="system-action-refresh">
+            <RefreshCw size={18} />
+          </ToolIconButton>
+        )}
         {currentUser ? (
           <ToolIconButton onClick={onLogout} label={`Esci (${currentUser.displayName})`} className="system-action-auth">
             <LogOut size={18} />
           </ToolIconButton>
-        ) : (
-          <ToolIconButton onClick={onLogin} label="Accedi all'area riservata" className="system-action-auth">
+        ) : canShowLogin ? (
+          <ToolIconButton onClick={onLogin} label="Accedi all'area riservata" className="system-action-auth system-action-login">
             <LogIn size={18} />
+            <span>Accedi</span>
           </ToolIconButton>
-        )}
+        ) : null}
       </div>
     </div>
   );

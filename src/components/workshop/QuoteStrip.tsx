@@ -1,5 +1,5 @@
 import React from "react";
-import { Send } from "lucide-react";
+import { Send } from "../../components/ui/FaIcons";
 import type { Quote, Selection } from "../../types/domain";
 import { money } from "../../utils/money";
 import { AppButton } from "../ui/AppButton";

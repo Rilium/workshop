@@ -26,7 +26,7 @@ async function waitForServer(process) {
 async function assertIconCentered(page) {
   const metrics = await page.locator(".survey-nav button").evaluateAll((buttons) =>
     buttons.map((button) => {
-      const icon = button.querySelector("svg");
+      const icon = button.querySelector(".fa-icon, svg");
       const buttonRect = button.getBoundingClientRect();
       const iconRect = icon.getBoundingClientRect();
       return {

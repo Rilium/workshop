@@ -313,7 +313,8 @@
   gap: 8px;
 }
 
-.section-card-title svg {
+.section-card-title svg,
+.section-card-title .fa-icon {
   flex: 0 0 auto;
   color: var(--brand);
 }
@@ -450,7 +451,8 @@
   opacity: 0.7;
 }
 
-.project-choice-delete:disabled svg {
+.project-choice-delete:disabled svg,
+.project-choice-delete:disabled .fa-icon {
   animation: app-btn-spin 0.8s linear infinite;
 }
 
@@ -523,7 +525,8 @@
   line-height: 1.25;
 }
 
-.queue-project-copy svg {
+.queue-project-copy svg,
+.queue-project-copy .fa-icon {
   flex: 0 0 auto;
 }
 
@@ -800,8 +803,11 @@
   text-align: center;
 }
 
-.sheet-preview-empty svg {
+.sheet-preview-empty svg,
+.sheet-preview-empty .fa-icon {
   color: var(--brand);
+  transform: scale(0.8);
+  transform-origin: center;
 }
 
 .drive-root-card {
@@ -1366,7 +1372,8 @@
   box-shadow: var(--brand-shadow-card);
 }
 
-.folder-preview-row svg {
+.folder-preview-row svg,
+.folder-preview-row .fa-icon {
   color: var(--brand);
 }
 
@@ -1404,8 +1411,11 @@
   background: var(--white);
 }
 
-.folder-empty-state svg {
+.folder-empty-state svg,
+.folder-empty-state .fa-icon {
   color: var(--brand);
+  transform: scale(0.8);
+  transform-origin: center;
 }
 
 .date-review-list,
@@ -1553,7 +1563,8 @@
   text-align: left;
 }
 
-.folder-row svg {
+.folder-row svg,
+.folder-row .fa-icon {
   color: var(--brand);
 }
 
@@ -1598,7 +1609,8 @@
   box-shadow: var(--shadow-hover);
 }
 
-.metric-card svg {
+.metric-card svg,
+.metric-card .fa-icon {
   color: var(--color-primary);
 }
 
@@ -2362,7 +2374,8 @@
   align-items: start;
 }
 
-.admin-settings-section-head > svg {
+.admin-settings-section-head > svg,
+.admin-settings-section-head > .fa-icon {
   width: 38px;
   height: 38px;
   padding: 9px;
@@ -2453,7 +2466,8 @@
   color: var(--brand-dark);
 }
 
-.admin-secret-state svg {
+.admin-secret-state svg,
+.admin-secret-state .fa-icon {
   color: var(--brand);
 }
 
@@ -2830,7 +2844,8 @@
   font-weight: var(--fw-bold);
 }
 
-.inline-status-card svg {
+.inline-status-card svg,
+.inline-status-card .fa-icon {
   flex: 0 0 auto;
   color: var(--brand);
 }
@@ -2884,7 +2899,8 @@
   color: var(--neutral-800);
 }
 
-.inline-status-card.warning svg {
+.inline-status-card.warning svg,
+.inline-status-card.warning .fa-icon {
   color: var(--accent-pink);
 }
 
@@ -3090,7 +3106,8 @@
   line-height: 1.35;
 }
 
-.workflow-impact-panel li svg {
+.workflow-impact-panel li svg,
+.workflow-impact-panel li .fa-icon {
   margin-top: 1px;
   color: var(--brand);
 }

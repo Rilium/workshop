@@ -30,7 +30,7 @@ import {
   UsersRound,
   Video,
   X,
-} from "lucide-react";
+} from "../../../components/ui/FaIcons";
 import { topics } from "../../../data/catalog";
 import type { ExpertProfile, Theme } from "../../../types/domain";
 import { AppButton } from "../../../components/ui/AppButton";

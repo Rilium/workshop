@@ -17,6 +17,12 @@ export function useQuote(selections: Selection[], workshops: Workshop[], rules: 
       return total + getWorkshopSelectionPrice(workshop, selection).customExtra;
     }, 0);
     const baseRule = rules.find((item) => selections.length >= item.min && selections.length <= item.max) ?? rules[0] ?? initialRules[0];
+    const bestUnlockedAutomaticRule = rules
+      .filter((item) => !item.specialQuote && selections.length >= item.min)
+      .reduce<PricingRule | null>(
+        (best, item) => (!best || item.discountPercent > best.discountPercent ? item : best),
+        null,
+      );
     const selectedIds = selectedWorkshops.map(({ workshop }) => workshop.id).sort();
     const isBasicBundle =
       selectedIds.length === BASIC_BUNDLE_WORKSHOP_IDS.length &&
@@ -25,7 +31,8 @@ export function useQuote(selections: Selection[], workshops: Workshop[], rules: 
     const trioCustomRule: PricingRule = { id: "custom-trio", name: "Percorso personalizzato", min: 3, max: 3, discountPercent: 10, specialQuote: true };
     const rule = selections.length === 3 && allPackageable && !isBasicBundle ? trioCustomRule : baseRule;
     const catalogTargetPrice = isBasicBundle ? 2400 : selections.length === 3 && allPackageable ? 2700 : null;
-    const quantityDiscount = catalogTargetPrice ? Math.max(0, gross - catalogTargetPrice) : Math.round((gross * rule.discountPercent) / 100);
+    const unlockedDiscountPercent = Math.max(rule.discountPercent, bestUnlockedAutomaticRule?.discountPercent ?? 0);
+    const quantityDiscount = catalogTargetPrice ? Math.max(0, gross - catalogTargetPrice) : Math.round((gross * unlockedDiscountPercent) / 100);
     const promoDiscount = selectedWorkshops.reduce((total, { selection, workshop }) => {
       const price = getWorkshopSelectionPrice(workshop, selection);
       const base = price.base + price.liveExtra;

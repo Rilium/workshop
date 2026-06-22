@@ -13,7 +13,7 @@ import {
   RotateCcw,
   Trash2,
   X,
-} from "lucide-react";
+} from "../../components/ui/FaIcons";
 import type { AppNotification, AppNotificationRole, NotificationCategory, NotificationPriority, Role } from "../../types/domain";
 
 type NotificationTab = "task" | "recent" | "important" | "closed";

@@ -31,7 +31,7 @@ import {
   UsersRound,
   Video,
   X,
-} from "lucide-react";
+} from "../../components/ui/FaIcons";
 import { sendWorkflowNotification, type WorkflowNotificationPayload, type WorkflowNotificationRecipientRole } from "../../emailService";
 import { createWorkshopCalendarEvent, getWorkshopAvailability } from "../../googleCalendarService";
 import type { AssetDraftFolder, UploadedAsset } from "../../driveAssetService";

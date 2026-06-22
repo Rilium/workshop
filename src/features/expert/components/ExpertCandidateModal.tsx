@@ -30,7 +30,7 @@ import {
   UsersRound,
   Video,
   X,
-} from "lucide-react";
+} from "../../../components/ui/FaIcons";
 import type { Selection, Workshop } from "../../../types/domain";
 import { money } from "../../../utils/money";
 import { getWorkshopSelectionPrice } from "../../../utils/workshop";

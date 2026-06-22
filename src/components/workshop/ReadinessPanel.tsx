@@ -1,5 +1,5 @@
 import React from "react";
-import { Check, Clock3 } from "lucide-react";
+import { Check, Clock3 } from "../../components/ui/FaIcons";
 import type { Selection, Workshop } from "../../types/domain";
 
 export function ReadinessPanel({

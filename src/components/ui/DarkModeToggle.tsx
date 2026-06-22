@@ -1,4 +1,4 @@
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "../../components/ui/FaIcons";
 
 export function DarkModeToggle({
   isDark,
