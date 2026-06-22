@@ -80,6 +80,12 @@ async function run() {
     await page.getByRole("heading", { name: "Su quali temi vuoi generare maggiore impatto?" }).waitFor({ timeout: 5000 });
     await page.getByRole("button", { name: /Retribuzione/ }).click();
     await page.getByRole("button", { name: /Risparmio/ }).click();
+    await page.getByRole("button", { name: /Investimenti/ }).click();
+    await page.getByRole("button", { name: /Fiscalità/ }).click();
+    const selectedTopicAnswers = await page.locator(".survey-option.selected").count();
+    if (selectedTopicAnswers !== 4) {
+      throw new Error(`Guided survey should allow more than 3 topic answers, got ${selectedTopicAnswers}`);
+    }
     await assertIconCentered(page);
     await page.locator(".survey-nav").getByRole("button", { name: "Continua" }).click();
 

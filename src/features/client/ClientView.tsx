@@ -80,9 +80,8 @@ const guidedSurveyQuestions: SurveyQuestion[] = [
   {
     id: "topics",
     title: "Su quali temi vuoi generare maggiore impatto?",
-    subtitle: "Seleziona fino a 3 aree prioritarie.",
+    subtitle: "Seleziona tutte le aree prioritarie per il tuo percorso.",
     kind: "multi",
-    max: 3,
     answers: [
       { id: "retribuzione", label: "Retribuzione", description: "Stipendio, bonus e decisioni economiche quotidiane.", meta: "Ambito lavorativo", pointerEmoji: "💼", topicIds: ["fiscalita"], themeIds: ["benefit"] },
       { id: "assicurazioni", label: "Assicurazioni", description: "Protezione di reddito, famiglia e patrimonio.", meta: "2 workshop disponibili", pointerEmoji: "🛡️", topicIds: ["assicurazioni"] },
@@ -150,6 +149,12 @@ const guidedOutcomePreview = [
   { label: "Calendario", tooltip: "Calendario attività con date e momenti formativi", icon: CalendarCheck },
   { label: "Costi", tooltip: "Stima costi aggiornata sul percorso", icon: Banknote },
 ];
+
+function formatList(items: string[]) {
+  if (items.length === 0) return "temi da definire";
+  if (items.length === 1) return items[0];
+  return `${items.slice(0, -1).join(", ")} e ${items[items.length - 1]}`;
+}
 
 export function ClientView({
   topics,
@@ -1151,7 +1156,7 @@ export function ClientView({
         <div className="guided-result-head">
           <span className="eyebrow">Match {matchScore}%</span>
           <h1>Abbiamo trovato il percorso ideale</h1>
-          <p>Azienda orientata a {outcomeLabel.toLowerCase()} con priorità su {resultTopicTitles.slice(0, 3).join(", ")}.</p>
+          <p>Azienda orientata a {outcomeLabel.toLowerCase()} con priorità su {formatList(resultTopicTitles)}.</p>
         </div>
         <div className="guided-result-grid">
           <article className="guided-profile-card">
