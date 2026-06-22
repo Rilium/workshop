@@ -2057,13 +2057,6 @@ button:disabled {
   border-color: var(--neutral-200);
 }
 
-.calendar-mode {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--sp-3);
-}
-
-.calendar-mode button,
 .slot-grid button,
 .month-head button {
   min-height: 52px;
@@ -2074,24 +2067,11 @@ button:disabled {
   font-weight: var(--fw-xbold);
 }
 
-.calendar-mode button.active,
 .slot-grid button.active {
   border-color: var(--brand);
   background: var(--brand-light);
   color: var(--brand-dark);
   box-shadow: var(--brand-shadow-hover);
-}
-
-.now-banner {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-3) var(--sp-4);
-  border: 1px solid var(--brand-mid);
-  border-radius: var(--radius-lg);
-  background: var(--brand-light);
-  color: var(--brand-dark);
-  font-weight: var(--fw-xbold);
 }
 
 .calendar-layout {

@@ -62,7 +62,6 @@ export function DatePickerModal({
   onClose: () => void;
   onConfirm: (date: string, time: string) => void;
 }) {
-  const [mode, setMode] = useState<"now" | "plan">("plan");
   const todayDate = formatDateKey(new Date());
   const [day, setDay] = useState(selection.date || todayDate);
   const [time, setTime] = useState(selection.time || "18:00");
@@ -115,24 +114,10 @@ export function DatePickerModal({
     };
   }, [formattedDay, selection.duration, selection.format, workshop.experts]);
 
-  useEffect(() => {
-    if (mode !== "now" || formattedDay !== todayDate || loadingSlots) return;
-    const immediateSlot = availability.slots.find((slot) => slot.status !== "busy");
-    if (immediateSlot && immediateSlot.time !== time) setTime(immediateSlot.time);
-  }, [availability.slots, formattedDay, loadingSlots, mode, time]);
-
-  const chooseNow = () => {
-    setMode("now");
-    setDay(todayDate);
-    const immediateSlot = availability.slots.find((slot) => slot.status !== "busy");
-    if (immediateSlot) setTime(immediateSlot.time);
-  };
-
   const shiftMonth = (delta: number) => {
     const next = new Date(selectedYear, selectedMonth + delta, 1, 12, 0, 0);
     const nextMaxDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
     next.setDate(Math.min(dayNumber, nextMaxDay));
-    setMode("plan");
     setDay(formatDateKey(next));
   };
 
@@ -151,17 +136,6 @@ export function DatePickerModal({
         </header>
 
         <div className="modal-body calendar-body">
-          <div className="calendar-mode">
-            <button className={mode === "now" ? "active" : ""} onClick={chooseNow}>Adesso</button>
-            <button className={mode === "plan" ? "active" : ""} onClick={() => setMode("plan")}>Pianifica</button>
-          </div>
-          {mode === "now" && (
-            <div className="now-banner">
-              <Clock3 size={18} />
-              <span>Adesso seleziona oggi e propone il primo orario libero.</span>
-            </div>
-          )}
-
           <div className="calendar-layout">
             <div className="month-card">
               <div className="month-head">
@@ -178,7 +152,6 @@ export function DatePickerModal({
                     key={item}
                     className={`${item === dayNumber ? "active" : ""} ${scheduledDays.has(item) ? "has-selection" : ""}`}
                     onClick={() => {
-                      setMode("plan");
                       setDay(formatDateKey(new Date(selectedYear, selectedMonth, item, 12, 0, 0)));
                     }}
                   >
