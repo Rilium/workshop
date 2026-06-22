@@ -138,6 +138,11 @@
     width: 100%;
   }
 
+  .expert-calendar-primary,
+  .expert-calendar-primary .app-btn {
+    width: 100%;
+  }
+
 .expert-upload-actions .app-btn,
 .expert-upload-actions .action-icon-btn,
 .expert-upload-panel > .app-btn-primary {

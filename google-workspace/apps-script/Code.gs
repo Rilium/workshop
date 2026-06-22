@@ -145,7 +145,7 @@ function handleGet(event) {
   return jsonResponse({
     ok: true,
     service: "FunniFin Workshop Planner",
-    actions: ["freeBusy", "expertAvailability", "calendarLookup", "driveFolder", "brandPresentations", "publicCatalog", "listWorkshopRequests", "listRequestEvents", "listNotifications", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "listAuthUsers", "listAccessRequests", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "deleteWorkshopRequest", "createNotification", "updateNotification", "deleteNotification", "markNotificationsRead", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "connectExpertCalendar", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification", "requestLoginCode", "verifyLoginCode", "reviewAccessRequest", "updateAuthUser"],
+    actions: ["freeBusy", "expertAvailability", "calendarLookup", "driveFolder", "brandPresentations", "publicCatalog", "listWorkshopRequests", "listRequestEvents", "listNotifications", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "listAuthUsers", "listAccessRequests", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "deleteWorkshopRequest", "createNotification", "updateNotification", "deleteNotification", "markNotificationsRead", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "createExpertCalendar", "connectExpertCalendar", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification", "requestLoginCode", "verifyLoginCode", "reviewAccessRequest", "updateAuthUser"],
   });
 }
 
@@ -260,6 +260,10 @@ function handlePost(event) {
     const auth = requireSession(body.payload || {}, ["FunniFin", "Esperto"]);
     return jsonResponse(connectExpertCalendar(body.payload || {}, auth));
   }
+  if (body.action === "createExpertCalendar") {
+    const auth = requireSession(body.payload || {}, ["FunniFin", "Esperto"]);
+    return jsonResponse(createExpertCalendar(body.payload || {}, auth));
+  }
   if (body.action === "createExpertCalendarEvent") {
     const auth = requireSession(body.payload || {}, ["FunniFin", "Esperto"]);
     return jsonResponse(createExpertCalendarEvent(body.payload || {}, auth));
@@ -364,15 +368,43 @@ function connectExpertCalendar(payload, auth) {
     throw new Error("Calendario non trovato: condividilo con l'account FunniFin e riprova.");
   }
 
+  return saveExpertCalendarConnection(calendarId, calendar, auth, payload, "expert_calendar_connected");
+}
+
+function createExpertCalendar(payload, auth) {
+  const expert = resolveSessionExpert(auth, payload) || createExpertFromAuth(auth);
+  if (expert.calendarId) {
+    const existing = CalendarApp.getCalendarById(expert.calendarId);
+    if (existing) {
+      return saveExpertCalendarConnection(expert.calendarId, existing, auth, payload, "expert_calendar_reused");
+    }
+  }
+
+  const fullName = `${expert.firstName || ""} ${expert.lastName || ""}`.trim() || auth.user.displayName || auth.user.email || "Esperto";
+  const calendarName = sanitizeDriveName(payload.calendarName || `FunniFin - ${fullName}`);
+  const calendar = CalendarApp.createCalendar(calendarName, { timeZone: SETTINGS.timezone });
+  const expertEmail = String(expert.email || auth.user.email || payload.expertEmail || "").trim();
+  if (expertEmail) {
+    calendar.addEditor(expertEmail);
+  }
+  try {
+    calendar.setDescription("Calendario dedicato FunniFin per blocchi e impegni dell'esperto. Gli eventi con titolo FunniFin vengono letti come non disponibilita nel planner cliente.");
+  } catch (error) {
+    // Some CalendarApp calendar implementations may not expose setDescription.
+  }
+  return saveExpertCalendarConnection(calendar.getId(), calendar, auth, payload, "expert_calendar_created");
+}
+
+function saveExpertCalendarConnection(calendarId, calendar, auth, payload, eventType) {
   const expert = resolveSessionExpert(auth, payload) || createExpertFromAuth(auth);
   const next = Object.assign({}, expert, {
     calendarId,
-    availability: "Disponibilità lette dagli eventi Google Calendar con titolo FunniFin.",
+    availability: "Non disponibilità lette dagli eventi Google Calendar con titolo FunniFin.",
     active: expert.active !== false,
     updatedAt: formatTimestamp(new Date()),
   });
   upsertSheetRow(getExpertsSheet(), EXPERT_HEADERS, next.id, expertToRow(next));
-  appendRequestEvent("experts", "expert_calendar_connected", `Calendar collegato: ${auth.user.email}`, {
+  appendRequestEvent("experts", eventType || "expert_calendar_connected", `Calendar collegato: ${auth.user.email}`, {
     expertId: next.id,
     email: auth.user.email,
     calendarId,
@@ -3354,7 +3386,7 @@ function calendarEventToSlot(event) {
   const end = new Date(endValue);
   return {
     time: Utilities.formatDate(start, SETTINGS.timezone, "yyyy-MM-dd HH:mm"),
-    status: "available",
+    status: "busy",
     eventId: event.id || "",
     title: event.summary || "FunniFin",
     durationMinutes: Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000)),
@@ -3813,7 +3845,7 @@ function buildFunniFinSlots(date, durationMinutes, calendars) {
     }, null);
     slots.push({
       time: `${String(hour).padStart(2, "0")}:00`,
-      status: matching ? "available" : "busy",
+      status: matching ? "busy" : isPromoSlot(slotStart) ? "promo" : "available",
       eventId: matching ? matching.id || "" : "",
       title: matching ? matching.summary || "FunniFin" : "",
       calendarId: matching ? matching.calendarId : "",

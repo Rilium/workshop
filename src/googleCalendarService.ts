@@ -85,10 +85,33 @@ export type CalendarEventResult = {
   workshops: number;
 };
 
+function normalizeCalendarSlot(slot: Partial<CalendarSlot> = {}): CalendarSlot {
+  const status = slot.status === "busy" || slot.status === "promo" ? slot.status : "available";
+  return {
+    time: String(slot.time || ""),
+    status,
+    eventId: slot.eventId,
+    title: slot.title,
+    calendarId: slot.calendarId,
+  };
+}
+
+function normalizeCalendarAvailability(value: Partial<CalendarAvailability> | null): CalendarAvailability {
+  return {
+    source: "google-calendar-funnifin-slots",
+    slots: Array.isArray(value?.slots) ? value.slots.map(normalizeCalendarSlot) : [],
+    connected: Boolean(value?.connected),
+    calendarId: value?.calendarId,
+    calendarName: value?.calendarName,
+    updatedAt: value?.updatedAt,
+  };
+}
+
 function friendlyCalendarError(error: unknown, fallback: string) {
   const message = error instanceof Error ? error.message : "";
   if (!message) return fallback;
   if (/failed to fetch/i.test(message) || /networkerror/i.test(message)) return fallback;
+  if (/unknown action/i.test(message)) return "Backend Google da aggiornare: crea un nuovo deploy Apps Script con il Code.gs corrente.";
   return message;
 }
 
@@ -114,7 +137,9 @@ export async function getWorkshopAvailability(params: {
   try {
     const response = await fetch(url.toString());
     if (!response.ok) throw new Error("Calendar FreeBusy request failed");
-    return (await response.json()) as CalendarAvailability;
+    const result = (await response.json().catch(() => null)) as (Partial<CalendarAvailability> & { ok?: boolean; error?: string }) | null;
+    if (result?.ok === false) throw new Error(result.error || "Calendar FreeBusy request failed");
+    return normalizeCalendarAvailability(result);
   } catch (error) {
     throw new Error(friendlyCalendarError(error, "Connessione Calendar non disponibile."));
   }
@@ -138,7 +163,9 @@ export async function getExpertFunniFinAvailability(params: {
   try {
     const response = await fetch(url.toString());
     if (!response.ok) throw new Error("Expert Calendar request failed");
-    return (await response.json()) as CalendarAvailability;
+    const result = (await response.json().catch(() => null)) as (Partial<CalendarAvailability> & { ok?: boolean; error?: string }) | null;
+    if (result?.ok === false) throw new Error(result.error || "Lettura Calendar esperto non riuscita");
+    return normalizeCalendarAvailability(result);
   } catch (error) {
     throw new Error(friendlyCalendarError(error, "Connessione Calendar esperto non disponibile."));
   }
@@ -167,6 +194,32 @@ export async function connectExpertCalendar(calendarId: string): Promise<ExpertC
     return result;
   } catch (error) {
     throw new Error(friendlyCalendarError(error, "Collegamento Calendar esperto non disponibile."));
+  }
+}
+
+export async function createExpertCalendar(): Promise<ExpertCalendarConnection> {
+  const scriptUrl = (import.meta as unknown as { env: Record<string, string | undefined> }).env[
+    SECRET_SETTINGS.google.env.appScriptDeploymentUrl
+  ];
+
+  if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
+
+  try {
+    const response = await fetch(scriptUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        action: "createExpertCalendar",
+        payload: withSessionPayload({}),
+      }),
+    });
+    if (!response.ok) throw new Error("Expert Calendar create request failed");
+    const result = (await response.json().catch(() => null)) as (ExpertCalendarConnection & { ok?: boolean; error?: string }) | null;
+    if (!result) throw new Error("Calendar create response non valida");
+    if (result.ok === false) throw new Error(result.error || "Creazione Calendar non riuscita");
+    return result;
+  } catch (error) {
+    throw new Error(friendlyCalendarError(error, "Creazione Calendar esperto non disponibile."));
   }
 }
 

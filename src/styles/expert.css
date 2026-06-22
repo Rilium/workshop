@@ -526,6 +526,26 @@
   align-items: end;
 }
 
+.expert-calendar-primary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  min-width: 0;
+  padding: var(--sp-3);
+  border: 1px solid var(--brand-mid);
+  border-radius: var(--radius-md);
+  background: var(--brand-light);
+}
+
+.expert-calendar-primary > span {
+  min-width: min(260px, 100%);
+  color: var(--brand-dark);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
+  line-height: 1.35;
+}
+
 .expert-calendar-connect label {
   min-width: 0;
   display: grid;

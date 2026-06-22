@@ -95,6 +95,79 @@ export type CreateWorkshopRequestPayload = {
   privacy?: WorkshopRequestRecord["privacy"];
 };
 
+function asStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean);
+  if (typeof value === "string") return value.split(",").map((item) => item.trim()).filter(Boolean);
+  return [];
+}
+
+function normalizeWorkshopRecord(record: Partial<RequestWorkshopRecord> & { id?: string } = {}): RequestWorkshopRecord {
+  return {
+    workshopId: String(record.workshopId || record.id || ""),
+    title: String(record.title || ""),
+    duration: record.duration === "2h" ? "2h" : "1h",
+    format: record.format === "live" || record.format === "ibrido" ? record.format : "webinar",
+    date: String(record.date || ""),
+    time: String(record.time || ""),
+    price: Number(record.price || 0),
+    custom: Boolean(record.custom),
+    customNote: String(record.customNote || ""),
+    status: String(record.status || "selezionato"),
+    approval:
+      record.approval === "approved" ||
+      record.approval === "rejected" ||
+      record.approval === "change_requested" ||
+      record.approval === "pending"
+        ? record.approval
+        : "pending",
+    expertName: String(record.expertName || ""),
+  };
+}
+
+function normalizeWorkshopRequest(request: Partial<WorkshopRequestRecord> = {}): WorkshopRequestRecord {
+  const contact: Partial<WorkshopRequestRecord["contact"]> = request.contact ?? {};
+  const quote: Partial<WorkshopRequestRecord["quote"]> = request.quote ?? {};
+  const workshops = Array.isArray(request.workshops) ? request.workshops.map(normalizeWorkshopRecord) : [];
+  const workshopIds = asStringArray(request.workshopIds);
+  const resolvedWorkshopIds = workshopIds.length ? workshopIds : workshops.map((workshop) => workshop.workshopId).filter(Boolean);
+  const now = new Date().toISOString();
+
+  return {
+    id: String(request.id || "request"),
+    company: String(request.company || contact.company || "Cliente"),
+    manager: String(request.manager || [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim() || contact.email || "Referente"),
+    email: String(request.email || contact.email || ""),
+    phone: String(request.phone || contact.phone || ""),
+    status: request.status || "richiesta_inviata",
+    quoteTotal: Number(request.quoteTotal || quote.total || 0),
+    workshopIds: resolvedWorkshopIds,
+    dateCount: Number(request.dateCount ?? workshops.filter((workshop) => workshop.date).length),
+    assignedExpert: request.assignedExpert || workshops.find((workshop) => workshop.expertName)?.expertName || "",
+    createdAt: String(request.createdAt || now),
+    updatedAt: String(request.updatedAt || now),
+    contact: {
+      firstName: String(contact.firstName || ""),
+      lastName: String(contact.lastName || ""),
+      email: String(contact.email || request.email || ""),
+      company: String(contact.company || request.company || ""),
+      phone: String(contact.phone || request.phone || ""),
+    },
+    workshops,
+    quote: {
+      gross: Number(quote.gross || 0),
+      discount: Number(quote.discount || 0),
+      promoDiscount: Number(quote.promoDiscount || 0),
+      customTotal: Number(quote.customTotal || 0),
+      total: Number(quote.total || request.quoteTotal || 0),
+      saved: Number(quote.saved || 0),
+      packageName: String(quote.packageName || ""),
+    },
+    materials: request.materials,
+    privacy: request.privacy,
+    calendarEvent: request.calendarEvent,
+  };
+}
+
 function getScriptUrl() {
   return (import.meta as unknown as { env: Record<string, string | undefined> }).env[
     SECRET_SETTINGS.google.env.appScriptDeploymentUrl
@@ -150,7 +223,7 @@ export async function createWorkshopRequest(payload: CreateWorkshopRequestPayloa
   };
 
   const result = await postAppsScript<{ request: WorkshopRequestRecord }>(body);
-  return result.request;
+  return normalizeWorkshopRequest(result.request);
 }
 
 export async function listWorkshopRequests(): Promise<WorkshopRequestRecord[]> {
@@ -167,7 +240,7 @@ export async function listWorkshopRequests(): Promise<WorkshopRequestRecord[]> {
     const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; requests?: WorkshopRequestRecord[] } | null;
     if (!result) throw new Error("Apps Script ha risposto con un formato non valido");
     if (result.ok === false) throw new Error(result.error || "Lettura richieste non riuscita");
-    return result.requests ?? [];
+    return (result.requests ?? []).map(normalizeWorkshopRequest);
   } catch (error) {
     throw new Error(friendlyRequestError(error, "Connessione al registro richieste non disponibile."));
   }
@@ -182,7 +255,7 @@ export async function updateWorkshopRequest(
     action: "updateWorkshopRequest",
     payload: withSessionPayload({ requestId, patch, event }),
   });
-  return result.request;
+  return normalizeWorkshopRequest(result.request);
 }
 
 export async function deleteWorkshopRequest(requestId: string): Promise<{ deleted: boolean; requestId: string }> {

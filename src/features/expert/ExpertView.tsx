@@ -33,7 +33,7 @@ import {
   X,
 } from "../../components/ui/FaIcons";
 import { createAssetDraftFolder, uploadAssetFiles, type AssetDraftFolder, type UploadedAsset } from "../../driveAssetService";
-import { connectExpertCalendar, createExpertCalendarEvent, getExpertFunniFinAvailability, type CalendarSlot } from "../../googleCalendarService";
+import { connectExpertCalendar, createExpertCalendar, createExpertCalendarEvent, getExpertFunniFinAvailability, type CalendarSlot } from "../../googleCalendarService";
 import { getDriveFolderPreview, type DriveFolderItem } from "../../googleDriveService";
 import { listWorkshopRequests, updateWorkshopRequest } from "../../requestService";
 import { roleIdentities } from "../../data/mockData";
@@ -165,7 +165,7 @@ export function ExpertView({
     const noticeKey = `funnifin_expert_calendar_notice_${currentUserId || currentUserEmail || "session"}`;
     if (!sessionStorage.getItem(noticeKey)) {
       sessionStorage.setItem(noticeKey, "1");
-      notify("Collega Google Calendar", "Crea nel tuo calendario eventi con titolo FunniFin: solo quelli vengono letti come disponibilita.", {
+      notify("Collega Google Calendar", "Gli eventi nel tuo calendario con titolo FunniFin vengono letti come non disponibilita.", {
         audience: ["Esperto"],
         audienceUserIds: currentUserId ? [currentUserId] : undefined,
         audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
@@ -196,7 +196,8 @@ export function ExpertView({
     setExpertCalendarState((current) => ({ ...current, loading: true, error: "" }));
     try {
       const availability = await getExpertFunniFinAvailability({ horizonDays: 45 });
-      setExpertCalendarSlots(availability.slots);
+      const slots = Array.isArray(availability.slots) ? availability.slots : [];
+      setExpertCalendarSlots(slots);
       setExpertCalendarState((current) => ({
         ...current,
         connected: Boolean(availability.connected),
@@ -210,7 +211,7 @@ export function ExpertView({
         notify(
           availability.connected ? "Disponibilita Calendar aggiornate" : "Calendar non collegato",
           availability.connected
-            ? `${availability.slots.length} slot FunniFin letti dal tuo Google Calendar.`
+            ? `${slots.length} blocchi FunniFin letti dal tuo Google Calendar.`
             : "Collega un Calendar ID condiviso con FunniFin: gli slot liberi generici non vengono usati.",
         );
       }
@@ -234,7 +235,7 @@ export function ExpertView({
         calendarName: result.calendarName || current.calendarName,
         updatedAt: result.updatedAt,
       }));
-      notify("Google Calendar collegato", "Da ora FunniFin legge solo gli eventi del tuo calendario con titolo FunniFin.", {
+      notify("Google Calendar collegato", "Da ora FunniFin considera non disponibili gli eventi del tuo calendario con titolo FunniFin.", {
         audience: ["Esperto"],
         audienceUserIds: currentUserId ? [currentUserId] : undefined,
         audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
@@ -247,6 +248,42 @@ export function ExpertView({
       const message = error instanceof Error ? error.message : "Collegamento Calendar non riuscito.";
       setExpertCalendarState((current) => ({ ...current, saving: false, error: message }));
       notify("Calendar non collegato", message, {
+        audience: ["Esperto"],
+        audienceUserIds: currentUserId ? [currentUserId] : undefined,
+        audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+        priority: "critical",
+        category: "system",
+        action: { label: "Riprova", role: "Esperto", hash: "#esperto-candidature", projectId: activeExpertProject.id },
+      });
+    }
+  };
+  const createAndConnectExpertCalendar = async () => {
+    if (expertCalendarState.saving) return;
+    setExpertCalendarState((current) => ({ ...current, saving: true, error: "" }));
+    try {
+      const result = await createExpertCalendar();
+      setExpertCalendarIdInput(result.calendarId);
+      setExpertCalendarState((current) => ({
+        ...current,
+        connected: result.connected,
+        saving: false,
+        error: "",
+        calendarName: result.calendarName || current.calendarName,
+        updatedAt: result.updatedAt,
+      }));
+      notify("Google Calendar creato", `${result.calendarName || "Calendar esperto"} creato, collegato e condiviso con la tua email.`, {
+        audience: ["Esperto"],
+        audienceUserIds: currentUserId ? [currentUserId] : undefined,
+        audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+        priority: "task",
+        category: "task",
+        action: { label: "Rileggi blocchi", role: "Esperto", hash: "#esperto-candidature", projectId: activeExpertProject.id },
+      });
+      await refreshExpertCalendar(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Creazione Calendar non riuscita.";
+      setExpertCalendarState((current) => ({ ...current, saving: false, error: message }));
+      notify("Calendar non creato", message, {
         audience: ["Esperto"],
         audienceUserIds: currentUserId ? [currentUserId] : undefined,
         audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
@@ -526,7 +563,7 @@ export function ExpertView({
       {availabilityUpdatedAt && (
         <div className="inline-status-card">
           <Check size={18} />
-          <span>Disponibilita aggiornata alle {availabilityUpdatedAt}. Valgono solo gli eventi Google Calendar con titolo FunniFin.</span>
+          <span>Disponibilita aggiornata alle {availabilityUpdatedAt}. Gli eventi Google Calendar con titolo FunniFin bloccano quelle fasce.</span>
         </div>
       )}
       {expertSyncState.error && (
@@ -541,18 +578,24 @@ export function ExpertView({
           <div>
             <span className="topic-badge">{expertCalendarState.connected ? "calendar collegato" : "azione richiesta"}</span>
             <h3>Collega Google Calendar</h3>
-            <p>Procedura guidata in 3 passi: sembra un collegamento Google, ma resta sotto il tuo controllo. FunniFin legge solo gli slot intitolati <strong>FunniFin</strong>.</p>
+            <p>Un click crea un Calendar esperto dedicato, lo collega a FunniFin e lo condivide con la tua email. Gli eventi intitolati <strong>FunniFin</strong> bloccano quelle fasce nel planner cliente.</p>
           </div>
           <CalendarCheck size={26} />
         </div>
         <div className="expert-calendar-steps" aria-label="Procedura collegamento Google Calendar">
-          <span><strong>1</strong> Apri Google Calendar</span>
-          <span><strong>2</strong> Condividi il calendario con FunniFin</span>
-          <span><strong>3</strong> Incolla qui il Calendar ID</span>
+          <span><strong>1</strong> Crea e collega</span>
+          <span><strong>2</strong> Ricevi il Calendar</span>
+          <span><strong>3</strong> Blocca con eventi FunniFin</span>
+        </div>
+        <div className="expert-calendar-primary">
+          <AppButton variant="primary" onClick={createAndConnectExpertCalendar} loading={expertCalendarState.saving}>
+            <CalendarCheck size={17} /> Crea e collega Calendar
+          </AppButton>
+          <span>FunniFin crea il calendario dedicato e lo rende modificabile dalla tua email.</span>
         </div>
         <div className="expert-calendar-connect">
           <label>
-            <span>Calendar ID condiviso con FunniFin</span>
+            <span>Hai gia un calendario? Incolla Calendar ID</span>
             <input
               type="text"
               value={expertCalendarIdInput}
@@ -561,22 +604,22 @@ export function ExpertView({
             />
           </label>
           <AppButton variant="secondary" onClick={saveExpertCalendar} loading={expertCalendarState.saving} disabled={!expertCalendarIdInput.trim()}>
-            <CalendarCheck size={17} /> Collega
+            <CalendarCheck size={17} /> Usa questo ID
           </AppButton>
           <AppButton variant="ghost" onClick={() => refreshExpertCalendar(true)} loading={expertCalendarState.loading}>
             <RefreshCw size={17} /> Rileggi
           </AppButton>
           <a className="expert-calendar-settings-link" href="https://calendar.google.com/calendar/u/0/r/settings" target="_blank" rel="noreferrer">
-            <ExternalLink size={16} /> Collega con Google
+            <ExternalLink size={16} /> Apri Google Calendar
           </a>
         </div>
         <p className="expert-calendar-help">
-          In Google Calendar apri impostazioni del calendario, copia <strong>ID calendario</strong> e condividi il calendario con l'account operativo FunniFin. Poi crea eventi chiamati <strong>FunniFin</strong> nelle fasce in cui vuoi proporti.
+          Percorso consigliato: usa il pulsante qui sopra. Il collegamento manuale serve solo se vuoi usare un calendario Google gia esistente e condiviso con FunniFin.
         </p>
         <div className="expert-calendar-status">
           <Info label="Stato" value={expertCalendarState.connected ? "Collegato" : "Non collegato"} />
           <Info label="Calendario" value={expertCalendarState.calendarName || "Da collegare"} />
-          <Info label="Slot FunniFin" value={String(expertCalendarSlots.length)} />
+          <Info label="Blocchi FunniFin" value={String(expertCalendarSlots.length)} />
           <Info label="Ultima lettura" value={expertCalendarState.updatedAt || "Mai"} />
         </div>
         {expertCalendarState.error && (
@@ -586,7 +629,7 @@ export function ExpertView({
           </div>
         )}
         {expertCalendarSlots.length > 0 && (
-          <div className="expert-calendar-slot-list" aria-label="Slot FunniFin rilevati">
+          <div className="expert-calendar-slot-list" aria-label="Blocchi FunniFin rilevati">
             {expertCalendarSlots.slice(0, 6).map((slot) => (
               <span key={`${slot.eventId || slot.time}-${slot.calendarId || "calendar"}`}>
                 <Clock3 size={15} /> {slot.time}

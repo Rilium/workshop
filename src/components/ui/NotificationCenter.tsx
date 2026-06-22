@@ -297,8 +297,6 @@ export function NotificationCenter({
                     n.status === "closed" ? "closed" : "",
                   ].filter(Boolean).join(" ")}
                 >
-                  <div className="nc-item-accent" />
-
                   <div className="nc-item-body">
                     <div className="nc-item-row1">
                       <span className="nc-item-icon">{notificationIcon(n)}</span>
@@ -325,7 +323,6 @@ export function NotificationCenter({
                       )}
                     </div>
 
-                    {/* Azioni: visibili via CSS :hover sul nc-item — nessun JS state */}
                     <div className="nc-item-actions">
                       {n.action && (
                         <button type="button" className="nc-btn-primary" onClick={() => handleAction(n)}>
