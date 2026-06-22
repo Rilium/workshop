@@ -385,7 +385,7 @@ function createExpertCalendar(payload, auth) {
   const calendar = CalendarApp.createCalendar(calendarName, { timeZone: SETTINGS.timezone });
   const expertEmail = String(expert.email || auth.user.email || payload.expertEmail || "").trim();
   if (expertEmail) {
-    calendar.addEditor(expertEmail);
+    shareCalendarWithExpert(calendar.getId(), expertEmail);
   }
   try {
     calendar.setDescription("Calendario dedicato FunniFin per blocchi e impegni dell'esperto. Gli eventi con titolo FunniFin vengono letti come non disponibilita nel planner cliente.");
@@ -393,6 +393,26 @@ function createExpertCalendar(payload, auth) {
     // Some CalendarApp calendar implementations may not expose setDescription.
   }
   return saveExpertCalendarConnection(calendar.getId(), calendar, auth, payload, "expert_calendar_created");
+}
+
+function shareCalendarWithExpert(calendarId, expertEmail) {
+  try {
+    Calendar.Acl.insert({
+      role: "writer",
+      scope: {
+        type: "user",
+        value: expertEmail,
+      },
+    }, calendarId, {
+      sendNotifications: true,
+    });
+  } catch (error) {
+    appendRequestEvent("experts", "expert_calendar_share_failed", `Condivisione Calendar non riuscita: ${expertEmail}`, {
+      calendarId,
+      expertEmail,
+      error: String(error.message || error),
+    });
+  }
 }
 
 function saveExpertCalendarConnection(calendarId, calendar, auth, payload, eventType) {
