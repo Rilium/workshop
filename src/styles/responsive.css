@@ -128,6 +128,16 @@
     justify-content: stretch;
   }
 
+  .expert-calendar-steps,
+  .expert-calendar-connect,
+  .expert-calendar-status {
+    grid-template-columns: 1fr;
+  }
+
+  .expert-calendar-settings-link {
+    width: 100%;
+  }
+
 .expert-upload-actions .app-btn,
 .expert-upload-actions .action-icon-btn,
 .expert-upload-panel > .app-btn-primary {
