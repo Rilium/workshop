@@ -218,35 +218,30 @@ export function ExpertView({
       id: "Disponibilita",
       label: "Disponibilita",
       meta: expertCalendarState.connected ? "Calendar collegato" : "Da collegare",
-      value: expertCalendarSlots.length,
       icon: <CalendarCheck size={20} />,
     },
     {
       id: "Opportunita",
       label: "Candidature",
       meta: `${candidateCount} inviate`,
-      value: expertRows.length,
       icon: <Megaphone size={20} />,
     },
     {
       id: "Assegnati",
       label: "Incarichi",
       meta: assignedRows.length ? "Da lavorare" : "In attesa",
-      value: assignedRows.length,
       icon: <BriefcaseBusiness size={20} />,
     },
     {
       id: "Upload deck",
       label: "Deck",
       meta: expertDeckFile ? "File selezionato" : "Da caricare",
-      value: expertDeckFile ? 1 : 0,
       icon: <Presentation size={20} />,
     },
     {
       id: "Storico",
       label: "Stato",
       meta: historyRows.length ? "Aggiornato" : "Vuoto",
-      value: historyRows.length,
       icon: <Clock3 size={20} />,
     },
   ];
@@ -652,7 +647,6 @@ export function ExpertView({
                   <strong>{tab.label}</strong>
                   <em>{tab.meta}</em>
                 </span>
-                <b>{tab.value}</b>
               </button>
             );
           })}

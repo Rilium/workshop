@@ -434,7 +434,7 @@
   min-width: 0;
   min-height: 68px;
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
+  grid-template-columns: 36px minmax(0, 1fr);
   gap: var(--sp-2);
   align-items: center;
   padding: 11px;
@@ -497,21 +497,6 @@
   font-size: var(--text-xs);
   font-style: normal;
   font-weight: var(--fw-bold);
-}
-
-.expert-flow-tab b {
-  min-width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: var(--neutral-100);
-  color: var(--brand-dark);
-  font-size: var(--text-sm);
-}
-
-.expert-flow-tab.active b {
-  background: var(--white);
 }
 
 .expert-flow-content {
@@ -1210,12 +1195,4 @@
     height: 32px;
   }
 
-  .expert-flow-tab b {
-    grid-column: 1 / -1;
-    width: 100%;
-    height: 4px;
-    min-width: 0;
-    overflow: hidden;
-    color: transparent;
-  }
 }
