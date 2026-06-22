@@ -1221,8 +1221,8 @@ label.has-error textarea {
   position: sticky;
   top: 88px;
   align-self: start;
-  height: calc(100dvh - var(--cart-visible-top, 88px) - 24px);
-  max-height: calc(100dvh - var(--cart-visible-top, 88px) - 24px);
+  height: calc(90dvh - var(--cart-visible-top, 88px) - 24px);
+  max-height: calc(90dvh - var(--cart-visible-top, 88px) - 24px);
   display: grid;
   grid-template-rows: auto minmax(240px, 1fr) auto;
   gap: var(--sp-4);
