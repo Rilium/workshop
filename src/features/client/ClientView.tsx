@@ -906,7 +906,7 @@ export function ClientView({
     return (
       <section className="guided-loader" aria-label="Caricamento FunniFin">
         <div className="guided-loader-mark">
-          <img src="/Logo.png" alt="FunniFin" />
+          <img src="/Logo.png" alt="FunniFin" width="60" height="60" decoding="async" fetchPriority="high" />
           <span />
           <span />
           <span />
@@ -939,11 +939,11 @@ export function ClientView({
         : null;
 
     return (
-      <section className="guided-entry">
+      <section className="guided-entry" aria-labelledby="client-entry-title">
         <div className="guided-entry-pattern" aria-hidden="true" />
         <div className="guided-choice-head">
           <span className="eyebrow guided-choice-eyebrow">Workshop planner</span>
-          <h1>
+          <h1 id="client-entry-title">
             Costruisci il <span>piano formativo</span> più adatto alla tua azienda
           </h1>
           <p>Scegli se partire da una proposta guidata oppure esplorare il catalogo completo. Potrai modificare workshop, esperti, date e costi in qualsiasi momento.</p>
@@ -1198,7 +1198,7 @@ export function ClientView({
   }
 
   return (
-    <section className="view-stack">
+    <section className="view-stack" aria-label="Planner workshop cliente FunniFin">
       <RoleHero
         className="client-path-hero"
         eyebrow="Crea il tuo percorso FunniFin"

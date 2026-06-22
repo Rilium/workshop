@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://funnifin-workshop-planner.vercel.app/sitemap.xml

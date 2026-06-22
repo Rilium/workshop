@@ -26,7 +26,7 @@ export function Topbar({
   return (
     <header className="topbar">
       <div className="brand-mark">
-        <img className="logo-bubble" src="/Logo.png" alt="FunniFin" />
+        <img className="logo-bubble" src="/Logo.png" alt="FunniFin" width="60" height="60" decoding="async" fetchPriority="high" />
         <div className="brand-copy">
           <div className="brand-title-row">
             <strong>FunniFin <span className="brand-product-detail">Workshop Planner</span></strong>

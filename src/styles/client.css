@@ -843,7 +843,7 @@ label.has-error textarea {
   background: var(--white);
   color: var(--brand);
   box-shadow: var(--brand-shadow-hover);
-  padding-right: 54px;
+  padding-right: 68px;
 }
 
 .survey-option.selected::after {
@@ -851,8 +851,8 @@ label.has-error textarea {
   position: absolute;
   top: 14px;
   right: 14px;
-  width: 24px;
-  height: 24px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: var(--brand);
   box-shadow: 0 6px 16px rgba(28, 175, 185, 0.24);
@@ -890,12 +890,16 @@ label.has-error textarea {
 .survey-option > .fa-icon,
 .survey-option > .fa-icon {
   position: absolute;
-  top: 18px;
-  right: 18px;
+  top: 14px;
+  right: 14px;
   z-index: 1;
-  width: 16px;
-  height: 16px;
-  font-size: 16px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  font-size: 18px;
+  line-height: 34px;
+  text-align: center;
   color: var(--white);
   stroke-width: 3;
 }

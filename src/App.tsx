@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { ArrowRight, BadgeCheck, BriefcaseBusiness, X } from "./components/ui/FaIcons";
 import { useDarkMode } from "./hooks/useDarkMode";
 import { DarkModeToggle } from "./components/ui/DarkModeToggle";
@@ -20,12 +20,13 @@ import { ConfettiBurst } from "./components/ui/ConfettiBurst";
 import { ClientView } from "./features/client/ClientView";
 import { CustomModal, CustomRequestModal } from "./features/client/components/CustomWorkshopModals";
 import { DatePickerModal } from "./features/client/components/DatePickerModal";
-import { AdminView } from "./features/admin/AdminView";
-import { ExpertView } from "./features/expert/ExpertView";
-import { BrandView } from "./features/brand/BrandView";
 import { AuthProvider, AUTH_ENTRY_CONFETTI_EVENT, useAuth } from "./AuthContext";
-import { LoginView } from "./features/auth/LoginView";
 import { Skeleton, SkeletonCard } from "./components/ui/Skeleton";
+
+const AdminView = lazy(() => import("./features/admin/AdminView").then((module) => ({ default: module.AdminView })));
+const ExpertView = lazy(() => import("./features/expert/ExpertView").then((module) => ({ default: module.ExpertView })));
+const BrandView = lazy(() => import("./features/brand/BrandView").then((module) => ({ default: module.BrandView })));
+const LoginView = lazy(() => import("./features/auth/LoginView").then((module) => ({ default: module.LoginView })));
 
 function getWelcomeCopy(role: Role) {
   if (role === "FunniFin") {
@@ -117,6 +118,15 @@ function WelcomeModal({
         </AppButton>
       </footer>
     </section>
+  );
+}
+
+function ViewLoadingFallback() {
+  return (
+    <div className="view-stack" aria-busy="true" aria-label="Caricamento vista">
+      <SkeletonCard lines={3} />
+      <SkeletonCard lines={2} />
+    </div>
   );
 }
 
@@ -275,7 +285,11 @@ function AppInner() {
 
   // Se l'utente ha cliccato "Accedi" o la vista richiede auth, mostra LoginView
   if (showLogin || (!currentUser && role !== "Cliente")) {
-    return <LoginView onClose={currentUser ? () => setShowLogin(false) : undefined} />;
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <LoginView onClose={currentUser ? () => setShowLogin(false) : undefined} />
+      </Suspense>
+    );
   }
 
   const selectedWorkshops = selections
@@ -470,59 +484,61 @@ function AppInner() {
             }}
           />
         )}
-        {role === "FunniFin" && (
-          <AdminView
-            projectStatus={projectStatus}
-            quote={quote}
-            rules={rules}
-            selections={selections}
-            setRules={setRules}
-            setProjectStatus={setStatusWithFeedback}
-            updateSelection={updateSelection}
-            notify={notify}
-            syncProjectStatus={syncProjectStatus}
-            clientAssetFolder={clientAssetFolder}
-            clientUploadedAssets={clientUploadedAssets}
-            currentRequest={currentRequest}
-            currentUserId={currentUser?.id}
-            currentUserEmail={currentUser?.email}
-            requestRefreshToken={requestRefreshToken}
-            systemRefreshToken={systemRefreshToken}
-            systemSettingsToken={systemSettingsToken}
-          />
-        )}
-        {role === "Esperto" && (
-          <ExpertView
-            selections={selections}
-            updateSelection={updateSelection}
-            setProjectStatus={setStatusWithFeedback}
-            notify={notify}
-            syncProjectStatus={syncProjectStatus}
-            currentUserId={currentUser?.id}
-            currentUserEmail={currentUser?.email}
-            systemRefreshToken={systemRefreshToken}
-            systemSettingsToken={systemSettingsToken}
-            project={{
-              ...(currentRequest ? requestToAdminProject(currentRequest) : buildLocalAdminProject(selections, quote.total, projectStatus)),
-              status: projectStatus,
-              quoteTotal: quote.total,
-              workshopIds: selections.map((selection) => selection.workshopId),
-            }}
-          />
-        )}
-        {role === "Brand" && (
-          <BrandView
-            brandFilter={brandFilter}
-            setBrandFilter={setBrandFilter}
-            setProjectStatus={setStatusWithFeedback}
-            syncProjectStatus={syncProjectStatus}
-            notify={notify}
-            currentUserId={currentUser?.id}
-            currentUserEmail={currentUser?.email}
-            systemRefreshToken={systemRefreshToken}
-            systemSettingsToken={systemSettingsToken}
-          />
-        )}
+        <Suspense fallback={<ViewLoadingFallback />}>
+          {role === "FunniFin" && (
+            <AdminView
+              projectStatus={projectStatus}
+              quote={quote}
+              rules={rules}
+              selections={selections}
+              setRules={setRules}
+              setProjectStatus={setStatusWithFeedback}
+              updateSelection={updateSelection}
+              notify={notify}
+              syncProjectStatus={syncProjectStatus}
+              clientAssetFolder={clientAssetFolder}
+              clientUploadedAssets={clientUploadedAssets}
+              currentRequest={currentRequest}
+              currentUserId={currentUser?.id}
+              currentUserEmail={currentUser?.email}
+              requestRefreshToken={requestRefreshToken}
+              systemRefreshToken={systemRefreshToken}
+              systemSettingsToken={systemSettingsToken}
+            />
+          )}
+          {role === "Esperto" && (
+            <ExpertView
+              selections={selections}
+              updateSelection={updateSelection}
+              setProjectStatus={setStatusWithFeedback}
+              notify={notify}
+              syncProjectStatus={syncProjectStatus}
+              currentUserId={currentUser?.id}
+              currentUserEmail={currentUser?.email}
+              systemRefreshToken={systemRefreshToken}
+              systemSettingsToken={systemSettingsToken}
+              project={{
+                ...(currentRequest ? requestToAdminProject(currentRequest) : buildLocalAdminProject(selections, quote.total, projectStatus)),
+                status: projectStatus,
+                quoteTotal: quote.total,
+                workshopIds: selections.map((selection) => selection.workshopId),
+              }}
+            />
+          )}
+          {role === "Brand" && (
+            <BrandView
+              brandFilter={brandFilter}
+              setBrandFilter={setBrandFilter}
+              setProjectStatus={setStatusWithFeedback}
+              syncProjectStatus={syncProjectStatus}
+              notify={notify}
+              currentUserId={currentUser?.id}
+              currentUserEmail={currentUser?.email}
+              systemRefreshToken={systemRefreshToken}
+              systemSettingsToken={systemSettingsToken}
+            />
+          )}
+        </Suspense>
       </main>
     </div>
   );
