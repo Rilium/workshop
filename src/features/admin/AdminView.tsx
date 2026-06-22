@@ -15,6 +15,7 @@ import {
   FileCheck2,
   FolderKanban,
   InfoIcon,
+  Mail,
   Menu,
   Megaphone,
   Palette,
@@ -67,6 +68,7 @@ import { AdminFlowStepper } from "./components/AdminFlowStepper";
 import { AdminSectionNav, type AdminSectionNavItem } from "./components/AdminSectionNav";
 import { CatalogEditModal } from "./components/CatalogEditModal";
 import { ExpertProfileModal } from "./components/ExpertProfileModal";
+import { EmailTemplatesSection } from "./components/EmailTemplatesSection";
 import { readCachedGoogleHealth, writeCachedGoogleHealth } from "./adminHealthCache";
 import { getWorkshopSelectionPrice } from "../../utils/workshop";
 import { updateAuthUser } from "../../authService";
@@ -1597,6 +1599,13 @@ export function AdminView({
       icon: <Settings2 size={18} />,
     },
     {
+      id: "Mail",
+      title: "Mail template",
+      meta: "5 template",
+      body: "Testi, trigger, destinatari e anteprima delle mail operative.",
+      icon: <Mail size={18} />,
+    },
+    {
       id: "Manuale",
       title: "Manuale utente",
       meta: "DOCX v2.2",
@@ -1680,6 +1689,13 @@ export function AdminView({
             window.open(USER_MANUAL_URL, "_blank", "noopener,noreferrer");
             notify("Manuale utente", "Aperto il manuale FunniFin v2.2 in una nuova scheda.");
           },
+        };
+      }
+      if (adminTab === "Mail") {
+        return {
+          label: "Template pronti",
+          disabled: false,
+          action: () => notify("Template mail", "Apri un template dalla lista per modificare testo e anteprima."),
         };
       }
       if (adminTab === "Utenti") {
@@ -1820,6 +1836,14 @@ export function AdminView({
         title: googleHealth ? "Workspace connesso" : googleHealthLoading ? "Controllo in corso" : googleHealthError ? "Errore verifica" : "Verifica non eseguita",
         detail: googleHealth?.checkedAt ? `${googleHealth.checkedAt} · ${googleHealthStatusLabel}` : googleHealthError || "Sheets, Calendar, Drive e MailApp",
         meta: googleHealth ? `${googleHealth.spreadsheet.requests} richieste` : googleHealthStatusLabel,
+      };
+    }
+    if (adminTab === "Mail") {
+      return {
+        eyebrow: "Mail - Template",
+        title: "Template operativi",
+        detail: "Destinatari, trigger di invio, testo modificabile e micro anteprima HTML",
+        meta: "editor",
       };
     }
     if (adminTab === "Manuale") {
@@ -3147,6 +3171,13 @@ export function AdminView({
         </>
       )}
 
+      {adminTab === "Mail" && (
+        <>
+          <SectionTitle title="Mail template" icon={<Mail size={20} />} meta="Editor operativo" />
+          <EmailTemplatesSection notify={notify} />
+        </>
+      )}
+
       {adminTab === "Utenti" && (
         <>
           <SectionTitle title="Utenti e inviti" icon={<UsersRound size={20} />} />
@@ -3600,6 +3631,8 @@ export function AdminView({
             ? "Utenti e inviti"
             : adminTab === "Catalogo"
             ? `Catalogo · ${catalogView === "drive" ? "Slide Drive" : "Sheet"}`
+            : adminTab === "Mail"
+              ? "Mail template"
             : adminTab === "Manuale"
               ? "Manuale utente"
             : adminTab === "Google"
@@ -3611,6 +3644,8 @@ export function AdminView({
             ? `${authUsers.filter((user) => !user.disabled).length} attivi · ${accessRequests.filter((request) => request.status === "pending").length} in attesa`
             : adminTab === "Catalogo" && catalogView === "drive"
             ? `${driveLinkedCount}/${workshops.length} slide collegate`
+            : adminTab === "Mail"
+              ? "Destinatari · trigger · preview HTML"
             : adminTab === "Manuale"
               ? "DOCX v2.2 · flussi e atlante UI"
             : adminTab === "Google"

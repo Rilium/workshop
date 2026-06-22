@@ -871,8 +871,8 @@ export function ClientView({
     }
     if (clientStep === "Workshop") return { label: "Personalizza percorso", disabled: selectedWorkshopRows.length === 0, action: goNext };
     if (clientStep === "Personalizza") return { label: "Scegli le date", disabled: selectedWorkshopRows.length === 0, action: goNext };
-    if (clientStep === "Date") return { label: "Carica materiali", disabled: !allDatesSelected, action: goNext };
-    if (clientStep === "Materiali") return { label: "Vai all'invio", disabled: false, action: goNext };
+    if (clientStep === "Date") return { label: "Materiali opzionali", disabled: !allDatesSelected, action: goNext };
+    if (clientStep === "Materiali") return { label: uploadedAssets.length > 0 ? "Vai all'invio" : "Salta e vai all'invio", disabled: false, action: goNext };
     if (requestFinalized) return { label: "Richiesta inviata", disabled: true, action: () => {} };
     return { label: "Invia richiesta", disabled: sendingRequest || selectedWorkshopRows.length === 0, action: submitRequest };
   })();
@@ -1630,7 +1630,7 @@ export function ClientView({
       {clientStep === "Materiali" && (
           <Panel>
             <SectionTitle
-              title="Logo e note cliente"
+              title="Logo e note cliente facoltativi"
               icon={<UploadCloud size={20} />}
               actions={
                 <ToolIconButton onClick={() => refreshClientSection("Materiali cliente")} label="Ricarica materiali cliente">
@@ -1640,9 +1640,12 @@ export function ClientView({
             />
           <div className="upload-box">
             <UploadCloud size={32} />
-            <strong>Logo, brand guideline e note platea</strong>
+            <strong>Logo, brand guideline e note platea sono facoltativi</strong>
             <span>
-              Crea una cartella Drive draft chiamata <strong>{assetClientName} data</strong> per logo, linee guida e note.
+              Puoi inviare la richiesta anche senza caricarli: se serviranno, FunniFin li richiedera successivamente.
+            </span>
+            <span>
+              Se scegli di caricarli ora, verra creata una cartella Drive draft chiamata <strong>{assetClientName} data</strong>.
             </span>
             <label className={`secondary-btn asset-upload-trigger ${uploadingAssets ? "app-btn-loading" : ""}`} aria-busy={uploadingAssets || undefined}>
               <input
@@ -1657,7 +1660,7 @@ export function ClientView({
               <span className="app-btn-icon-slot" aria-hidden={!uploadingAssets}>
                 {uploadingAssets ? <Loader2 className="app-btn-spinner" size={16} aria-hidden="true" /> : <span className="app-btn-spinner-placeholder" />}
               </span>
-              Carica materiali
+              Carica materiali facoltativi
             </label>
             {assetFolder && (
               <a className="asset-folder-link" href={assetFolder.url} target="_blank" rel="noreferrer">
@@ -1690,7 +1693,7 @@ export function ClientView({
               </div>
             )}
             {assetUploadError && <p className="modal-warning">{assetUploadError}</p>}
-            <small>Se chiudi o abbandoni senza inviare la richiesta, la cartella draft viene spostata nel cestino.</small>
+            <small>Il caricamento non e obbligatorio. Se chiudi o abbandoni senza inviare la richiesta, l'eventuale cartella draft viene spostata nel cestino.</small>
           </div>
           </Panel>
       )}

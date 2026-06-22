@@ -1301,14 +1301,3 @@ h3 {
     transform: translate(-50%, -50%) scale(0.72);
   }
 }
-
-.cart-submit-row {
-  display: flex;
-  justify-content: flex-end;
-  align-self: start;
-  padding-top: var(--sp-2);
-}
-
-.cart-submit-row .app-btn {
-  min-width: 120px;
-}

@@ -2188,6 +2188,15 @@ button:disabled {
   display: flex;
   justify-content: space-between;
   gap: var(--sp-3);
+  align-items: center;
+  color: var(--neutral-600);
+}
+
+.already-selected-dates > div:first-child strong {
+  color: var(--neutral-900);
+}
+
+.already-selected-dates > div:first-child span {
   color: var(--neutral-600);
 }
 
@@ -2205,12 +2214,24 @@ button:disabled {
   border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg);
   background: var(--white);
+  color: var(--neutral-900);
   padding: var(--sp-3);
 }
 
 .already-selected-list button.active {
   border-color: var(--brand);
   background: var(--brand-light);
+  color: var(--brand-dark);
+}
+
+.already-selected-list button > .fa-icon,
+.already-selected-list button > svg {
+  color: var(--brand);
+}
+
+.already-selected-list button.active > .fa-icon,
+.already-selected-list button.active > svg {
+  color: var(--brand-dark);
 }
 
 .already-selected-list span {
@@ -2221,6 +2242,7 @@ button:disabled {
 
 .already-selected-list strong,
 .already-selected-list em {
+  color: inherit;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2230,6 +2252,10 @@ button:disabled {
   color: var(--neutral-600);
   font-style: normal;
   font-size: var(--text-sm);
+}
+
+.already-selected-list button.active em {
+  color: var(--brand-dark);
 }
 
 .calendar-selection {

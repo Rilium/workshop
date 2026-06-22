@@ -40,16 +40,30 @@ export function EcommerceCart({
 
   return (
     <aside ref={cartRef} className="ecommerce-cart" aria-label="Carrello workshop">
-      <button className="cart-head" type="button">
-        <div>
-          <span>Carrello</span>
+      <div className="cart-head">
+        <div className="cart-head-copy">
+          <div className="cart-title-row">
+            <span>Carrello</span>
+            <AppButton
+              variant="secondary"
+              size="small"
+              className="cart-share-btn"
+              onClick={onShare}
+              disabled={rows.length === 0}
+              loading={submitting}
+              loadingText="Preparo"
+              aria-label="Condividi carrello workshop"
+            >
+              <Share2 size={15} /> Condividi
+            </AppButton>
+          </div>
           <strong>{rows.length} workshop</strong>
           {rows.length > 0 && <small>Pronto da condividere</small>}
         </div>
         <div className="cart-head-total">
           <strong>{money(quote.total)}</strong>
         </div>
-      </button>
+      </div>
 
       <>
         <div className="cart-lines">
@@ -94,18 +108,6 @@ export function EcommerceCart({
         </div>
       </>
 
-      <div className="cart-submit-row">
-        <AppButton
-          variant="secondary"
-          onClick={onShare}
-          disabled={rows.length === 0}
-          loading={submitting}
-          loadingText="Preparo immagine"
-          aria-label="Condividi carrello workshop"
-        >
-          <Share2 size={17} /> Condividi
-        </AppButton>
-      </div>
     </aside>
   );
 }
