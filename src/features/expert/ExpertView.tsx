@@ -36,6 +36,7 @@ import { createAssetDraftFolder, uploadAssetFiles, type AssetDraftFolder, type U
 import { connectExpertCalendar, createExpertCalendar, createExpertCalendarEvent, getExpertFunniFinAvailability, type CalendarSlot } from "../../googleCalendarService";
 import { getDriveFolderPreview, type DriveFolderItem } from "../../googleDriveService";
 import { listWorkshopRequests, updateWorkshopRequest } from "../../requestService";
+import { sendWorkflowNotification } from "../../emailService";
 import { roleIdentities } from "../../data/mockData";
 import { workshops } from "../../data/catalog";
 import { statusLabel } from "../../data/workflow";
@@ -416,6 +417,55 @@ export function ExpertView({
         action: { label: "Apri revisione", role: "Brand", hash: "#brand", projectId: activeExpertProject.id },
         toast: false,
       });
+      try {
+        const mailWorkshops = activeExpertProject.request
+          ? activeExpertProject.request.workshops.map((record) => ({
+              title: record.title,
+              date: record.date,
+              time: record.time,
+              duration: record.duration,
+              format: record.format,
+              expertName: record.expertName || expertName,
+            }))
+          : expertRows.map(({ selection, workshop }) => ({
+              title: workshop.title,
+              date: selection.date,
+              time: selection.time,
+              duration: selection.duration,
+              format: selection.format,
+              expertName,
+            }));
+        const result = await sendWorkflowNotification({
+          phase: "brand_review",
+          project: {
+            id: activeExpertProject.id,
+            company: activeExpertProject.company,
+            manager: activeExpertProject.manager,
+            email: activeExpertProject.email,
+            phone: activeExpertProject.phone,
+            status: statusLabel.in_revisione_brand,
+            quoteTotal: activeExpertProject.quoteTotal,
+          },
+          workshops: mailWorkshops,
+          recipients: ["brand", "funnifin"],
+          note: `${expertName} ha caricato ${expertDeckFile.name}.${expertDeckFile.url ? ` File: ${expertDeckFile.url}` : ""}`,
+          actionUrl: expertDeckFile.url || undefined,
+          actionLabel: "Apri presentazione",
+        });
+        notify("Email revisione inviata", `Avvisati via mail: ${result.recipients.join(", ") || "Brand e FunniFin"}.`, {
+          audience: ["FunniFin"],
+          priority: "info",
+          category: "mail",
+          action: { label: "Apri revisione", role: "FunniFin", hash: "#funnifin", projectId: activeExpertProject.id },
+        });
+      } catch (mailError) {
+        notify("Email revisione non inviata", mailError instanceof Error ? mailError.message : "Il deck e stato salvato, ma la mail non e partita.", {
+          audience: ["FunniFin"],
+          priority: "critical",
+          category: "mail",
+          action: { label: "Verifica Google", role: "FunniFin", hash: "#funnifin" },
+        });
+      }
     } catch (error) {
       notify("Invio a brand non salvato", error instanceof Error ? error.message : "Aggiornamento registro non riuscito.", {
         audience: ["Esperto"],
