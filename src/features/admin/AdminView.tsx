@@ -34,7 +34,7 @@ import {
   X,
 } from "../../components/ui/FaIcons";
 import { sendWorkflowNotification, type WorkflowNotificationPayload, type WorkflowNotificationRecipientRole } from "../../emailService";
-import { createWorkshopCalendarEvent, getWorkshopAvailability } from "../../googleCalendarService";
+import { createExpertCalendarEvent, createWorkshopCalendarEvent, getWorkshopAvailability } from "../../googleCalendarService";
 import type { AssetDraftFolder, UploadedAsset } from "../../driveAssetService";
 import { clearBackendCaches, createSheetBackup, deleteExpert, getGoogleHealth, listCatalogConfig, listCatalogWorkshops, listExperts, listPricingRules, listWorkspaceSettings, runDailyMaintenance, runHealthMonitor, runRetentionCleanup, updateCatalogTopic, updateExpert, updatePricingRule, updateWorkspaceSetting, type CatalogWorkshopConfig, type GoogleHealth, type WorkspaceSetting } from "../../googleAdminService";
 import { getDriveFolderPreview, type DriveFolderResponse } from "../../googleDriveService";
@@ -607,6 +607,7 @@ export function AdminView({
           topicIds: expert.topicIds,
           themeIds: expert.themeIds,
           availability: expert.availability,
+          calendarId: expert.calendarId,
         })));
         setExpertsSyncedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
       })
@@ -938,6 +939,7 @@ export function AdminView({
           topicIds: savedExpert.topicIds.length ? savedExpert.topicIds : expert.topicIds,
           themeIds: savedExpert.themeIds.length ? savedExpert.themeIds : expert.themeIds,
           availability: savedExpert.availability,
+          calendarId: savedExpert.calendarId,
         } : item)));
         setExpertsSyncedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
         notify("Profilo esperto salvato su Google", `${expertFullName(savedExpert)} aggiornato nel pool esperti.`);
@@ -963,6 +965,7 @@ export function AdminView({
       topicIds: topicId ? [topicId] : [],
       themeIds,
       availability: "da configurare",
+      calendarId: "",
     };
     setExpertDirectory((current) => [...current, next]);
     setSelectedExpertProfileId(id);
@@ -1105,7 +1108,43 @@ export function AdminView({
   };
   const confirmExpertAssignment = async (workshopId: string, expertName: string, mode: "assign" | "reassign", choice: NotificationChoice) => {
     if (mode === "reassign") reassignWorkshop(workshopId);
-    else assignExpertTo(workshopId, expertName);
+    else {
+      assignExpertTo(workshopId, expertName);
+      const assignedRow = currentProjectSelections.find((row) => row.workshop.id === workshopId);
+      if (assignedRow) {
+        createExpertCalendarEvent({
+          company: selectedProject.company,
+          workshopId,
+          workshopTitle: assignedRow.workshop.title,
+          date: assignedRow.date,
+          time: assignedRow.time,
+          duration: assignedRow.duration,
+          format: assignedRow.format,
+          expertName,
+          mode: "assigned_by_funnifin",
+        })
+          .then((event) => {
+            notify("Evento nel Calendar esperto", `${expertName}: incarico scritto su ${event.calendarName || "Google Calendar"}.`, {
+              audience: ["FunniFin"],
+              audienceUserIds: currentUserId ? [currentUserId] : undefined,
+              audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+              priority: "task",
+              category: "task",
+              action: { label: "Apri progetto", role: "FunniFin", hash: "#funnifin", projectId: selectedProject.id },
+            });
+          })
+          .catch((error) => {
+            notify("Calendar esperto non scritto", error instanceof Error ? error.message : "Collega il calendario nel profilo esperto.", {
+              audience: ["FunniFin"],
+              audienceUserIds: currentUserId ? [currentUserId] : undefined,
+              audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+              priority: "critical",
+              category: "system",
+              action: { label: "Apri esperti", role: "FunniFin", hash: "#funnifin", projectId: selectedProject.id },
+            });
+          });
+      }
+    }
     await sendPhaseNotification(mode === "reassign" ? "candidacies_open" : "expert_assigned", choice, undefined, { expertName });
   };
   const verifyCalendars = async () => {
@@ -1957,6 +1996,7 @@ export function AdminView({
             topicIds: expert.topicIds,
             themeIds: expert.themeIds,
             availability: expert.availability,
+            calendarId: expert.calendarId,
           })));
         }
         setExpertsSyncedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));

@@ -54,6 +54,7 @@ export type ExpertProfileConfig = {
   topicIds: string[];
   themeIds: string[];
   availability: string;
+  calendarId?: string;
   active?: boolean;
   updatedAt?: string;
 };

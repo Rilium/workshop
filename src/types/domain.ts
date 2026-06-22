@@ -196,6 +196,7 @@ export type ExpertProfile = {
   topicIds: string[];
   themeIds: string[];
   availability: string;
+  calendarId?: string;
 };
 
 export type AdminProjectWorkshopRow = {

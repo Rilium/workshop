@@ -101,6 +101,14 @@ export function ExpertProfileModal({
                 Disponibilita
                 <input value={expert.availability} onChange={(event) => onChange({ availability: event.target.value })} />
               </label>
+              <label>
+                Google Calendar ID
+                <input
+                  value={expert.calendarId ?? ""}
+                  onChange={(event) => onChange({ calendarId: event.target.value })}
+                  placeholder="nome@group.calendar.google.com"
+                />
+              </label>
             </div>
             <label className="full-field">
               Breve descrizione

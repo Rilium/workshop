@@ -4,15 +4,17 @@ export function Panel({
   title,
   icon,
   actions,
+  className,
   children,
 }: {
   title?: string;
   icon?: React.ReactNode;
   actions?: React.ReactNode;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="panel">
+    <section className={className ? `panel ${className}` : "panel"}>
       {title && (
         <div className="panel-title">
           <div className="panel-title-main">

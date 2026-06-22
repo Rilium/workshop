@@ -1204,14 +1204,25 @@ export function ClientView({
         eyebrow="Crea il tuo percorso FunniFin"
         title="Scegli temi utili, proponi date e ricevi la conferma dal team."
         actions={
-          <ToolIconButton
-            onClick={() => {
-              setClientStep("Date");
-            }}
-            label="Vai alle date"
-          >
-            <CalendarCheck size={22} />
-          </ToolIconButton>
+          <>
+            <ToolIconButton
+              onClick={() => {
+                setChoiceSheet(null);
+                setClientJourneyStage("choice");
+              }}
+              label="Torna alla scelta guidata/manuale"
+            >
+              <Sparkles size={22} />
+            </ToolIconButton>
+            <ToolIconButton
+              onClick={() => {
+                setClientStep("Date");
+              }}
+              label="Vai alle date"
+            >
+              <CalendarCheck size={22} />
+            </ToolIconButton>
+          </>
         }
       />
 
