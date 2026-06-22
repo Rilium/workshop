@@ -69,6 +69,22 @@ function getWelcomeCopy(role: Role) {
   };
 }
 
+const ROLE_HASH: Record<Role, string> = {
+  Cliente: "",
+  FunniFin: "#funnifin",
+  Esperto: "#esperto-candidature",
+  Brand: "#brand",
+};
+
+function getCleanRoleUrl(role: Role) {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("mailAction");
+  url.searchParams.delete("projectId");
+  url.searchParams.delete("phase");
+  url.hash = ROLE_HASH[role];
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
 function WelcomeModal({
   role,
   name,
@@ -180,6 +196,7 @@ function AppInner() {
   const quote = useQuote(selections, catalogWorkshops, rules);
   const lastConfettiTokenRef = useRef<string | null>(null);
   const lastWelcomeTokenRef = useRef<string | null>(null);
+  const manualRoleChangeRef = useRef(false);
 
   const fireConfetti = (duration = 2800) => {
     setShowCelebrationConfetti(false);
@@ -198,6 +215,10 @@ function AppInner() {
 
   useEffect(() => {
     const handleHashIntent = () => {
+      if (manualRoleChangeRef.current) {
+        manualRoleChangeRef.current = false;
+        return;
+      }
       const hash = window.location.hash;
       const params = new URLSearchParams(window.location.search);
       setMailIntent({ action: params.get("mailAction") || "", projectId: params.get("projectId") || "" });
@@ -312,16 +333,9 @@ function AppInner() {
 
   // Solo FunniFin può cambiare il ruolo visualizzato (incluso Cliente)
   const changeRole = (item: Role) => {
-    const roleHash: Record<Role, string> = {
-      Cliente: "",
-      FunniFin: "#funnifin",
-      Esperto: "#esperto-candidature",
-      Brand: "#brand",
-    };
-    const nextHash = roleHash[item];
-    if (window.location.hash !== nextHash) {
-      window.history.replaceState(null, "", nextHash || `${window.location.pathname}${window.location.search}`);
-    }
+    manualRoleChangeRef.current = true;
+    window.history.replaceState(null, "", getCleanRoleUrl(item));
+    setMailIntent({ action: "", projectId: "" });
     switchEffectiveRole(item);
     setRoleMenuOpen(false);
     if (item === "Brand") setBrandFilter("Revisioni");
