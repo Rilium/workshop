@@ -1151,6 +1151,11 @@ export function AdminView({
   };
   const assignExpertTo = (workshopId: string, expertName = expertDraft) => {
     const workshop = workshops.find((item) => item.id === workshopId);
+    const nextAssignmentRows = currentProjectSelections.map((row) => ({
+      workshopId: row.workshop.id,
+      assignedExpert: row.workshop.id === workshopId ? expertName : row.assignedExpert,
+    }));
+    const allExpertsAssigned = nextAssignmentRows.length > 0 && nextAssignmentRows.every((row) => Boolean(row.assignedExpert));
     setAssignmentWorkshopId(workshopId);
     setExpertDraft(expertName);
     setWorkshopExperts((current) => ({ ...current, [projectWorkshopKey(workshopId)]: expertName }));
@@ -1162,6 +1167,17 @@ export function AdminView({
     );
     if (selectedProject.source === "local" && workshopId) updateSelection(workshopId, { status: "esperto_assegnato" });
     runProjectStatus("esperto_assegnato", "Esperto assegnato", `${expertName} assegnato a ${workshop?.title ?? "workshop selezionato"}.`);
+    if (allExpertsAssigned) {
+      setAdminWorkspacePanel("folder");
+      notify("Step esperti completato", "Tutti i workshop hanno un esperto: puoi passare a materiali e deck.", {
+        audience: ["FunniFin"],
+        audienceUserIds: currentUserId ? [currentUserId] : undefined,
+        audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+        priority: "task",
+        category: "task",
+        action: { label: "Apri materiali", role: "FunniFin", hash: "#funnifin", projectId: selectedProject.id },
+      });
+    }
   };
   const confirmExpertAssignment = async (workshopId: string, expertName: string, mode: "assign" | "reassign", choice: NotificationChoice) => {
     if (mode === "reassign") reassignWorkshop(workshopId);
@@ -2449,16 +2465,28 @@ export function AdminView({
                             <span>{row.assignedExpert ? `Assegnato a ${row.assignedExpert}` : "Nessun esperto assegnato"}</span>
                           </div>
                           <div className="expert-choice-row">
-                            {candidates.map((expert) => (
-                              <button
-                                key={expert.id}
-                                className={row.assignedExpert === expertFullName(expert) ? "active" : ""}
-                                onClick={() => setAdminActionModal({ type: "expert", workshopId: row.workshop.id, expertName: expertFullName(expert), mode: "assign" })}
-                              >
-                                <strong>{expertFullName(expert)}</strong>
-                                <span>{expert.availability}</span>
-                              </button>
-                            ))}
+                            {candidates.map((expert) => {
+                              const fullName = expertFullName(expert);
+                              const isAssigned = row.assignedExpert === fullName;
+                              return (
+                                <button
+                                  key={expert.id}
+                                  type="button"
+                                  className={isAssigned ? "active" : ""}
+                                  onClick={() => setAdminActionModal({ type: "expert", workshopId: row.workshop.id, expertName: fullName, mode: "assign" })}
+                                  aria-pressed={isAssigned}
+                                >
+                                  <span className="expert-choice-icon" aria-hidden="true">
+                                    {isAssigned ? <Check size={16} /> : <UsersRound size={16} />}
+                                  </span>
+                                  <span className="expert-choice-copy">
+                                    <strong>{fullName}</strong>
+                                    <em>{expert.availability || "Disponibilita da Calendar esperto"}</em>
+                                  </span>
+                                  <b>{isAssigned ? "Assegnato" : "Scegli"}</b>
+                                </button>
+                              );
+                            })}
                           </div>
                           {row.assignedExpert && (
                             <div className="row-actions compact-actions">
