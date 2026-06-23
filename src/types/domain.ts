@@ -211,7 +211,7 @@ export type AdminProjectWorkshopRow = {
 
 export type WorkspaceSettingDefinition = WorkspaceSetting & {
   helper: string;
-  inputType?: "text" | "email" | "password" | "url";
+  inputType?: "text" | "email" | "password" | "url" | "textarea";
   placeholder?: string;
   sensitive?: boolean;
   readOnly?: boolean;

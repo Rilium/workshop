@@ -105,6 +105,9 @@ export function ExpertView({
     calendarName: string;
     updatedAt: string;
   }>({ connected: false, loading: false, saving: false, error: "", calendarName: "", updatedAt: "" });
+  const expertCalendarWebUrl = expertCalendarIdInput.trim()
+    ? `https://calendar.google.com/calendar/u/0/r?cid=${encodeURIComponent(expertCalendarIdInput.trim())}`
+    : "https://calendar.google.com/calendar/u/0/r";
   const [expertDeckFolder, setExpertDeckFolder] = useState<AssetDraftFolder | null>(null);
   const [expertDeckFile, setExpertDeckFile] = useState<UploadedAsset | null>(null);
   const [expertDeckUploading, setExpertDeckUploading] = useState(false);
@@ -634,6 +637,56 @@ export function ExpertView({
         action: { label: "Apri coda", role: "FunniFin", hash: "#funnifin", projectId: activeExpertProject.id },
         toast: false,
       });
+      try {
+        const mailWorkshops = updatedProject.request
+          ? updatedProject.request.workshops.map((record) => ({
+              title: record.title,
+              date: record.date,
+              time: record.time,
+              duration: record.duration,
+              format: record.format,
+              expertName: record.workshopId === workshop.id ? expertName : record.expertName,
+            }))
+          : [{
+              title: workshop.title,
+              date: selection.date,
+              time: selection.time,
+              duration: selection.duration,
+              format: selection.format,
+              expertName,
+            }];
+        const result = await sendWorkflowNotification({
+          phase: "expert_candidate_received",
+          project: {
+            id: updatedProject.id,
+            company: updatedProject.company,
+            manager: updatedProject.manager,
+            email: updatedProject.email,
+            phone: updatedProject.phone,
+            status: statusLabel.aperto_a_esperti,
+            quoteTotal: updatedProject.quoteTotal,
+          },
+          workshops: mailWorkshops,
+          recipients: ["expert", "funnifin"],
+          recipientEmails: currentUserEmail ? { expert: currentUserEmail } : undefined,
+          note: `${expertName} si e candidato per ${workshop.title}. FunniFin puo valutare la candidatura dalla coda esperti.`,
+        });
+        notify("Email candidatura inviate", `Conferma inviata a ${result.recipients.join(", ") || "Esperto e FunniFin"}.`, {
+          audience: ["Esperto"],
+          audienceUserIds: currentUserId ? [currentUserId] : undefined,
+          audienceEmails: currentUserEmail ? [currentUserEmail] : undefined,
+          priority: "info",
+          category: "mail",
+          action: { label: "Vedi candidatura", role: "Esperto", hash: "#esperto-candidature", projectId: activeExpertProject.id },
+        });
+      } catch (mailError) {
+        notify("Email candidatura non inviata", mailError instanceof Error ? mailError.message : "Candidatura salvata, ma la mail non e partita.", {
+          audience: ["FunniFin"],
+          priority: "critical",
+          category: "mail",
+          action: { label: "Verifica Google", role: "FunniFin", hash: "#funnifin", projectId: activeExpertProject.id },
+        });
+      }
       createExpertCalendarEvent({
         company: activeExpertProject.company,
         workshopId: workshop.id,
@@ -764,7 +817,7 @@ export function ExpertView({
                 <div>
                   <span className="topic-badge">{expertCalendarState.connected ? "calendar collegato" : "azione richiesta"}</span>
                   <h3>Disponibilita Calendar</h3>
-                  <p>FunniFin usa un calendario dedicato per capire quando non sei disponibile. Gli eventi con titolo <strong>FunniFin</strong> bloccano quelle fasce.</p>
+                  <p>Gestisci le fasce occupate direttamente da qui oppure da Google Calendar. Ogni evento con titolo <strong>FunniFin</strong> blocca quella fascia per le candidature.</p>
                 </div>
                 <CalendarCheck size={26} />
               </div>
@@ -778,7 +831,7 @@ export function ExpertView({
                     <strong>{expertCalendarState.connected ? "Calendar pronto" : "Crea il calendario dedicato"}</strong>
                     <p>
                       {expertCalendarState.connected
-                        ? "Puoi aggiungere o aggiornare gli eventi FunniFin dal tuo Google Calendar."
+                        ? "Puoi aggiungere eventi FunniFin dal calendario dedicato o lasciare che la piattaforma crei il blocco quando ti candidi."
                         : "Scelta consigliata: FunniFin crea il calendario, lo collega e lo condivide con la tua email."}
                     </p>
                   </div>
@@ -787,6 +840,9 @@ export function ExpertView({
                   <AppButton variant="primary" onClick={createAndConnectExpertCalendar} loading={expertCalendarState.saving}>
                     <CalendarCheck size={17} /> {expertCalendarState.connected ? "Ricrea collegamento" : "Crea e collega"}
                   </AppButton>
+                  <a className="app-btn app-btn-secondary" href={expertCalendarWebUrl} target="_blank" rel="noreferrer">
+                    <Plus size={17} /> Nuovo blocco
+                  </a>
                   <AppButton variant="ghost" onClick={() => refreshExpertCalendar(true)} loading={expertCalendarState.loading}>
                     <RefreshCw size={17} /> Rileggi
                   </AppButton>
@@ -826,7 +882,12 @@ export function ExpertView({
 
               <div className="expert-calendar-rule">
                 <InfoIcon size={17} />
-                <span>Per segnare un blocco, crea nel calendario un evento con titolo FunniFin nella fascia in cui non sei disponibile.</span>
+                <span>Quando crei un blocco a mano, usa titolo FunniFin, data e orario reali. Le candidature confermate dall'esperto creano lo stesso tipo di evento automaticamente.</span>
+              </div>
+              <div className="expert-calendar-flow" aria-label="Come funziona il calendario esperto">
+                <span><Check size={15} /> Crea o collega il calendario FunniFin</span>
+                <span><Plus size={15} /> Aggiungi blocchi dal calendario</span>
+                <span><RefreshCw size={15} /> Rileggi disponibilita in piattaforma</span>
               </div>
               {expertCalendarState.error && (
                 <div className="inline-status-card warning">
@@ -880,8 +941,8 @@ export function ExpertView({
                   </div>
                   <p className={`email-entry-hint ${alreadyCandidate ? "candidate-sent-hint" : ""}`}>
                     {alreadyCandidate
-                      ? "Candidatura inviata: FunniFin la vede in coda e puo assegnarti il workshop."
-                      : "Accesso da mail FunniFin: clicca “Mi candido” per inviare la candidatura al team."}
+                      ? "Candidatura inviata: hai ricevuto conferma via mail e FunniFin la vede in coda."
+                      : "Clicca “Mi candido” per inviare candidatura, mail di conferma e blocco Calendar FunniFin."}
                   </p>
                   {alreadyCandidate && (
                     <div className="candidate-sent-status" role="status">

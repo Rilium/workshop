@@ -2104,7 +2104,7 @@ export function AdminView({
     refreshGoogleHealth({ silent: true, refresh: true, preserveCurrent: Boolean(googleHealth) });
   }, [adminTab, catalogView]);
   const saveWorkspaceSetting = (setting: WorkspaceSetting) => {
-    void updateWorkspaceSetting(setting)
+    return updateWorkspaceSetting(setting)
       .then((savedSetting) => {
         setWorkspaceSettings((current) => {
           const exists = current.some((item) => item.key === savedSetting.key);
@@ -2121,9 +2121,11 @@ export function AdminView({
           return next;
         });
         notify("Setting salvata su Google", `${savedSetting.label || savedSetting.key} aggiornata.`);
+        return savedSetting;
       })
       .catch((error) => {
         notify("Setting non salvata", error instanceof Error ? error.message : "Google Sheets non disponibile.");
+        throw error;
       });
   };
   const refreshAdminWorkspacePanel = () => {
@@ -3274,7 +3276,11 @@ export function AdminView({
       {adminTab === "Mail" && (
         <>
           <SectionTitle title="Mail template" icon={<Mail size={20} />} meta="Editor operativo" />
-          <EmailTemplatesSection notify={notify} />
+          <EmailTemplatesSection
+            notify={notify}
+            workspaceSettings={workspaceSettings}
+            onSaveWorkspaceSetting={saveWorkspaceSetting}
+          />
         </>
       )}
 

@@ -79,16 +79,32 @@ export function ExpertCandidateModal({
           <div className="modal-points">
             <span>
               <Check size={16} />
-              La candidatura viene registrata sulla coda FunniFin.
+              La candidatura viene registrata nella coda FunniFin.
             </span>
             <span>
               <Send size={16} />
-              Nessuna email automatica parte in questa fase.
+              Ricevi una mail di conferma e FunniFin riceve l'avviso operativo.
             </span>
             <span>
-              <AlertCircle size={16} />
-              Questa schermata conferma il click “Mi candido” dalla vista Esperto.
+              <CalendarCheck size={16} />
+              Se il Calendar esperto e collegato, viene creato anche un blocco FunniFin.
             </span>
+          </div>
+          <div className="candidate-delivery-grid" aria-label="Destinatari candidatura">
+            <div>
+              <Send size={16} />
+              <span>
+                <strong>A te</strong>
+                <small>Conferma candidatura e riepilogo workshop.</small>
+              </span>
+            </div>
+            <div>
+              <BadgeCheck size={16} />
+              <span>
+                <strong>A FunniFin</strong>
+                <small>Alert per valutare e assegnare l'esperto.</small>
+              </span>
+            </div>
           </div>
         </div>
         <footer className="modal-footer">

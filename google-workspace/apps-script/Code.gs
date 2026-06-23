@@ -658,12 +658,16 @@ function updateCalendarEvent(eventId, event, calendarId, payload) {
 
 function sendWorkshopRequestEmail(body) {
   try {
+    const context = requestMailTemplateContext(body.payload || {});
+    const subject = mailTemplateValue("request.client_received", "subject", body.subject, context);
+    const htmlBody = mailTemplateValue("request.client_received", "html", body.html, context);
+    const textBody = mailTemplateValue("request.client_received", "text", body.text || stripHtml(htmlBody || ""), context);
     MailApp.sendEmail({
       to: body.to,
       cc: body.cc || getRuntimeInternalRecipient(),
-      subject: body.subject,
-      body: body.text || stripHtml(body.html || ""),
-      htmlBody: body.html,
+      subject,
+      body: textBody,
+      htmlBody,
       name: body.fromName || getSettingValue("mail.fromName", "FunniFin Workshop Planner"),
     });
     return { sent: true };
@@ -1953,10 +1957,21 @@ function runHealthMonitor(payload) {
   if (Number(health.mail.remainingDailyQuota || 0) < Number(getSettingValue("monitor.mailQuotaMin", "20"))) issues.push(`Quota MailApp bassa: ${health.mail.remainingDailyQuota}`);
   const alertEmail = String((payload && payload.alertEmail) || getSettingValue("monitor.alertEmail", getRuntimeInternalRecipient()) || "");
   if (issues.length && alertEmail) {
+    const monitorContext = {
+      nome: "Team FunniFin",
+      azienda: "FunniFin",
+      workshop: issues.join(" · "),
+      data: formatTimestamp(new Date()),
+      link: FUNNIFIN_SITE_URL,
+      codice: "",
+    };
+    const monitorFallbackBody = ["Health monitor FunniFin", "", ...issues, "", JSON.stringify(health, null, 2)].join("\n");
+    const monitorHtml = mailTemplateValue("system.health_monitor", "html", "", monitorContext);
     MailApp.sendEmail({
       to: alertEmail,
-      subject: "FunniFin monitor alert",
-      body: ["Health monitor FunniFin", "", ...issues, "", JSON.stringify(health, null, 2)].join("\n"),
+      subject: mailTemplateValue("system.health_monitor", "subject", "FunniFin monitor alert", monitorContext),
+      body: mailTemplateValue("system.health_monitor", "text", monitorFallbackBody, monitorContext),
+      htmlBody: monitorHtml ? sanitizeMailTemplateHtml(monitorHtml) : undefined,
       name: getSettingValue("mail.fromName", "FunniFin Workshop Planner"),
     });
   }
@@ -2582,13 +2597,16 @@ function requestLoginCode(payload) {
   });
 
   if (sendMail) {
+    const invitePayload = { email, code, requestedRole: String(payload.requestedRole || issuingUser?.actualRole || ""), displayName: String(payload.displayName || email) };
+    const inviteContext = authMailTemplateContext(invitePayload);
+    const inviteHtml = mailTemplateValue("auth.invite", "html", "", inviteContext);
     MailApp.sendEmail({
       to: email,
       cc: payload.cc || SETTINGS.internalRecipient,
-      subject: `Invito FunniFin - codice accesso`,
+      subject: mailTemplateValue("auth.invite", "subject", "Invito FunniFin - codice accesso", inviteContext),
       name: String(payload.fromName || "FunniFin Workshop Planner"),
-      htmlBody: buildAuthInviteHtml({ email, code, requestedRole: String(payload.requestedRole || issuingUser?.actualRole || ""), displayName: String(payload.displayName || email) }),
-      body: buildAuthInviteText({ email, code, requestedRole: String(payload.requestedRole || issuingUser?.actualRole || ""), displayName: String(payload.displayName || email) }),
+      htmlBody: inviteHtml ? sanitizeMailTemplateHtml(inviteHtml) : buildAuthInviteHtml(invitePayload),
+      body: mailTemplateValue("auth.invite", "text", buildAuthInviteText(invitePayload), inviteContext),
     });
   }
 
@@ -2703,13 +2721,16 @@ function reviewAccessRequest(payload) {
     next.codeStatus = next.sendMail === false ? "queued" : "sent";
     next.codeExpiresAt = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
     if (next.sendMail !== false) {
+      const invitePayload = { email: next.email, code, requestedRole: String(next.requestedRole || ""), displayName: String(payload.displayName || next.email) };
+      const inviteContext = authMailTemplateContext(invitePayload);
+      const inviteHtml = mailTemplateValue("auth.invite", "html", "", inviteContext);
       MailApp.sendEmail({
         to: next.email,
         cc: payload.cc || SETTINGS.internalRecipient,
-        subject: `Invito FunniFin - codice accesso`,
+        subject: mailTemplateValue("auth.invite", "subject", "Invito FunniFin - codice accesso", inviteContext),
         name: String(payload.fromName || "FunniFin Workshop Planner"),
-        htmlBody: buildAuthInviteHtml({ email: next.email, code, requestedRole: String(next.requestedRole || ""), displayName: String(payload.displayName || next.email) }),
-        body: buildAuthInviteText({ email: next.email, code, requestedRole: String(next.requestedRole || ""), displayName: String(payload.displayName || next.email) }),
+        htmlBody: inviteHtml ? sanitizeMailTemplateHtml(inviteHtml) : buildAuthInviteHtml(invitePayload),
+        body: mailTemplateValue("auth.invite", "text", buildAuthInviteText(invitePayload), inviteContext),
       });
     }
   } else {
@@ -4071,6 +4092,7 @@ function buildWorkflowSubject(payload) {
   const labels = {
     request_received: "Richiesta ricevuta",
     request_updated: "Richiesta modificata",
+    expert_candidate_received: "Candidatura esperto ricevuta",
     dates_approved: "Date approvate",
     date_change_requested: "Modifica date richiesta",
     candidacies_open: "Candidature esperti aperte",
@@ -4080,11 +4102,79 @@ function buildWorkflowSubject(payload) {
     event_tentative: "Evento provvisorio creato",
     event_confirmed: "Evento confermato",
   };
-  return `FunniFin - ${labels[payload.phase] || "Aggiornamento progetto"} - ${payload.project.company}`;
+  const fallback = `FunniFin - ${labels[payload.phase] || "Aggiornamento progetto"} - ${payload.project.company}`;
+  return mailTemplateValue(`workflow.${payload.phase}`, "subject", fallback, workflowMailTemplateContext(payload));
 }
 
 var FUNNIFIN_LOGO_URL = "https://funnifin-workshop-planner.vercel.app/Logo.png";
 var FUNNIFIN_SITE_URL = "https://funnifin-workshop-planner.vercel.app";
+
+function renderMailTemplate(value, context) {
+  var output = String(value == null ? "" : value);
+  Object.keys(context || {}).forEach(function(key) {
+    output = output.split("{{" + key + "}}").join(String(context[key] == null ? "" : context[key]));
+  });
+  return output;
+}
+
+function sanitizeMailTemplateHtml(value) {
+  return String(value || "")
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+    .replace(/\son\w+="[^"]*"/gi, "")
+    .replace(/\son\w+='[^']*'/gi, "")
+    .replace(/\sjavascript:/gi, "");
+}
+
+function mailTemplateValue(templateKey, field, fallback, context) {
+  var stored = mailTemplateActive(templateKey) ? getSettingValue("mail.template." + templateKey + "." + field, "") : "";
+  return renderMailTemplate(stored || fallback || "", context || {});
+}
+
+function mailTemplateActive(templateKey) {
+  return getSettingValue("mail.template." + templateKey + ".active", "true") !== "false";
+}
+
+function firstWorkshopFromPayload(payload) {
+  var workshops = payload && payload.workshops && payload.workshops.length ? payload.workshops : [];
+  return workshops[0] || {};
+}
+
+function workflowMailTemplateContext(payload) {
+  var project = payload.project || {};
+  var firstWorkshop = firstWorkshopFromPayload(payload);
+  return {
+    nome: project.manager || project.company || "Referente",
+    azienda: project.company || "",
+    workshop: firstWorkshop.title || "",
+    data: [firstWorkshop.date || "", firstWorkshop.time || ""].filter(Boolean).join(" "),
+    link: payload.actionUrl || FUNNIFIN_SITE_URL,
+    codice: "",
+  };
+}
+
+function requestMailTemplateContext(payload) {
+  var contact = payload.contact || {};
+  var firstWorkshop = firstWorkshopFromPayload(payload);
+  return {
+    nome: [contact.firstName || "", contact.lastName || ""].filter(Boolean).join(" ") || contact.company || "Referente",
+    azienda: contact.company || "",
+    workshop: firstWorkshop.title || "",
+    data: [firstWorkshop.date || "", firstWorkshop.time || ""].filter(Boolean).join(" "),
+    link: FUNNIFIN_SITE_URL,
+    codice: "",
+  };
+}
+
+function authMailTemplateContext(payload) {
+  return {
+    nome: payload.displayName || payload.email || "Utente",
+    azienda: "FunniFin",
+    workshop: "",
+    data: "",
+    link: FUNNIFIN_SITE_URL + "#login",
+    codice: payload.code || "",
+  };
+}
 
 function emailBaseTemplate(innerRows) {
   return "<!DOCTYPE html><html lang=\"it\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>FunniFin</title></head>" +
@@ -4172,7 +4262,7 @@ function buildWorkflowEmailHtml(payload) {
       "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:rgba(28,175,185,0.10);border:1px solid rgba(28,175,185,0.28);border-radius:12px;padding:16px 20px;\">" +
         "<tr><td style=\"font-size:13px;color:#444748;line-height:1.7;\">" +
           "<strong style=\"display:block;margin-bottom:6px;color:#171d1d;\">Cosa succede ora</strong>" +
-          escapeHtml(copy.body) +
+          (copy.html ? sanitizeMailTemplateHtml(copy.html) : escapeHtml(copy.body)) +
           (payload.note ? "<br><br><strong>Nota:</strong> " + escapeHtml(payload.note) : "") +
         "</td></tr>" +
       "</table>" +
@@ -4223,6 +4313,12 @@ function workflowCopy(payload) {
       body: "Raccogliamo le disponibilità e abbiniamo ogni workshop alla persona più adatta. Ti avvisiamo appena l'assegnazione è pronta.",
       accent: "default",
     },
+    expert_candidate_received: {
+      title: "Candidatura ricevuta",
+      subtitle: "La candidatura è stata registrata e FunniFin è stato avvisato.",
+      body: "Grazie: abbiamo salvato la tua disponibilità e il team FunniFin può valutarla dalla coda esperti. Se il calendario esperto è collegato, la fascia è stata bloccata come evento FunniFin.",
+      accent: "success",
+    },
     expert_assigned: {
       title: "Esperto assegnato",
       subtitle: "Il workshop ha una persona incaricata.",
@@ -4254,7 +4350,16 @@ function workflowCopy(payload) {
       accent: "success",
     },
   };
-  return map[payload.phase] || map.request_received;
+  var copy = map[payload.phase] || map.request_received;
+  var context = workflowMailTemplateContext(payload);
+  var templateKey = "workflow." + payload.phase;
+  return {
+    title: mailTemplateValue(templateKey, "subject", copy.title, context),
+    subtitle: mailTemplateValue(templateKey, "preheader", copy.subtitle, context),
+    body: mailTemplateValue(templateKey, "text", copy.body, context),
+    html: mailTemplateValue(templateKey, "html", "", context),
+    accent: copy.accent,
+  };
 }
 
 function escapeHtml(value) {

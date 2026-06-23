@@ -3,12 +3,14 @@ import { AppButton } from "../../../components/ui/AppButton";
 import { ActionIconButton } from "../../../components/ui/IconButton";
 import { ModalBackdrop } from "../../../components/ui/Modal";
 import { Check, Mail, RefreshCw, Search, Send, Settings2, X } from "../../../components/ui/FaIcons";
+import type { WorkspaceSetting } from "../../../googleAdminService";
 
 type EmailTemplateAudience = "Cliente" | "Brand" | "Esperto" | "FunniFin";
-type EmailTemplateTrigger = "Accesso" | "Richiesta" | "Date" | "Esperto" | "Materiali" | "Evento";
+type EmailTemplateTrigger = "Accesso" | "Richiesta" | "Date" | "Esperto" | "Materiali" | "Evento" | "Sistema";
 
 type EmailTemplate = {
   id: string;
+  settingsKey: string;
   title: string;
   audience: EmailTemplateAudience;
   trigger: EmailTemplateTrigger;
@@ -22,12 +24,113 @@ type EmailTemplate = {
 };
 
 const audienceTabs: Array<"Tutti" | EmailTemplateAudience> = ["Tutti", "Cliente", "Brand", "Esperto", "FunniFin"];
-const triggerTabs: Array<"Tutti" | EmailTemplateTrigger> = ["Tutti", "Accesso", "Richiesta", "Date", "Esperto", "Materiali", "Evento"];
+const triggerTabs: Array<"Tutti" | EmailTemplateTrigger> = ["Tutti", "Accesso", "Richiesta", "Date", "Esperto", "Materiali", "Evento", "Sistema"];
 const templateTokens = ["{{nome}}", "{{azienda}}", "{{workshop}}", "{{data}}", "{{link}}", "{{codice}}"];
+const workflowEmailTemplates: EmailTemplate[] = [
+  {
+    id: "workflow-request-updated",
+    settingsKey: "workflow.request_updated",
+    title: "Richiesta modificata",
+    audience: "Cliente",
+    trigger: "Richiesta",
+    when: "Quando FunniFin modifica workshop, date o preventivo",
+    subject: "FunniFin - Richiesta modificata - {{azienda}}",
+    preheader: "Abbiamo aggiornato il riepilogo del percorso.",
+    html: "<p>Workshop, date o preventivo sono stati aggiornati dal team FunniFin.</p>",
+    fallbackText: "Workshop, date o preventivo sono stati aggiornati dal team FunniFin.",
+    active: true,
+    updatedAt: "Default",
+  },
+  {
+    id: "workflow-dates-approved",
+    settingsKey: "workflow.dates_approved",
+    title: "Date approvate",
+    audience: "Cliente",
+    trigger: "Date",
+    when: "Quando le date proposte vengono approvate",
+    subject: "FunniFin - Date approvate - {{azienda}}",
+    preheader: "Le date proposte vanno bene.",
+    html: "<p>Possiamo passare alla scelta degli esperti più adatti.</p>",
+    fallbackText: "Possiamo passare alla scelta degli esperti più adatti.",
+    active: true,
+    updatedAt: "Default",
+  },
+  {
+    id: "workflow-date-change",
+    settingsKey: "workflow.date_change_requested",
+    title: "Modifica date richiesta",
+    audience: "Cliente",
+    trigger: "Date",
+    when: "Quando serve una nuova proposta data",
+    subject: "FunniFin - Modifica date richiesta - {{azienda}}",
+    preheader: "Una o più date non sono disponibili.",
+    html: "<p>Prima di andare avanti abbiamo bisogno di una nuova proposta di data o fascia oraria.</p>",
+    fallbackText: "Prima di andare avanti abbiamo bisogno di una nuova proposta di data o fascia oraria.",
+    active: true,
+    updatedAt: "Default",
+  },
+  {
+    id: "workflow-candidacies-open",
+    settingsKey: "workflow.candidacies_open",
+    title: "Candidature aperte",
+    audience: "Esperto",
+    trigger: "Esperto",
+    when: "Quando FunniFin pubblica opportunità agli esperti",
+    subject: "FunniFin - Candidature esperti aperte - {{azienda}}",
+    preheader: "Conferma disponibilità e interesse.",
+    html: "<p>Apri l'area Esperto e candidati se sei compatibile con workshop e data.</p>",
+    fallbackText: "Apri l'area Esperto e candidati se sei compatibile con workshop e data.",
+    active: true,
+    updatedAt: "Default",
+  },
+  {
+    id: "workflow-expert-candidate",
+    settingsKey: "workflow.expert_candidate_received",
+    title: "Candidatura ricevuta",
+    audience: "Esperto",
+    trigger: "Esperto",
+    when: "Quando un esperto si candida",
+    subject: "FunniFin - Candidatura esperto ricevuta - {{azienda}}",
+    preheader: "La candidatura è stata registrata e FunniFin è stato avvisato.",
+    html: "<p>Grazie: abbiamo salvato la tua disponibilità e il team FunniFin può valutarla dalla coda esperti.</p>",
+    fallbackText: "Grazie: abbiamo salvato la tua disponibilità e il team FunniFin può valutarla dalla coda esperti.",
+    active: true,
+    updatedAt: "Default",
+  },
+  {
+    id: "workflow-final-approval",
+    settingsKey: "workflow.final_approval",
+    title: "Approvazione finale",
+    audience: "FunniFin",
+    trigger: "Materiali",
+    when: "Prima della conferma finale",
+    subject: "FunniFin - Approvazione finale - {{azienda}}",
+    preheader: "La versione finale è pronta per l'ultimo controllo.",
+    html: "<p>Prima della conferma a calendario puoi fare l'ultimo giro di verifica.</p>",
+    fallbackText: "Prima della conferma a calendario puoi fare l'ultimo giro di verifica.",
+    active: true,
+    updatedAt: "Default",
+  },
+  {
+    id: "workflow-event-tentative",
+    settingsKey: "workflow.event_tentative",
+    title: "Evento provvisorio",
+    audience: "Cliente",
+    trigger: "Evento",
+    when: "Quando viene creato un evento provvisorio",
+    subject: "FunniFin - Evento provvisorio creato - {{azienda}}",
+    preheader: "La data è stata bloccata a calendario.",
+    html: "<p>Abbiamo creato un evento provvisorio per tenere libera la data.</p>",
+    fallbackText: "Abbiamo creato un evento provvisorio per tenere libera la data.",
+    active: true,
+    updatedAt: "Default",
+  },
+];
 
 const initialEmailTemplates: EmailTemplate[] = [
   {
     id: "client-request-received",
+    settingsKey: "request.client_received",
     title: "Richiesta ricevuta",
     audience: "Cliente",
     trigger: "Richiesta",
@@ -41,6 +144,7 @@ const initialEmailTemplates: EmailTemplate[] = [
   },
   {
     id: "brand-review-materials",
+    settingsKey: "workflow.brand_review",
     title: "Revisione materiali",
     audience: "Brand",
     trigger: "Materiali",
@@ -54,6 +158,7 @@ const initialEmailTemplates: EmailTemplate[] = [
   },
   {
     id: "expert-assigned",
+    settingsKey: "workflow.expert_assigned",
     title: "Esperto assegnato",
     audience: "Esperto",
     trigger: "Esperto",
@@ -67,6 +172,7 @@ const initialEmailTemplates: EmailTemplate[] = [
   },
   {
     id: "admin-access-code",
+    settingsKey: "auth.invite",
     title: "Codice accesso",
     audience: "FunniFin",
     trigger: "Accesso",
@@ -79,7 +185,22 @@ const initialEmailTemplates: EmailTemplate[] = [
     updatedAt: "17 giu 2026",
   },
   {
+    id: "system-health-monitor",
+    settingsKey: "system.health_monitor",
+    title: "Monitor Google",
+    audience: "FunniFin",
+    trigger: "Sistema",
+    when: "Quando il monitor Google trova problemi su Sheet, Drive, Calendar o quota mail",
+    subject: "FunniFin monitor alert",
+    preheader: "Il monitor ha trovato elementi da verificare.",
+    html: "<p>Health monitor FunniFin</p><p>{{workshop}}</p>",
+    fallbackText: "Health monitor FunniFin\n\n{{workshop}}",
+    active: true,
+    updatedAt: "Default",
+  },
+  {
     id: "client-event-confirmed",
+    settingsKey: "workflow.event_confirmed",
     title: "Evento confermato",
     audience: "Cliente",
     trigger: "Evento",
@@ -91,6 +212,7 @@ const initialEmailTemplates: EmailTemplate[] = [
     active: true,
     updatedAt: "16 giu 2026",
   },
+  ...workflowEmailTemplates,
 ];
 
 function sanitizeTemplateHtml(value: string) {
@@ -117,8 +239,30 @@ function cloneTemplate(template: EmailTemplate): EmailTemplate {
   return { ...template };
 }
 
-export function EmailTemplatesSection({ notify }: { notify: (title: string, body: string) => void }) {
-  const [templates, setTemplates] = useState<EmailTemplate[]>(initialEmailTemplates);
+function applyWorkspaceTemplate(template: EmailTemplate, settings: Map<string, WorkspaceSetting>): EmailTemplate {
+  const prefix = `mail.template.${template.settingsKey}`;
+  return {
+    ...template,
+    subject: settings.get(`${prefix}.subject`)?.value || template.subject,
+    preheader: settings.get(`${prefix}.preheader`)?.value || template.preheader,
+    html: settings.get(`${prefix}.html`)?.value || template.html,
+    fallbackText: settings.get(`${prefix}.text`)?.value || template.fallbackText,
+    active: settings.get(`${prefix}.active`)?.value !== "false",
+    updatedAt: settings.get(`${prefix}.html`)?.updatedAt || settings.get(`${prefix}.subject`)?.updatedAt || template.updatedAt,
+  };
+}
+
+export function EmailTemplatesSection({
+  notify,
+  workspaceSettings = [],
+  onSaveWorkspaceSetting,
+}: {
+  notify: (title: string, body: string) => void;
+  workspaceSettings?: WorkspaceSetting[];
+  onSaveWorkspaceSetting?: (setting: WorkspaceSetting) => Promise<WorkspaceSetting> | void;
+}) {
+  const settingsMap = useMemo(() => new Map(workspaceSettings.map((setting) => [setting.key, setting])), [workspaceSettings]);
+  const templates = useMemo(() => initialEmailTemplates.map((template) => applyWorkspaceTemplate(template, settingsMap)), [settingsMap]);
   const [audience, setAudience] = useState<"Tutti" | EmailTemplateAudience>("Tutti");
   const [trigger, setTrigger] = useState<"Tutti" | EmailTemplateTrigger>("Tutti");
   const [search, setSearch] = useState("");
@@ -168,13 +312,27 @@ export function EmailTemplatesSection({ notify }: { notify: (title: string, body
       html,
       updatedAt: new Date().toLocaleString("it-IT", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }),
     };
-    setTemplates((current) => current.map((template) => (template.id === savedTemplate.id ? savedTemplate : template)));
+    const prefix = `mail.template.${savedTemplate.settingsKey}`;
+    void Promise.all([
+      onSaveWorkspaceSetting?.({ key: `${prefix}.subject`, value: savedTemplate.subject, group: "mail_template", label: `${savedTemplate.title} - oggetto` }),
+      onSaveWorkspaceSetting?.({ key: `${prefix}.preheader`, value: savedTemplate.preheader, group: "mail_template", label: `${savedTemplate.title} - preheader` }),
+      onSaveWorkspaceSetting?.({ key: `${prefix}.html`, value: html, group: "mail_template", label: `${savedTemplate.title} - corpo HTML` }),
+      onSaveWorkspaceSetting?.({ key: `${prefix}.text`, value: savedTemplate.fallbackText, group: "mail_template", label: `${savedTemplate.title} - testo fallback` }),
+    ]).then(() => {
+      notify("Template mail salvato", `${savedTemplate.title} aggiornato su Google Settings.`);
+    });
     setEditingTemplate(null);
-    notify("Template mail salvato", `${savedTemplate.title} aggiornato nella console FunniFin.`);
   };
 
   const toggleTemplate = (templateId: string) => {
-    setTemplates((current) => current.map((template) => (template.id === templateId ? { ...template, active: !template.active, updatedAt: "modificato ora" } : template)));
+    const template = templates.find((item) => item.id === templateId);
+    if (!template) return;
+    void onSaveWorkspaceSetting?.({
+      key: `mail.template.${template.settingsKey}.active`,
+      value: template.active ? "false" : "true",
+      group: "mail_template",
+      label: `${template.title} - attivo`,
+    });
   };
 
   return (

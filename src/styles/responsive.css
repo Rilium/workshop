@@ -130,7 +130,9 @@
 
   .expert-calendar-setup-card,
   .expert-calendar-connect,
-  .expert-calendar-status-grid {
+  .expert-calendar-status-grid,
+  .expert-calendar-flow,
+  .candidate-delivery-grid {
     grid-template-columns: 1fr;
   }
 

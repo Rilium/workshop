@@ -127,7 +127,7 @@ const APP_URL = typeof window !== "undefined"
 
 function workflowMailActionForRole(payload: WorkflowNotificationPayload, role: WorkflowNotificationRecipientRole) {
   if (role === "expert") {
-    if (payload.phase === "candidacies_open") return "expert-candidacies";
+    if (payload.phase === "candidacies_open" || payload.phase === "expert_candidate_received") return "expert-candidacies";
     if (payload.phase === "expert_assigned" || payload.phase === "brand_review") return "expert-upload";
     return "expert-calendar";
   }
@@ -159,6 +159,7 @@ function appUrlForRole(role: WorkflowNotificationRecipientRole, payload?: Workfl
 
 function actionLabelForRole(role: WorkflowNotificationRecipientRole, payload?: WorkflowNotificationPayload) {
   if (role === "expert" && payload?.phase === "candidacies_open") return "Valuta e candidati";
+  if (role === "expert" && payload?.phase === "expert_candidate_received") return "Vedi candidatura";
   if (role === "expert" && (payload?.phase === "expert_assigned" || payload?.phase === "brand_review")) return "Apri incarico e deck";
   if (role === "expert") return "Collega Calendar";
   if (role === "brand") return "Apri revisione materiali";

@@ -392,7 +392,7 @@ label.has-error textarea {
 }
 
 .guided-choice-card.secondary {
-  background: rgba(255,255,255,0.86);
+  background: var(--surface-glass-subtle);
 }
 
 .guided-choice-card:hover {
@@ -550,7 +550,7 @@ label.has-error textarea {
   padding: var(--sp-4);
   border: 1px solid var(--neutral-200);
   border-radius: var(--radius-xl);
-  background: rgba(255,255,255,0.78);
+  background: var(--surface-glass-subtle);
   box-shadow: var(--brand-shadow-card);
 }
 
@@ -684,6 +684,13 @@ label.has-error textarea {
 }
 
 .survey-shell {
+  --survey-option-bg: var(--neutral-100);
+  --survey-option-bg-hover: var(--white);
+  --survey-option-bg-selected: var(--white);
+  --survey-option-text: var(--neutral-900);
+  --survey-option-muted: var(--neutral-600);
+  --survey-option-selected-text: var(--brand);
+  --survey-option-selected-muted: var(--brand-dark);
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -784,7 +791,7 @@ label.has-error textarea {
 
 .survey-question-box h1 {
   margin: 0;
-  color: #050505;
+  color: var(--neutral-900);
   font-size: clamp(22px, 3vw, 31px);
   line-height: 1.2;
 }
@@ -824,8 +831,8 @@ label.has-error textarea {
   padding: var(--sp-4) var(--sp-5);
   border: 2px solid transparent;
   border-radius: var(--radius-xl);
-  background: #f4f4f4;
-  color: #050505;
+  background: var(--survey-option-bg);
+  color: var(--survey-option-text);
   text-align: left;
   animation: survey-option-enter 0.56s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   animation-delay: var(--survey-option-delay, 0ms);
@@ -835,13 +842,13 @@ label.has-error textarea {
 
 .survey-option:hover {
   border-color: var(--brand-mid);
-  background: var(--white);
+  background: var(--survey-option-bg-hover);
 }
 
 .survey-option.selected {
   border-color: var(--brand);
-  background: var(--white);
-  color: var(--brand);
+  background: var(--survey-option-bg-selected);
+  color: var(--survey-option-selected-text);
   box-shadow: var(--brand-shadow-hover);
   padding-right: 68px;
 }
@@ -876,7 +883,7 @@ label.has-error textarea {
 
 .survey-option small,
 .survey-option em {
-  color: var(--neutral-600);
+  color: var(--survey-option-muted);
   line-height: 1.35;
 }
 
@@ -906,7 +913,7 @@ label.has-error textarea {
 
 .survey-option.selected small,
 .survey-option.selected em {
-  color: var(--brand-dark);
+  color: var(--survey-option-selected-muted);
 }
 
 .survey-profile {

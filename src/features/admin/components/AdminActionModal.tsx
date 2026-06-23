@@ -277,7 +277,9 @@ export function AdminActionModal({
   const selectedRecipients = notification.recipients.map((role) => `${recipientLabels[role]} · ${role === "client" ? project.email : recipientEmails[role] || SECRET_SETTINGS.google.email.roleRecipients[role] || "non configurata"}`);
   const emailImpact = notification.send && selectedRecipients.length > 0
     ? `Email: al click inviamo un aggiornamento a ${selectedRecipients.join(" / ")}.`
-    : "Email: al click salvi solo l'azione, senza inviare messaggi.";
+    : modal.type === "open_candidacies"
+      ? "Email: disattivata; le candidature vengono comunque pubblicate in area Esperto."
+      : "Email: disattivata; salvi solo l'azione in piattaforma.";
   const calendarGuestImpact = notification.addClientToCalendar
     ? `Calendar: il cliente ${project.email} viene aggiunto tra gli invitati.`
     : "Calendar: l'evento resta interno, senza invitare il cliente.";
@@ -487,7 +489,7 @@ export function AdminActionModal({
           )}
           {modal.type === "open_candidacies" && (
             <div className="modal-stack">
-              <p>Rende visibile il progetto agli esperti compatibili. L'invio mail resta facoltativo.</p>
+              <p>Pubblica il progetto nell'area Esperto. La mail è solo un avviso aggiuntivo: se la lasci spenta, gli esperti lo vedono comunque in piattaforma.</p>
               <div className="modal-points single">
                 <Info label="Esperti compatibili" value={`${expertCount} profili compatibili/test`} />
                 <Info label="Azione in app" value="Mi candido" />
@@ -807,10 +809,14 @@ export function NotificationController({
     ? modalType === "confirm_event"
       ? "Mail finale attiva"
       : "Mail di aggiornamento attiva"
-    : "Mail disattivata";
+    : modalType === "open_candidacies"
+      ? "Solo pubblicazione in app"
+      : "Solo salvataggio in app";
   const notificationBody = choice.send
     ? `Partirà verso: ${selectedRecipients || "scegli almeno un destinatario"}.`
-    : "L'azione verrà salvata senza inviare messaggi.";
+    : modalType === "open_candidacies"
+      ? "Gli esperti compatibili vedranno l'opportunità senza ricevere email."
+      : "L'azione verrà salvata senza inviare messaggi.";
 
   const toggleRecipient = (role: WorkflowNotificationRecipientRole) => {
     onChange({
@@ -833,7 +839,7 @@ export function NotificationController({
       <div className="notification-controller-head">
         <label className="toggle-line">
           <input type="checkbox" checked={choice.send} onChange={(event) => onChange({ ...choice, send: event.target.checked })} />
-          <span>{modalType === "confirm_event" ? "Invia conferma finale" : "Invia aggiornamento"}</span>
+          <span>{modalType === "confirm_event" ? "Invia conferma finale" : modalType === "open_candidacies" ? "Avvisa via email" : "Invia aggiornamento"}</span>
         </label>
         {modalType === "confirm_event" && (
           <div className="event-mode-switch" aria-label="Tipo evento calendario">
