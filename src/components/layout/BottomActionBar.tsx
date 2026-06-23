@@ -21,6 +21,7 @@ export function BottomActionBar({
   secondaryLabel,
   onSecondary,
   secondaryLoading,
+  secondaryDisabled,
 }: {
   className?: string;
   context?: string;
@@ -40,6 +41,7 @@ export function BottomActionBar({
   secondaryLabel?: string;
   onSecondary?: () => void;
   secondaryLoading?: boolean;
+  secondaryDisabled?: boolean;
 }) {
   const hasBack = Boolean(backLabel && onBack);
   const hasSecondary = Boolean(secondaryLabel && onSecondary);
@@ -74,7 +76,7 @@ export function BottomActionBar({
           </AppButton>
         )}
         {hasSecondary && (
-          <AppButton variant="ghost" onClick={onSecondary} loading={secondaryLoading}>
+          <AppButton variant="ghost" onClick={onSecondary} loading={secondaryLoading} disabled={secondaryDisabled}>
             {secondaryLabel}
           </AppButton>
         )}

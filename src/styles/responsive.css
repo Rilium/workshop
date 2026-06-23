@@ -140,12 +140,6 @@
     width: 100%;
   }
 
-  .expert-calendar-primary-actions,
-  .expert-calendar-primary-actions .app-btn {
-    width: 100%;
-    justify-content: stretch;
-  }
-
 .expert-upload-actions .app-btn,
 .expert-upload-actions .action-icon-btn,
 .expert-upload-panel > .app-btn-primary {

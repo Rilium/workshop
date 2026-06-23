@@ -22,7 +22,6 @@ import {
   Plus,
   RefreshCw,
   Search,
-  Send,
   Settings2,
   SlidersHorizontal,
   Sparkles,
@@ -44,7 +43,6 @@ import type { AdminProject, NotifyOptions, ProjectStatus, Selection, Workshop } 
 import { useAuth } from "../../AuthContext";
 import { requestToAdminProject } from "../../utils/workshop";
 import { AppButton } from "../../components/ui/AppButton";
-import { ActionIconButton, ToolIconButton } from "../../components/ui/IconButton";
 import { Info } from "../../components/ui/Info";
 import { Panel } from "../../components/ui/Panel";
 import { SectionTitle } from "../../components/ui/SectionTitle";
@@ -92,6 +90,7 @@ export function ExpertView({
   const [syncedProject, setSyncedProject] = useState<AdminProject>(project);
   const [expertSyncState, setExpertSyncState] = useState<{ loading: boolean; error: string }>({ loading: false, error: "" });
   const [expertStep, setExpertStep] = useState("Opportunita");
+  const [selectedOpportunityId, setSelectedOpportunityId] = useState("");
   const [candidateModalRow, setCandidateModalRow] = useState<{ selection: Selection; workshop: Workshop } | null>(null);
   const [candidateSending, setCandidateSending] = useState(false);
   const [availabilityUpdatedAt, setAvailabilityUpdatedAt] = useState("");
@@ -170,6 +169,9 @@ export function ExpertView({
   const assignedRow = assignedRows[0];
   const historyRows = expertRows.filter(({ selection }) => historyStatuses.has(selection.status));
   const candidateCount = expertRows.filter(({ selection }) => selection.status === "candidatura_ricevuta").length;
+  const selectedOpportunityRow =
+    expertRows.find(({ selection }) => selection.workshopId === selectedOpportunityId) ??
+    expertRows.find(({ selection }) => !["candidatura_ricevuta", "non_disponibile"].includes(selection.status));
   const expertStatusLabel = (status: string) => {
     if (status === "candidatura_ricevuta") return "Candidatura inviata";
     if (status === "non_disponibile") return "Non disponibile";
@@ -222,19 +224,56 @@ export function ExpertView({
     ...(assignedRow ? ["Assegnati"] : []),
     ...(expertDeckFile ? ["Upload deck"] : []),
   ]);
+  const refreshCalendarWithStamp = (showFeedback = true) => {
+    setAvailabilityUpdatedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+    void refreshExpertCalendar(showFeedback);
+  };
   const expertMainAction = (() => {
-    if (expertStep === "Disponibilita") return { label: "Rileggi Calendar", disabled: false, loading: expertCalendarState.loading, action: () => {
-      setAvailabilityUpdatedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-      void refreshExpertCalendar(true);
-    } };
-    if (expertStep === "Opportunita") return { label: "Aggiorna disponibilita", disabled: false, action: () => {
-      setAvailabilityUpdatedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-      void refreshExpertCalendar(true);
-      void loadExpertOpportunities(true);
-    } };
+    if (expertStep === "Disponibilita") {
+      return expertCalendarState.connected
+        ? { label: "Rileggi Calendar", disabled: false, loading: expertCalendarState.loading, action: () => refreshCalendarWithStamp(true) }
+        : { label: "Crea e collega Calendar", disabled: expertCalendarState.saving, loading: expertCalendarState.saving, action: () => { void createAndConnectExpertCalendar(); } };
+    }
+    if (expertStep === "Opportunita") {
+      const alreadyCandidate = selectedOpportunityRow?.selection.status === "candidatura_ricevuta";
+      const unavailable = selectedOpportunityRow?.selection.status === "non_disponibile";
+      return {
+        label: alreadyCandidate ? "Candidatura inviata" : "Mi candido",
+        disabled: !selectedOpportunityRow || alreadyCandidate || unavailable,
+        action: () => {
+          if (!selectedOpportunityRow || alreadyCandidate || unavailable) return;
+          setCandidateModalRow(selectedOpportunityRow);
+        },
+      };
+    }
     if (expertStep === "Assegnati") return { label: "Vai all'upload", disabled: !assignedRow, action: () => setExpertStep("Upload deck") };
     if (expertStep === "Upload deck") return { label: "Invia a brand", disabled: !assignedRow || !expertDeckFile || expertDeckSending, loading: expertDeckSending, action: () => { void sendDeckToBrand(); } };
     return { label: "Vedi opportunita", disabled: false, action: () => setExpertStep("Opportunita") };
+  })();
+  const expertSecondaryAction = (() => {
+    if (expertStep === "Disponibilita") {
+      return expertCalendarState.connected
+        ? { label: "Nuovo blocco", loading: false, action: () => window.open(expertCalendarWebUrl, "_blank", "noopener,noreferrer") }
+        : { label: "Rileggi", loading: expertCalendarState.loading, action: () => refreshCalendarWithStamp(true) };
+    }
+    if (expertStep === "Opportunita") {
+      const alreadyCandidate = selectedOpportunityRow?.selection.status === "candidatura_ricevuta";
+      const unavailable = selectedOpportunityRow?.selection.status === "non_disponibile";
+      return {
+        label: unavailable ? "Non disponibile segnato" : "Non disponibile",
+        loading: false,
+        disabled: !selectedOpportunityRow || alreadyCandidate || unavailable,
+        action: () => {
+          if (!selectedOpportunityRow || alreadyCandidate || unavailable) return;
+          updateSelection(selectedOpportunityRow.workshop.id, { status: "non_disponibile" });
+          notify("Non disponibile", `${selectedOpportunityRow.workshop.title} segnato come non disponibile per la tua agenda.`);
+        },
+      };
+    }
+    if (expertStep === "Assegnati") return { label: "Ricarica", loading: false, action: () => refreshExpertSection("Assegnati") };
+    if (expertStep === "Upload deck") return { label: "Seleziona da Drive", loading: expertDriveLoading, action: () => openExpertDrivePicker() };
+    if (expertStep === "Storico") return { label: "Ricarica", loading: false, action: () => refreshExpertSection("Storico") };
+    return undefined;
   })();
   const expertFlowTabs = [
     {
@@ -750,27 +789,6 @@ export function ExpertView({
           eyebrow="Area esperto"
           title="Gestisci candidature, incarichi e deck."
           subtitle={`${activeExpertProject.company} · ${expertRows.length} opportunita aperte · ${candidateCount} candidature inviate`}
-          actions={
-            <>
-            <ToolIconButton onClick={() => setExpertStep("Opportunita")} label="Vedi opportunita">
-              <Megaphone size={22} />
-            </ToolIconButton>
-            <ToolIconButton onClick={() => setExpertStep("Upload deck")} label="Carica deck">
-              <UploadCloud size={22} />
-            </ToolIconButton>
-            <ToolIconButton
-              onClick={() => {
-                setAvailabilityUpdatedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-                setExpertStep("Opportunita");
-                void refreshExpertCalendar(true);
-                void loadExpertOpportunities(true);
-              }}
-              label="Aggiorna disponibilita"
-            >
-              <CalendarCheck size={22} />
-            </ToolIconButton>
-            </>
-          }
         />
         <OperatorIdentityCard identity={roleIdentities.Esperto} />
       </div>
@@ -836,17 +854,6 @@ export function ExpertView({
                     </p>
                   </div>
                 </div>
-                <div className="expert-calendar-primary-actions">
-                  <AppButton variant="primary" onClick={createAndConnectExpertCalendar} loading={expertCalendarState.saving}>
-                    <CalendarCheck size={17} /> {expertCalendarState.connected ? "Ricrea collegamento" : "Crea e collega"}
-                  </AppButton>
-                  <a className="app-btn app-btn-secondary" href={expertCalendarWebUrl} target="_blank" rel="noreferrer">
-                    <Plus size={17} /> Nuovo blocco
-                  </a>
-                  <AppButton variant="ghost" onClick={() => refreshExpertCalendar(true)} loading={expertCalendarState.loading}>
-                    <RefreshCw size={17} /> Rileggi
-                  </AppButton>
-                </div>
               </div>
 
               <div className="expert-calendar-status-grid">
@@ -911,11 +918,6 @@ export function ExpertView({
         <Panel>
           <SectionTitle
             title="Opportunità disponibili"
-            actions={
-              <ToolIconButton onClick={() => refreshExpertSection("Opportunita")} loading={expertSyncState.loading} label="Ricarica opportunita">
-                <RefreshCw size={18} />
-              </ToolIconButton>
-            }
           />
           <div className="expert-opportunity-grid" aria-busy={expertSyncState.loading}>
             {expertSyncState.loading ? Array.from({ length: 3 }).map((_, index) => (
@@ -924,7 +926,11 @@ export function ExpertView({
               const alreadyCandidate = selection.status === "candidatura_ricevuta";
               const unavailable = selection.status === "non_disponibile";
               return (
-                <div className={`opportunity-card ${alreadyCandidate ? "candidate-sent" : ""} ${unavailable ? "unavailable" : ""}`} key={selection.workshopId}>
+                <article
+                  className={`opportunity-card ${selectedOpportunityRow?.selection.workshopId === selection.workshopId ? "selected" : ""} ${alreadyCandidate ? "candidate-sent" : ""} ${unavailable ? "unavailable" : ""}`}
+                  key={selection.workshopId}
+                  onClick={() => setSelectedOpportunityId(selection.workshopId)}
+                >
                   <div className="opportunity-head">
                     <span className="topic-badge">
                       {alreadyCandidate && "candidatura inviata"}
@@ -950,38 +956,7 @@ export function ExpertView({
                       <span>In attesa di assegnazione FunniFin</span>
                     </div>
                   )}
-                  <div className="button-row">
-                    <AppButton
-                      variant={alreadyCandidate ? "outline" : "secondary"}
-                      disabled={alreadyCandidate || unavailable}
-                      onClick={() => {
-                        if (alreadyCandidate || unavailable) return;
-                        setCandidateModalRow({ selection, workshop });
-                      }}
-                    >
-                      {alreadyCandidate ? (
-                        <>
-                          <Check size={17} /> Candidatura inviata
-                        </>
-                      ) : (
-                        <>
-                          <Send size={17} /> Mi candido
-                        </>
-                      )}
-                    </AppButton>
-                    <AppButton
-                      variant="ghost"
-                      disabled={alreadyCandidate || unavailable}
-                      onClick={() => {
-                        if (alreadyCandidate || unavailable) return;
-                        updateSelection(workshop.id, { status: "non_disponibile" });
-                        notify("Non disponibile", `${workshop.title} segnato come non disponibile per la tua agenda.`);
-                      }}
-                    >
-                      {unavailable ? "Segnato non disponibile" : "Non disponibile"}
-                    </AppButton>
-                  </div>
-                </div>
+                </article>
               );
             })}
           </div>
@@ -992,11 +967,6 @@ export function ExpertView({
         <Panel>
           <SectionTitle
             title="Workshop assegnati"
-            actions={
-              <ToolIconButton onClick={() => refreshExpertSection("Assegnati")} label="Ricarica workshop assegnati">
-                <RefreshCw size={18} />
-              </ToolIconButton>
-            }
           />
           <div className="expert-opportunity-grid">
             {assignedRows.length === 0 && (
@@ -1018,9 +988,6 @@ export function ExpertView({
                   <Info label="Formato" value={`${selection.duration} · ${selection.format}`} />
                   <Info label="Materiali" value="Logo e note disponibili" />
                 </div>
-                <AppButton variant="secondary" onClick={() => setExpertStep("Upload deck")}>
-                  Vai all'upload
-                </AppButton>
               </div>
             ))}
           </div>
@@ -1031,11 +998,6 @@ export function ExpertView({
         <Panel>
           <SectionTitle
             title="Upload presentazione"
-            actions={
-              <ToolIconButton onClick={() => refreshExpertSection("Upload deck")} loading={expertDriveLoading} label="Ricarica file Drive">
-                <RefreshCw size={18} />
-              </ToolIconButton>
-            }
           />
           <div className="expert-upload-panel">
             <div className="expert-upload-copy">
@@ -1062,9 +1024,6 @@ export function ExpertView({
                     onChange={(event) => handleExpertDeckUpload(event.target.files)}
                   />
                 </label>
-                <AppButton variant="ghost" onClick={openExpertDrivePicker} loading={expertDriveLoading}>
-                  <ExternalLink size={18} /> Seleziona da Drive
-                </AppButton>
               </div>
               {expertDrivePickerOpen && (
                 <div className="drive-picker-panel">
@@ -1094,16 +1053,6 @@ export function ExpertView({
                 </div>
               )}
             </div>
-            <AppButton
-              variant="primary"
-              disabled={!assignedRow || !expertDeckFile}
-              loading={expertDeckSending}
-              onClick={() => {
-                void sendDeckToBrand();
-              }}
-            >
-              <UploadCloud size={18} /> Invia a revisione brand
-            </AppButton>
           </div>
         </Panel>
       )}
@@ -1112,11 +1061,6 @@ export function ExpertView({
         <Panel>
           <SectionTitle
             title="Stato workshop"
-            actions={
-              <ToolIconButton onClick={() => refreshExpertSection("Storico")} label="Ricarica storico">
-                <RefreshCw size={18} />
-              </ToolIconButton>
-            }
           />
           <div className="expert-history-list">
             {historyRows.length === 0 && (
@@ -1153,6 +1097,10 @@ export function ExpertView({
         primaryDisabled={expertMainAction.disabled}
         primaryLoading={"loading" in expertMainAction ? expertMainAction.loading : false}
         onPrimary={expertMainAction.action}
+        secondaryLabel={expertSecondaryAction?.label}
+        secondaryLoading={expertSecondaryAction?.loading}
+        secondaryDisabled={expertSecondaryAction && "disabled" in expertSecondaryAction ? expertSecondaryAction.disabled : false}
+        onSecondary={expertSecondaryAction?.action}
       />
     </section>
   );
