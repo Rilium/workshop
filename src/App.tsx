@@ -1,5 +1,4 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { ArrowRight, BadgeCheck, BriefcaseBusiness, X } from "./components/ui/FaIcons";
 import { useDarkMode } from "./hooks/useDarkMode";
 import { DarkModeToggle } from "./components/ui/DarkModeToggle";
 import { initialRules } from "./data/pricing";
@@ -14,60 +13,18 @@ import type { AssetDraftFolder, UploadedAsset } from "./driveAssetService";
 import type { WorkshopRequestRecord } from "./requestService";
 import { FeedbackToastStack } from "./components/ui/Toast";
 import { NotificationCenter } from "./components/ui/NotificationCenter";
-import { AppButton } from "./components/ui/AppButton";
 import { Topbar, SystemBar } from "./components/layout/Topbar";
 import { ConfettiBurst } from "./components/ui/ConfettiBurst";
 import { ClientView } from "./features/client/ClientView";
 import { CustomModal, CustomRequestModal } from "./features/client/components/CustomWorkshopModals";
 import { DatePickerModal } from "./features/client/components/DatePickerModal";
-import { AuthProvider, AUTH_ENTRY_CONFETTI_EVENT, useAuth } from "./AuthContext";
+import { AuthProvider, useAuth } from "./AuthContext";
 import { Skeleton, SkeletonCard } from "./components/ui/Skeleton";
 
 const AdminView = lazy(() => import("./features/admin/AdminView").then((module) => ({ default: module.AdminView })));
 const ExpertView = lazy(() => import("./features/expert/ExpertView").then((module) => ({ default: module.ExpertView })));
 const BrandView = lazy(() => import("./features/brand/BrandView").then((module) => ({ default: module.BrandView })));
 const LoginView = lazy(() => import("./features/auth/LoginView").then((module) => ({ default: module.LoginView })));
-
-function getWelcomeCopy(role: Role) {
-  if (role === "FunniFin") {
-    return {
-      eyebrow: "Accesso FunniFin",
-      title: "Console operativa",
-      body: "Riprendi dalla coda progetti e dalle attività aperte.",
-      primary: "Vai alla coda",
-      secondary: "Chiudi",
-      metric: "Progetti sotto controllo",
-    };
-  }
-  if (role === "Esperto") {
-    return {
-      eyebrow: "Accesso esperto",
-      title: "Area incarichi",
-      body: "Controlla candidature, incarichi e materiali collegati.",
-      primary: "Vedi candidature",
-      secondary: "Chiudi",
-      metric: "Workshop da valutare",
-    };
-  }
-  if (role === "Brand") {
-    return {
-      eyebrow: "Accesso brand",
-      title: "Revisioni aperte",
-      body: "Rivedi deck, asset e approvazioni finali.",
-      primary: "Apri revisioni",
-      secondary: "Chiudi",
-      metric: "Materiali da chiudere",
-    };
-  }
-  return {
-    eyebrow: "Accesso attivo",
-    title: "Percorso cliente",
-    body: "Completa i passaggi rimasti e aggiorna la richiesta.",
-    primary: "Continua",
-    secondary: "Chiudi",
-    metric: "Percorso attivo",
-  };
-}
 
 const ROLE_HASH: Record<Role, string> = {
   Cliente: "",
@@ -97,58 +54,6 @@ function scrollToNotificationTarget(projectId: string) {
       target.focus?.({ preventScroll: true });
     }, delay);
   });
-}
-
-function WelcomeModal({
-  role,
-  name,
-  onPrimary,
-  onClose,
-}: {
-  role: Role;
-  name: string;
-  onPrimary: () => void;
-  onClose: () => void;
-}) {
-  const copy = getWelcomeCopy(role);
-
-  return (
-    <section className="welcome-inline" aria-labelledby="welcome-title">
-      <div className="welcome-main">
-        <div className="welcome-copy">
-          <span className="welcome-eyebrow">{copy.eyebrow}</span>
-          <h2 id="welcome-title">{copy.title}</h2>
-          <p>{copy.body}</p>
-        </div>
-        <div className="welcome-user-card">
-          <span>
-            <BadgeCheck size={18} />
-            Accesso confermato
-          </span>
-          <strong>{name}</strong>
-          <em>{role}</em>
-        </div>
-        <div className="welcome-mini-grid" aria-label="Contesto ingresso">
-          <span>
-            <BriefcaseBusiness size={17} />
-            {copy.metric}
-          </span>
-          <span>
-            <BadgeCheck size={17} />
-            Sessione attiva
-          </span>
-        </div>
-      </div>
-      <footer className="welcome-actions">
-        <AppButton variant="ghost" onClick={onClose} leftIcon={<X size={16} />}>
-          {copy.secondary}
-        </AppButton>
-        <AppButton variant="primary" onClick={onPrimary} rightIcon={<ArrowRight size={17} />}>
-          {copy.primary}
-        </AppButton>
-      </footer>
-    </section>
-  );
 }
 
 function ViewLoadingFallback() {
@@ -191,7 +96,6 @@ function AppInner() {
   const [requestRefreshToken, setRequestRefreshToken] = useState(0);
   const [clientGuidedLayerActive, setClientGuidedLayerActive] = useState(false);
   const [showCelebrationConfetti, setShowCelebrationConfetti] = useState(false);
-  const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [mailIntent, setMailIntent] = useState<{ action: string; projectId: string }>({ action: "", projectId: "" });
   const [notificationFocus, setNotificationFocus] = useState<{ projectId: string; token: number }>({ projectId: "", token: 0 });
   const {
@@ -210,22 +114,12 @@ function AppInner() {
   const { selections, toggleWorkshop, addWorkshops, updateSelection } = useWorkshopSelection(catalogWorkshops, notify);
   const quote = useQuote(selections, catalogWorkshops, rules);
   const lastConfettiTokenRef = useRef<string | null>(null);
-  const lastWelcomeTokenRef = useRef<string | null>(null);
   const manualRoleChangeRef = useRef(false);
 
   const fireConfetti = (duration = 2800) => {
     setShowCelebrationConfetti(false);
     window.setTimeout(() => setShowCelebrationConfetti(true), 0);
     window.setTimeout(() => setShowCelebrationConfetti(false), duration);
-  };
-
-  const openWelcome = (token: string | null) => {
-    if (!token || lastWelcomeTokenRef.current === token) return;
-    const seenKey = `funnifin_welcome_seen_${token}`;
-    if (sessionStorage.getItem(seenKey)) return;
-    sessionStorage.setItem(seenKey, "1");
-    lastWelcomeTokenRef.current = token;
-    setWelcomeOpen(true);
   };
 
   useEffect(() => {
@@ -291,19 +185,7 @@ function AppInner() {
     if (loading || !session || !currentUser) return;
     if (lastConfettiTokenRef.current === session.token) return;
     lastConfettiTokenRef.current = session.token;
-    openWelcome(session.token);
   }, [currentUser, loading, session?.token]);
-
-  useEffect(() => {
-    const handleEntryConfetti = (event: Event) => {
-      const token = (event as CustomEvent<{ token?: string }>).detail?.token ?? session?.token ?? null;
-      if (!token || lastConfettiTokenRef.current === token) return;
-      lastConfettiTokenRef.current = token;
-      openWelcome(token);
-    };
-    window.addEventListener(AUTH_ENTRY_CONFETTI_EVENT, handleEntryConfetti as EventListener);
-    return () => window.removeEventListener(AUTH_ENTRY_CONFETTI_EVENT, handleEntryConfetti as EventListener);
-  }, [session?.token]);
 
   // Mostra login per ruoli non-Cliente quando non autenticato
   if (loading) {
@@ -357,13 +239,6 @@ function AppInner() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const closeWelcome = () => setWelcomeOpen(false);
-  const runWelcomePrimary = () => {
-    setWelcomeOpen(false);
-    if (role === "Brand") setBrandFilter("Revisioni");
-    if (role === "Esperto") window.history.replaceState(null, "", "#esperto-candidature");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
   const runNotificationAction = (notification: (typeof notifications)[number]) => {
     const action = notification.action;
     if (!action) return;
@@ -464,14 +339,6 @@ function AppInner() {
           />
         }
       />
-      )}
-      {welcomeOpen && currentUser && (
-        <WelcomeModal
-          role={role}
-          name={currentUser.displayName || currentUser.email}
-          onPrimary={runWelcomePrimary}
-          onClose={closeWelcome}
-        />
       )}
       {/* Banner impersonificazione */}
       {isImpersonating && (
