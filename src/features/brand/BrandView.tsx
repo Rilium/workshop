@@ -59,6 +59,8 @@ export function BrandView({
   systemRefreshToken,
   systemSettingsToken,
   mailAction,
+  notificationFocusProjectId,
+  notificationFocusToken,
 }: {
   brandFilter: string;
   setBrandFilter: (filter: string) => void;
@@ -70,6 +72,8 @@ export function BrandView({
   systemRefreshToken: number;
   systemSettingsToken: number;
   mailAction?: string;
+  notificationFocusProjectId?: string;
+  notificationFocusToken?: number;
 }) {
   const [brandDecks, setBrandDecks] = useState<BrandPresentation[]>([]);
   const [brandProjects, setBrandProjects] = useState<AdminProject[]>([]);
@@ -83,6 +87,7 @@ export function BrandView({
   const [brandDriveError, setBrandDriveError] = useState("");
   const [brandDriveFolder, setBrandDriveFolder] = useState<{ name: string; url: string } | null>(null);
   const [brandActionBusy, setBrandActionBusy] = useState<"" | "approve" | "changes" | "calendar">("");
+  const lastNotificationFocusRef = useRef(0);
   const [reviewNote, setReviewNote] = useState("Uniformare chip topic, inserire logo nella cover, verificare disclaimer finale.");
   const [reviewChecklist, setReviewChecklist] = useState({
     clientLogo: false,
@@ -119,6 +124,19 @@ export function BrandView({
   useEffect(() => {
     if (selectedBrandProject) syncProjectStatus(selectedBrandProject.status);
   }, [selectedBrandProject?.id, selectedBrandProject?.status, syncProjectStatus]);
+  useEffect(() => {
+    if (!notificationFocusProjectId || !notificationFocusToken || lastNotificationFocusRef.current === notificationFocusToken) return;
+    if (!brandProjects.some((project) => project.id === notificationFocusProjectId)) return;
+    lastNotificationFocusRef.current = notificationFocusToken;
+    setBrandFilter("Revisioni");
+    setSelectedBrandProjectId(notificationFocusProjectId);
+    const selector = `[data-notification-target="project:${window.CSS?.escape(notificationFocusProjectId) ?? notificationFocusProjectId}"]`;
+    [80, 220, 520].forEach((delay) => {
+      window.setTimeout(() => {
+        document.querySelector<HTMLElement>(selector)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, delay);
+    });
+  }, [brandProjects, notificationFocusProjectId, notificationFocusToken, setBrandFilter]);
   useEffect(() => {
     if (mailAction !== "brand-review" || lastMailIntentRef.current === mailAction) return;
     lastMailIntentRef.current = mailAction;
@@ -459,6 +477,7 @@ export function BrandView({
             <button
               key={project.id}
               className={`review-list-item ${selectedBrandProject?.id === project.id ? "active" : ""}`}
+              data-notification-target={`project:${project.id}`}
               onClick={() => setSelectedBrandProjectId(project.id)}
             >
               <BadgeCheck size={16} />
@@ -500,7 +519,7 @@ export function BrandView({
               </button>
             ))}
           </div>
-          <div className="brand-review-area">
+          <div className="brand-review-area" data-notification-target={selectedBrandProject ? `project:${selectedBrandProject.id}` : undefined}>
             <div className="review-list" aria-busy={brandDriveLoading}>
               {brandDriveLoading ? Array.from({ length: 4 }).map((_, index) => (
                 <span className="review-list-item skeleton-row" key={`brand-deck-skeleton-${index}`} aria-hidden="true">

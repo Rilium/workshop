@@ -65,6 +65,8 @@ export function ExpertView({
   systemRefreshToken,
   systemSettingsToken,
   mailAction,
+  notificationFocusProjectId,
+  notificationFocusToken,
   project,
 }: {
   selections: Selection[];
@@ -77,6 +79,8 @@ export function ExpertView({
   systemRefreshToken: number;
   systemSettingsToken: number;
   mailAction?: string;
+  notificationFocusProjectId?: string;
+  notificationFocusToken?: number;
   project: AdminProject;
 }) {
   const { currentUser } = useAuth();
@@ -84,6 +88,7 @@ export function ExpertView({
   // Nome esperto: usa displayName dell'utente autenticato, fallback al roleIdentities mock
   const expertName = currentUser?.displayName ?? roleIdentities.Esperto.name;
   const lastMailIntentRef = useRef("");
+  const lastNotificationFocusRef = useRef(0);
   const [syncedProject, setSyncedProject] = useState<AdminProject>(project);
   const [expertSyncState, setExpertSyncState] = useState<{ loading: boolean; error: string }>({ loading: false, error: "" });
   const [expertStep, setExpertStep] = useState("Opportunita");
@@ -112,6 +117,17 @@ export function ExpertView({
   useEffect(() => {
     syncProjectStatus(activeExpertProject.status);
   }, [activeExpertProject.status, syncProjectStatus]);
+  useEffect(() => {
+    if (!notificationFocusProjectId || !notificationFocusToken || lastNotificationFocusRef.current === notificationFocusToken) return;
+    if (notificationFocusProjectId !== activeExpertProject.id) return;
+    lastNotificationFocusRef.current = notificationFocusToken;
+    const selector = `[data-notification-target="project:${window.CSS?.escape(notificationFocusProjectId) ?? notificationFocusProjectId}"]`;
+    [80, 220, 520].forEach((delay) => {
+      window.setTimeout(() => {
+        document.querySelector<HTMLElement>(selector)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, delay);
+    });
+  }, [activeExpertProject.id, notificationFocusProjectId, notificationFocusToken]);
   const expertRows = activeExpertProject.request
     ? activeExpertProject.request.workshops
         .map((record) => {
@@ -664,7 +680,7 @@ export function ExpertView({
   };
 
   return (
-    <section className="view-stack expert-console">
+    <section className="view-stack expert-console" data-notification-target={`project:${activeExpertProject.id}`}>
       {candidateModalRow && (
         <ExpertCandidateModal
           row={candidateModalRow}

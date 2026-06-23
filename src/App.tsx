@@ -85,6 +85,20 @@ function getCleanRoleUrl(role: Role) {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
+function scrollToNotificationTarget(projectId: string) {
+  const escapeSelector = window.CSS?.escape ?? ((value: string) => value.replace(/["\\]/g, "\\$&"));
+  const selector = `[data-notification-target="project:${escapeSelector(projectId)}"]`;
+  const attempts = [80, 220, 520, 900];
+  attempts.forEach((delay) => {
+    window.setTimeout(() => {
+      const target = document.querySelector<HTMLElement>(selector);
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.focus?.({ preventScroll: true });
+    }, delay);
+  });
+}
+
 function WelcomeModal({
   role,
   name,
@@ -179,6 +193,7 @@ function AppInner() {
   const [showCelebrationConfetti, setShowCelebrationConfetti] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [mailIntent, setMailIntent] = useState<{ action: string; projectId: string }>({ action: "", projectId: "" });
+  const [notificationFocus, setNotificationFocus] = useState<{ projectId: string; token: number }>({ projectId: "", token: 0 });
   const {
     toasts,
     notifications,
@@ -356,6 +371,11 @@ function AppInner() {
       switchEffectiveRole(action.role);
     }
     if (action.hash) window.history.replaceState(null, "", action.hash);
+    if (action.projectId) {
+      setNotificationFocus({ projectId: action.projectId, token: Date.now() });
+      scrollToNotificationTarget(action.projectId);
+      return;
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const isAuthenticated = Boolean(currentUser);
@@ -533,6 +553,8 @@ function AppInner() {
               systemSettingsToken={systemSettingsToken}
               mailAction={mailIntent.action}
               mailProjectId={mailIntent.projectId}
+              notificationFocusProjectId={notificationFocus.projectId}
+              notificationFocusToken={notificationFocus.token}
             />
           )}
           {role === "Esperto" && (
@@ -547,6 +569,8 @@ function AppInner() {
               systemRefreshToken={systemRefreshToken}
               systemSettingsToken={systemSettingsToken}
               mailAction={mailIntent.action}
+              notificationFocusProjectId={notificationFocus.projectId}
+              notificationFocusToken={notificationFocus.token}
               project={{
                 ...(currentRequest ? requestToAdminProject(currentRequest) : buildLocalAdminProject(selections, quote.total, projectStatus)),
                 status: projectStatus,
@@ -567,6 +591,8 @@ function AppInner() {
               systemRefreshToken={systemRefreshToken}
               systemSettingsToken={systemSettingsToken}
               mailAction={mailIntent.action}
+              notificationFocusProjectId={notificationFocus.projectId}
+              notificationFocusToken={notificationFocus.token}
             />
           )}
         </Suspense>

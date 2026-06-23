@@ -115,10 +115,10 @@ function notificationRoleFromRecipient(role: WorkflowNotificationRecipientRole):
   return null;
 }
 
-function workflowNotificationAction(audience: AppNotificationRole[]): NotifyOptions["action"] {
-  if (audience.includes("Brand")) return { label: "Apri revisioni", role: "Brand", hash: "#brand" };
-  if (audience.includes("Esperto")) return { label: "Vai alle candidature", role: "Esperto", hash: "#esperto-candidature" };
-  return { label: "Apri progetto", role: "FunniFin", hash: "#funnifin" };
+function workflowNotificationAction(audience: AppNotificationRole[], projectId?: string): NotifyOptions["action"] {
+  if (audience.includes("Brand")) return { label: "Apri revisioni", role: "Brand", hash: "#brand", projectId };
+  if (audience.includes("Esperto")) return { label: "Vai alle candidature", role: "Esperto", hash: "#esperto-candidature", projectId };
+  return { label: "Apri progetto", role: "FunniFin", hash: "#funnifin", projectId };
 }
 
 function parseQueueDate(value?: string) {
@@ -164,6 +164,8 @@ export function AdminView({
   systemSettingsToken,
   mailAction,
   mailProjectId,
+  notificationFocusProjectId,
+  notificationFocusToken,
 }: {
   projectStatus: ProjectStatus;
   quote: Quote;
@@ -184,9 +186,12 @@ export function AdminView({
   systemSettingsToken: number;
   mailAction?: string;
   mailProjectId?: string;
+  notificationFocusProjectId?: string;
+  notificationFocusToken?: number;
 }) {
   const adminContentRef = useRef<HTMLDivElement | null>(null);
   const lastMailIntentRef = useRef("");
+  const lastNotificationFocusRef = useRef(0);
   const [adminTab, setAdminTab] = useState("Operativo");
   const [catalogView, setCatalogView] = useState<"sheet" | "drive">("sheet");
   const [adminSearch, setAdminSearch] = useState("");
@@ -699,7 +704,7 @@ export function AdminView({
         audienceEmails: targetUsers.emails.length ? targetUsers.emails : undefined,
         priority: "task",
         category: "mail",
-        action: workflowNotificationAction([targetRole]),
+        action: workflowNotificationAction([targetRole], selectedProject.id),
         toast: false,
       });
     });
@@ -707,6 +712,20 @@ export function AdminView({
   useEffect(() => {
     syncProjectStatus(activeAdminStatus);
   }, [activeAdminStatus, syncProjectStatus]);
+  useEffect(() => {
+    if (!notificationFocusProjectId || !notificationFocusToken || lastNotificationFocusRef.current === notificationFocusToken) return;
+    if (!adminProjects.some((project) => project.id === notificationFocusProjectId)) return;
+    lastNotificationFocusRef.current = notificationFocusToken;
+    setAdminTab("Operativo");
+    setAdminQueueFilter("tutti");
+    setSelectedProjectId(notificationFocusProjectId);
+    const selector = `[data-notification-target="project:${window.CSS?.escape(notificationFocusProjectId) ?? notificationFocusProjectId}"]`;
+    [80, 220, 520].forEach((delay) => {
+      window.setTimeout(() => {
+        document.querySelector<HTMLElement>(selector)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, delay);
+    });
+  }, [adminProjects, notificationFocusProjectId, notificationFocusToken]);
   useEffect(() => {
     if (!mailAction) return;
     if (mailProjectId && !adminProjects.some((project) => project.id === mailProjectId)) return;
@@ -2242,7 +2261,11 @@ export function AdminView({
                 const deleting = deletingRequestId === project.id;
                 const todoLabels = getProjectTodoLabels(project);
                 return (
-                  <article key={project.id} className={`project-choice-card ${selected ? "active" : ""} ${meta.tone}`}>
+                  <article
+                    key={project.id}
+                    className={`project-choice-card ${selected ? "active" : ""} ${meta.tone}`}
+                    data-notification-target={`project:${project.id}`}
+                  >
                     <button type="button" className="project-choice-main" onClick={() => selectProject(project)}>
                       <span className="queue-date-badge">
                         <strong>{meta.dateLabel}</strong>
@@ -2285,7 +2308,7 @@ export function AdminView({
             </div>
           </aside>
 
-          <section className="admin-detail-workspace">
+          <section className="admin-detail-workspace" data-notification-target={`project:${selectedProject.id}`}>
             <div className="admin-detail-header">
               <div>
                 <span className="eyebrow">Progetto attivo</span>
