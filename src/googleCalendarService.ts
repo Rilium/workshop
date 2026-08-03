@@ -1,6 +1,7 @@
 import { SECRET_SETTINGS } from "./secretSettings";
 import { withSessionPayload } from "./authTransport";
 import { calendarDateLimitMessage, isCalendarDateAllowed } from "./utils/dateLimits";
+import type { Duration } from "./types/domain";
 
 export type CalendarSlot = {
   time: string;
@@ -37,7 +38,7 @@ export type ExpertCalendarEventPayload = {
   workshopTitle: string;
   date: string;
   time: string;
-  duration: "1h" | "2h";
+  duration: Duration;
   format: "live" | "webinar" | "ibrido";
   expertName?: string;
   mode: "candidate" | "assigned_by_funnifin";
@@ -62,7 +63,7 @@ export type CalendarEventPayload = {
     title: string;
     date: string;
     time: string;
-    duration: "1h" | "2h";
+    duration: Duration;
     format: "live" | "webinar" | "ibrido";
     expertName?: string;
   }>;
@@ -130,7 +131,7 @@ function assertCalendarPayloadDatesAllowed(dates: string[]) {
 
 export async function getWorkshopAvailability(params: {
   date: string;
-  duration: "1h" | "2h";
+  duration: Duration;
   format: "live" | "webinar" | "ibrido";
   expertIds?: string[];
 }): Promise<CalendarAvailability> {

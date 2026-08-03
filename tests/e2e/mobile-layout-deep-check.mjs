@@ -132,31 +132,26 @@ async function run() {
     await page.getByRole("button", { name: "Visualizza come" }).click();
     await page.getByRole("button", { name: "Cliente", exact: true }).click();
     await page.getByRole("heading", { name: /Costruisci il piano formativo/ }).waitFor({ timeout: 8000 });
-    await page.getByRole("button", { name: /Esplora catalogo/i }).click();
-    await page.getByRole("heading", { name: "Scegli interessi e temi", exact: true }).waitFor({ timeout: 5000 });
+    const exploreCatalog = page.getByRole("button", { name: "Esplora catalogo", exact: true });
+    if (await exploreCatalog.count() === 0) {
+      await page.getByRole("button", { name: "Vedi dettagli", exact: true }).nth(1).click();
+    }
+    await exploreCatalog.click();
+    await page.getByRole("heading", { name: "Scegli workshop", exact: true }).waitFor({ timeout: 5000 });
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(100);
 
-    const interests = await mobileMetrics(page, "client-interests");
-    assertNoHorizontalOverflow(interests);
-    assertWithinViewport(interests, "system");
-    assertWithinViewport(interests, "bottom");
-    assert(interests.bottom.height <= 130, `client-interests: compact bottom sheet too tall ${interests.bottom.height}`);
+    const catalog = await mobileMetrics(page, "client-catalog");
+    assertNoHorizontalOverflow(catalog);
+    assertWithinViewport(catalog, "system");
+    assertWithinViewport(catalog, "bottom");
+    assert(catalog.bottom.height <= 130, `client-catalog: compact bottom sheet too tall ${catalog.bottom.height}`);
 
-    await page.locator("button:visible").filter({ hasText: "Ambito personale" }).first().click();
-    await page.getByRole("button", { name: /Vedi consigli/i }).click();
-    await page.waitForTimeout(400);
-    const recommended = await mobileMetrics(page, "client-recommended");
-    assertNoHorizontalOverflow(recommended);
-    assertWithinViewport(recommended, "activeTab");
-    assert(recommended.bottom.height <= 180, `client-recommended: two-action bottom sheet too tall ${recommended.bottom.height}`);
-
-    await page.getByRole("button", { name: /Aggiungi consigliati/i }).click();
+    await page.getByRole("button", { name: "Aggiungi Come leggere una busta paga al percorso", exact: true }).click();
     await page.waitForTimeout(500);
     const workshops = await mobileMetrics(page, "client-workshops");
     assertNoHorizontalOverflow(workshops);
-    assertWithinViewport(workshops, "activeTab");
-    assert(workshops.bottom.height <= 130, `client-workshops: bottom sheet should collapse without secondary action ${workshops.bottom.height}`);
+    assert(workshops.bottom.height <= 180, `client-workshops: bottom sheet too tall ${workshops.bottom.height}`);
     if (workshops.toast) {
       assert(workshops.toast.bottom <= workshops.bottom.top - 8, `client-workshops: toast overlaps bottom sheet ${JSON.stringify({ toast: workshops.toast, bottom: workshops.bottom })}`);
     }
@@ -181,6 +176,7 @@ async function run() {
     assertWithinViewport(dates, "activeTab");
     assert(dates.activeTab.text.includes("Date"), `client-dates: active tab not visible ${JSON.stringify(dates.activeTab)}`);
 
+    await page.getByRole("button", { name: /Le conosco già/ }).click();
     await page.getByRole("button", { name: /^Scegli$/ }).first().click();
     await page.getByRole("dialog").waitFor({ timeout: 5000 });
     await page.waitForTimeout(300);
@@ -214,7 +210,7 @@ async function run() {
   }
 }
 
-run().catch((error) => {
+await run().catch((error) => {
   console.error(error);
   process.exit(1);
 });

@@ -33,7 +33,6 @@ import {
 } from "../../../components/ui/FaIcons";
 import type { WorkflowNotificationRecipientRole } from "../../../emailService";
 import type { RequestWorkshopRecord } from "../../../requestService";
-import { workshops } from "../../../data/catalog";
 import { projectStatuses, statusDescription, statusLabel } from "../../../data/workflow";
 import { SECRET_SETTINGS } from "../../../secretSettings";
 import type { AdminProject, AdminProjectWorkshopRow, CalendarEventRecord, DateDecision, Duration, Format, PricingRule, ProjectStatus, Workshop } from "../../../types/domain";
@@ -47,6 +46,7 @@ import { Info } from "../../../components/ui/Info";
 
 export function AdminActionModal({
   modal,
+  workshops,
   rows,
   project,
   recipientEmails,
@@ -66,6 +66,7 @@ export function AdminActionModal({
   onSaveRule,
 }: {
   modal: AdminActionModalState;
+  workshops: Workshop[];
   rows: AdminProjectWorkshopRow[];
   project: AdminProject;
   recipientEmails: Partial<Record<WorkflowNotificationRecipientRole, string>>;

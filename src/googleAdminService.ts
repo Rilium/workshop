@@ -23,6 +23,7 @@ export type PricingRuleConfig = {
 export type CatalogWorkshopConfig = {
   id: string;
   topicId: string;
+  topicIds?: string[];
   themeId: string;
   title: string;
   short: string;
@@ -40,6 +41,9 @@ export type CatalogWorkshopConfig = {
   masterSlide: string;
   experts: string[];
   state: string;
+  durationLabel?: string;
+  adminNotes?: string;
+  productionStatus?: "published" | "draft";
   active?: boolean;
   updatedAt?: string;
 };
@@ -96,9 +100,26 @@ export type GoogleHealth = {
   };
   mail: {
     remainingDailyQuota: number;
+    senderEmail?: string;
+    primarySenderEmail?: string;
+    senderAlias?: string;
+    aliases?: string[];
+    authorizationRequired?: boolean;
+    authorizationUrl?: string;
+    fromName?: string;
+    replyTo?: string;
+    provider?: string;
   };
   checkedAt: string;
   cached?: boolean;
+};
+
+export type IntegrationSettingsTest = {
+  scope: "calendar" | "storage" | "mail";
+  calendar?: { id: string; name: string };
+  spreadsheet?: { id: string; url: string; name: string };
+  drive?: { rootFolderId: string; rootFolderName: string; slidesRootFolderId: string; slidesRootFolderName: string };
+  mail?: { senderEmail: string; primarySenderEmail: string; senderAlias: string; aliases: string[]; authorizationRequired: boolean; authorizationUrl: string; fromName: string; replyTo: string; remainingDailyQuota: number; provider: string };
 };
 
 function getScriptUrl() {
@@ -216,8 +237,48 @@ export async function updateWorkspaceSetting(setting: WorkspaceSetting): Promise
   return result.setting;
 }
 
+export async function updateWorkspaceSettings(settings: WorkspaceSetting[]): Promise<WorkspaceSetting[]> {
+  const result = await postAppsScript<{ settings: WorkspaceSetting[] }>("updateWorkspaceSettings", { settings });
+  return result.settings;
+}
+
 export async function getGoogleHealth(options?: { refresh?: boolean }): Promise<GoogleHealth | null> {
   return getAppsScript<GoogleHealth>("googleHealth", options?.refresh ? { refresh: "1" } : undefined);
+}
+
+export async function testIntegrationSettings(payload: {
+  scope: IntegrationSettingsTest["scope"];
+  calendarId?: string;
+  calendarName?: string;
+  driveRootFolderId?: string;
+  slidesRootFolderId?: string;
+  fromName?: string;
+  replyTo?: string;
+  senderAlias?: string;
+}): Promise<IntegrationSettingsTest> {
+  return postAppsScript<IntegrationSettingsTest>("testIntegrationSettings", payload);
+}
+
+export async function sendIntegrationTestEmail(payload: {
+  to: string;
+  senderAlias?: string;
+  fromName?: string;
+  replyTo?: string;
+}): Promise<{ sent: boolean; to: string; senderEmail: string }> {
+  return postAppsScript<{ sent: boolean; to: string; senderEmail: string }>("sendIntegrationTestEmail", payload);
+}
+
+export async function updateIntegrationProperties(payload: {
+  scope: IntegrationSettingsTest["scope"];
+  calendarId?: string;
+  calendarName?: string;
+  driveRootFolderId?: string;
+  slidesRootFolderId?: string;
+  senderAlias?: string;
+  fromName?: string;
+  replyTo?: string;
+}): Promise<{ updated: string[] }> {
+  return postAppsScript<{ updated: string[] }>("updateIntegrationProperties", payload);
 }
 
 export async function clearBackendCaches(): Promise<{ cleared: boolean; clearedAt: string }> {
@@ -245,6 +306,7 @@ export async function runDailyMaintenance(): Promise<{
 }
 
 export async function seedAdminConfig(payload: {
+  replaceCatalog?: boolean;
   catalogTopics?: CatalogTopicConfig[];
   catalogWorkshops?: CatalogWorkshopConfig[];
   pricingRules?: PricingRuleConfig[];

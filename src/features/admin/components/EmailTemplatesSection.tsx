@@ -256,10 +256,12 @@ export function EmailTemplatesSection({
   notify,
   workspaceSettings = [],
   onSaveWorkspaceSetting,
+  onSaveWorkspaceSettings,
 }: {
   notify: (title: string, body: string) => void;
   workspaceSettings?: WorkspaceSetting[];
   onSaveWorkspaceSetting?: (setting: WorkspaceSetting) => Promise<WorkspaceSetting> | void;
+  onSaveWorkspaceSettings?: (settings: WorkspaceSetting[]) => Promise<WorkspaceSetting[]>;
 }) {
   const settingsMap = useMemo(() => new Map(workspaceSettings.map((setting) => [setting.key, setting])), [workspaceSettings]);
   const templates = useMemo(() => initialEmailTemplates.map((template) => applyWorkspaceTemplate(template, settingsMap)), [settingsMap]);
@@ -267,6 +269,7 @@ export function EmailTemplatesSection({
   const [trigger, setTrigger] = useState<"Tutti" | EmailTemplateTrigger>("Tutti");
   const [search, setSearch] = useState("");
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
+  const [templateSaving, setTemplateSaving] = useState(false);
   const editorRef = useRef<HTMLDivElement | null>(null);
 
   const filteredTemplates = useMemo(() => {
@@ -304,7 +307,7 @@ export function EmailTemplatesSection({
     updateEditingTemplate({ html: sanitizeTemplateHtml(editorRef.current?.innerHTML ?? "") });
   };
 
-  const saveTemplate = () => {
+  const saveTemplate = async () => {
     if (!editingTemplate) return;
     const html = sanitizeTemplateHtml(editorRef.current?.innerHTML ?? editingTemplate.html);
     const savedTemplate = {
@@ -313,15 +316,23 @@ export function EmailTemplatesSection({
       updatedAt: new Date().toLocaleString("it-IT", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }),
     };
     const prefix = `mail.template.${savedTemplate.settingsKey}`;
-    void Promise.all([
-      onSaveWorkspaceSetting?.({ key: `${prefix}.subject`, value: savedTemplate.subject, group: "mail_template", label: `${savedTemplate.title} - oggetto` }),
-      onSaveWorkspaceSetting?.({ key: `${prefix}.preheader`, value: savedTemplate.preheader, group: "mail_template", label: `${savedTemplate.title} - preheader` }),
-      onSaveWorkspaceSetting?.({ key: `${prefix}.html`, value: html, group: "mail_template", label: `${savedTemplate.title} - corpo HTML` }),
-      onSaveWorkspaceSetting?.({ key: `${prefix}.text`, value: savedTemplate.fallbackText, group: "mail_template", label: `${savedTemplate.title} - testo fallback` }),
-    ]).then(() => {
+    const settings: WorkspaceSetting[] = [
+      { key: `${prefix}.subject`, value: savedTemplate.subject, group: "mail_template", label: `${savedTemplate.title} - oggetto` },
+      { key: `${prefix}.preheader`, value: savedTemplate.preheader, group: "mail_template", label: `${savedTemplate.title} - preheader` },
+      { key: `${prefix}.html`, value: html, group: "mail_template", label: `${savedTemplate.title} - corpo HTML` },
+      { key: `${prefix}.text`, value: savedTemplate.fallbackText, group: "mail_template", label: `${savedTemplate.title} - testo fallback` },
+    ];
+    setTemplateSaving(true);
+    try {
+      if (onSaveWorkspaceSettings) await onSaveWorkspaceSettings(settings);
+      else for (const setting of settings) await onSaveWorkspaceSetting?.(setting);
       notify("Template mail salvato", `${savedTemplate.title} aggiornato su Google Settings.`);
-    });
-    setEditingTemplate(null);
+      setEditingTemplate(null);
+    } catch {
+      // saveWorkspaceSetting mostra già il dettaglio dell'errore e mantiene aperto l'editor.
+    } finally {
+      setTemplateSaving(false);
+    }
   };
 
   const toggleTemplate = (templateId: string) => {
@@ -467,10 +478,10 @@ export function EmailTemplatesSection({
               </div>
             </div>
             <footer className="modal-footer auth-user-modal-footer">
-              <AppButton type="button" variant="ghost" onClick={() => setEditingTemplate(null)}>
+              <AppButton type="button" variant="ghost" onClick={() => setEditingTemplate(null)} disabled={templateSaving}>
                 Annulla
               </AppButton>
-              <AppButton type="button" variant="primary" onClick={saveTemplate} disabled={!editingTemplate.subject.trim()}>
+              <AppButton type="button" variant="primary" onClick={() => void saveTemplate()} loading={templateSaving} disabled={!editingTemplate.subject.trim()}>
                 Salva template
               </AppButton>
             </footer>

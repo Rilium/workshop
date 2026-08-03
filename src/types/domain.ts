@@ -43,7 +43,7 @@ export type NotifyOptions = {
   persist?: boolean;
   toast?: boolean;
 };
-export type Duration = "1h" | "2h";
+export type Duration = "1h" | "1.5h" | "2h";
 export type Format = "live" | "webinar" | "ibrido";
 export type ProjectStatus =
   | "draft_cliente"
@@ -78,6 +78,7 @@ export type Theme = {
 export type Workshop = {
   id: string;
   topicId: string;
+  topicIds?: string[];
   themeId: string;
   title: string;
   short: string;
@@ -95,10 +96,14 @@ export type Workshop = {
   masterSlide: string;
   experts: string[];
   state: "attivo" | "nascosto" | "da aggiornare";
+  durationLabel?: string;
+  adminNotes?: string;
+  productionStatus?: "published" | "draft";
 };
 
 export type Selection = {
   workshopId: string;
+  bundleId?: string;
   duration: Duration;
   format: Format;
   custom: boolean;
@@ -107,7 +112,52 @@ export type Selection = {
   date: string;
   time: string;
   dateConfirmed: boolean;
+  recordingIncluded?: boolean;
   status: string;
+};
+
+export type CatalogBundle = {
+  id: string;
+  title: string;
+  size: 3 | 6 | 10;
+  workshopIds: string[];
+  active: boolean;
+  fixedPrice?: number;
+  topicIds?: string[];
+  description?: string;
+};
+
+export type CommercialConfig = {
+  workshopBasePrice: number;
+  inPersonExtra: number;
+  customExtra: number;
+  recordingOptOutDiscount: number;
+  recordingDefault: boolean;
+  bundlePrices: {
+    3: number;
+    6: number;
+    10: number;
+  };
+  outcomeSizes: {
+    sensibilizzazione: 3;
+    avanzata: 6;
+    completa: 10;
+  };
+};
+
+export type SurveyProfile = {
+  topicIds: string[];
+  outcome: "sensibilizzazione" | "avanzata" | "completa";
+  employees: string;
+  requestedFormat: "online" | "in-person" | "recommend";
+  resolvedFormat: "webinar" | "live";
+  budget: string;
+  bundleIds: string[];
+  recommendedBundleId?: string;
+  recommendedWorkshopIds: string[];
+  estimatedTotal: number;
+  budgetGap: number;
+  reason: string;
 };
 
 export type PricingRule = {
@@ -129,6 +179,9 @@ export type Quote = {
   promoDiscount: number;
   total: number;
   saved: number;
+  recordingDiscount: number;
+  bundleId?: string;
+  bundleTitle?: string;
 };
 
 export type Toast = {

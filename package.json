@@ -8,6 +8,8 @@
     "build": "npm run check:no-hardcoded-test-data && tsc && vite build",
     "check:no-hardcoded-test-data": "node scripts/check-no-hardcoded-test-data.mjs",
     "test:e2e": "node tests/e2e/funnifin-smoke.mjs && node tests/e2e/notification-deep-check.mjs && node tests/e2e/manual-regressions.mjs",
+    "test:e2e:admin": "node tests/e2e/admin-deep-check.mjs",
+    "test:admin:real": "node tests/e2e/admin-deep-check.mjs",
     "test:e2e:local": "node tests/e2e/funnifin-local-smoke.mjs && node tests/e2e/notification-deep-check.mjs && node tests/e2e/manual-regressions.mjs && node tests/e2e/mobile-layout-deep-check.mjs",
     "test:e2e:live": "node tests/e2e/funnifin-smoke.mjs",
     "preview": "vite preview",
@@ -21,6 +23,7 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",
+    "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "typescript": "^5.8.0",
@@ -29,6 +32,7 @@
   "devDependencies": {
     "@google/clasp": "^3.3.0",
     "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3"
+    "@types/react-dom": "^19.2.3",
+    "playwright": "^1.62.1"
   }
 }

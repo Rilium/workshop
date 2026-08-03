@@ -4,13 +4,9 @@ type Theme = "light" | "dark";
 
 const STORAGE_KEY = "funnifin_theme";
 
-function getSystemTheme(): Theme {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
 function getInitialTheme(): Theme {
   const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-  return stored ?? getSystemTheme();
+  return stored === "dark" || stored === "light" ? stored : "light";
 }
 
 export function useDarkMode() {

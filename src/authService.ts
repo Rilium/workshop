@@ -50,6 +50,14 @@ export type UpdateAuthUserResult = {
   user: AuthUser;
 };
 
+export type ChangeAdminEmailResult = {
+  user: AuthUser;
+  session?: AuthSession;
+  updatedSessions?: number;
+};
+
+export const AUTH_SESSION_UPDATED_EVENT = "funnifin:auth-session-updated";
+
 type AuthSessionPayload = {
   session: AuthSession;
   user: AuthUser;
@@ -175,6 +183,29 @@ export async function updateAuthUser(userId: string, patch: UpdateAuthUserOption
     userId,
     ...patch,
   });
+}
+
+export async function changeAdminEmail(
+  userId: string,
+  currentEmail: string,
+  newEmail: string,
+): Promise<ChangeAdminEmailResult> {
+  const normalizedCurrentEmail = normalizeEmail(currentEmail);
+  const normalizedNewEmail = normalizeEmail(newEmail);
+  if (!userId) throw new Error("userId mancante.");
+  if (!normalizedCurrentEmail || !normalizedNewEmail) throw new Error("Email non valida.");
+
+  const result = await postAppsScript<ChangeAdminEmailResult>("changeAdminEmail", {
+    userId,
+    currentEmail: normalizedCurrentEmail,
+    newEmail: normalizedNewEmail,
+  });
+
+  if (result.session) {
+    storeSession(result.session);
+    window.dispatchEvent(new CustomEvent(AUTH_SESSION_UPDATED_EVENT));
+  }
+  return result;
 }
 
 export function getStoredSession(): AuthSession | null {

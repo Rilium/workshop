@@ -21,48 +21,62 @@ const scriptUrl = env.VITE_APPS_SCRIPT_DEPLOYMENT_URL;
 if (!scriptUrl) throw new Error("Missing VITE_APPS_SCRIPT_DEPLOYMENT_URL");
 const setupSecret = env.ADMIN_SETUP_SECRET || env.VITE_ADMIN_SETUP_SECRET || "";
 if (!setupSecret) throw new Error("Missing ADMIN_SETUP_SECRET or VITE_ADMIN_SETUP_SECRET");
-const localTestSettingsPath = "config/local-test-settings.json";
-const localTestSettings = fs.existsSync(localTestSettingsPath)
-  ? JSON.parse(fs.readFileSync(localTestSettingsPath, "utf8"))
-  : { mail: { recipients: {} }, authUsers: {} };
-const mailRecipients = localTestSettings.mail?.recipients || {};
+const catalogImport = JSON.parse(fs.readFileSync("src/data/clientCatalogImport.json", "utf8"));
+const workshopBasePrice = 1000;
+const inPersonExtra = 500;
+const customExtra = 500;
+const recordingOptOutDiscount = 100;
+const bundlePrices = { 3: 2500, 6: 4500, 10: 6900 };
+const outcomeSizes = { sensibilizzazione: 3, avanzata: 6, completa: 10 };
+const pricingRules = [
+  { id: "a-la-carte", name: "Workshop à-la-carte", min: 1, max: 99, discountPercent: 0 },
+];
 
-const catalogSource = fs.readFileSync("src/data/catalog.ts", "utf8");
-const pricingSource = fs.readFileSync("src/data/pricing.ts", "utf8");
-const topicsLiteral = catalogSource.match(/export const topics: Topic\[\] = (\[[\s\S]*?\n\]);/)?.[1];
-const rulesLiteral = pricingSource.match(/export const initialRules: PricingRule\[\] = (\[[\s\S]*?\n\]);/)?.[1];
-const expertsLiteral = catalogSource.match(/export const experts = (\[[\s\S]*?\n\]);/)?.[1];
-const workshopsLiteral = catalogSource.match(/export const workshops: Workshop\[\] = (\[[\s\S]*?\n\]);/)?.[1];
-if (!topicsLiteral || !rulesLiteral || !expertsLiteral || !workshopsLiteral) {
-  throw new Error("Cannot parse seed data from src/data");
+function durationOptions(label) {
+  const normalized = String(label || "").replace(",", ".").replace(/\s+/g, "");
+  if (normalized === "2") return ["2h"];
+  if (normalized.includes("1.30") && normalized.includes("2")) return ["1.5h", "2h"];
+  if (normalized.includes("1.30") || normalized.includes("1.5")) return ["1h", "1.5h"];
+  return normalized.includes("2") ? ["1h", "2h"] : ["1h"];
 }
 
-const topics = Function(`return ${topicsLiteral};`)();
-const pricingRules = Function(`return ${rulesLiteral};`)();
-const experts = Function(`return ${expertsLiteral};`)();
-const workshops = Function(`return ${workshopsLiteral};`)();
+const topics = catalogImport.topics.map((topic) => ({
+  id: topic.id,
+  title: topic.title,
+  description: topic.description || `Workshop dedicati al topic ${topic.title}.`,
+  badge: !topic.badge || topic.badge === "cliente-2026" ? "base" : topic.badge,
+  active: topic.active !== false,
+}));
 
-function buildExpertProfiles() {
-  return experts.map((expert, index) => {
-    const [firstName, ...lastNameParts] = expert.name.split(" ");
-    const topicIds = expert.skills;
-    const themeIds = topics
-      .filter((topic) => topicIds.includes(topic.id))
-      .flatMap((topic) => topic.themes.map((theme) => theme.id));
-    return {
-      id: expert.id,
-      firstName,
-      lastName: lastNameParts.join(" "),
-      email: env[`EXPERT_${index + 1}_EMAIL`] || mailRecipients.expert || "",
-      photo: "",
-      bio: "Profilo esperto FunniFin associato ai workshop del catalogo.",
-      topicIds,
-      themeIds,
-      availability: expert.availability,
-      active: true,
-    };
-  });
-}
+const workshops = catalogImport.workshops.map((workshop) => ({
+  id: workshop.id,
+  topicId: workshop.topicIds[0] || "",
+  topicIds: workshop.topicIds,
+  themeId: workshop.topicIds[0] || "",
+  title: workshop.title,
+  short: workshop.description,
+  long: workshop.description,
+  durationOptions: durationOptions(workshop.durationLabel),
+  formatOptions: ["webinar", "live"],
+  level: "base",
+  target: "tutti",
+  participants: "da definire",
+  price1h: workshopBasePrice,
+  price2h: workshopBasePrice,
+  packageAvailable: true,
+  customAvailable: workshop.customAvailable,
+  customExtra,
+  masterSlide: "",
+  experts: String(workshop.suggestedExperts || "")
+    .split("/")
+    .map((expert) => expert.trim())
+    .filter(Boolean),
+  state: workshop.productionStatus === "draft" ? "da aggiornare" : "attivo",
+  durationLabel: workshop.durationLabel,
+  adminNotes: workshop.adminNotes,
+  productionStatus: workshop.productionStatus,
+  active: true,
+}));
 
 async function get(action) {
   const url = new URL(scriptUrl);
@@ -110,37 +124,23 @@ if (missingActions.length > 0) {
 }
 
 const settings = [
-  { key: "mail.provider", value: "Google MailApp", group: "mail", label: "Provider invii" },
-  { key: "mail.fromName", value: "FunniFin Workshop Planner", group: "mail", label: "Nome mittente" },
-  { key: "mail.internalRecipient", value: env.INTERNAL_RECIPIENT || env.VITE_INTERNAL_RECIPIENT || localTestSettings.mail?.internalRecipient || "", group: "mail", label: "Inbox interna" },
-  { key: "mail.funnifin", value: env.FUNNIFIN_RECIPIENT || env.VITE_FUNNIFIN_RECIPIENT || mailRecipients.funnifin || "", group: "mail", label: "Email FunniFin" },
-  { key: "mail.expert", value: env.EXPERT_RECIPIENT || env.VITE_EXPERT_RECIPIENT || mailRecipients.expert || "", group: "mail", label: "Email Esperti" },
-  { key: "mail.brand", value: env.BRAND_RECIPIENT || env.VITE_BRAND_RECIPIENT || mailRecipients.brand || "", group: "mail", label: "Email Brand" },
-  { key: "funnifin.name", value: "Team FunniFin", group: "identity", label: "Nome FunniFin" },
-  { key: "funnifin.email", value: env.FUNNIFIN_EMAIL || env.VITE_FUNNIFIN_RECIPIENT || mailRecipients.funnifin || "", group: "identity", label: "Email FunniFin" },
-  { key: "brand.name", value: "Brand Review", group: "identity", label: "Nome Brand" },
-  { key: "brand.email", value: env.BRAND_EMAIL || env.VITE_BRAND_RECIPIENT || mailRecipients.brand || "", group: "identity", label: "Email Brand" },
-  { key: "calendar.id", value: env.VITE_FUNNIFIN_CALENDAR_ID || "", group: "google", label: "Calendar ID" },
-  { key: "calendar.name", value: env.VITE_FUNNIFIN_CALENDAR_NAME || "", group: "google", label: "Calendar name" },
-  { key: "drive.rootFolderId", value: env.VITE_DRIVE_ROOT_FOLDER_ID || "", group: "google", label: "Drive root materiali" },
-  { key: "drive.slidesRootFolderId", value: env.VITE_SLIDES_TEMPLATE_FOLDER_ID || "", group: "google", label: "Drive root Slides" },
+  { key: "catalog.bundlesJson", value: JSON.stringify(catalogImport.bundles), group: "catalog", label: "Pacchetti catalogo" },
+  { key: "pricing.workshopBasePrice", value: String(workshopBasePrice), group: "pricing", label: "Prezzo workshop singolo" },
+  { key: "pricing.inPersonExtra", value: String(inPersonExtra), group: "pricing", label: "Maggiorazione in presenza" },
+  { key: "pricing.customExtra", value: String(customExtra), group: "pricing", label: "Maggiorazione personalizzazione" },
+  { key: "pricing.recordingOptOutDiscount", value: String(recordingOptOutDiscount), group: "pricing", label: "Sconto senza registrazione" },
+  { key: "pricing.recordingDefault", value: "true", group: "pricing", label: "Registrazione inclusa di default" },
+  { key: "pricing.bundlePricesJson", value: JSON.stringify(bundlePrices), group: "pricing", label: "Prezzi pacchetti 3/6/10" },
+  { key: "survey.outcomeSizesJson", value: JSON.stringify(outcomeSizes), group: "survey", label: "Dimensione percorsi survey" },
 ];
 
 const seed = await post("seedAdminConfig", {
   setupSecret,
-  catalogTopics: topics.map((topic) => ({
-    id: topic.id,
-    title: topic.title,
-    description: topic.description,
-    badge: topic.badge,
-    active: true,
-  })),
-  catalogWorkshops: workshops.map((workshop) => ({
-    ...workshop,
-    active: workshop.state !== "nascosto",
-  })),
+  replaceCatalog: true,
+  replacePricingRules: true,
+  catalogTopics: topics,
+  catalogWorkshops: workshops,
   pricingRules,
-  experts: buildExpertProfiles(),
   settings,
 });
 const health = seed.health || (await get("googleHealth"));

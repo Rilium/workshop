@@ -8,7 +8,6 @@ export function QuoteStrip({
   selections,
   quote,
   coveredTopics,
-  coveredThemes,
   totalHours,
   onCta,
   submitting = false,
@@ -16,7 +15,6 @@ export function QuoteStrip({
   selections: Selection[];
   quote: Quote;
   coveredTopics: number;
-  coveredThemes: number;
   totalHours: number;
   onCta?: () => void;
   submitting?: boolean;
@@ -28,12 +26,8 @@ export function QuoteStrip({
         <strong>{selections.length}</strong>
       </div>
       <div>
-        <span>Topic</span>
+        <span>Ambiti</span>
         <strong>{coveredTopics}</strong>
-      </div>
-      <div>
-        <span>Temi</span>
-        <strong>{coveredThemes}</strong>
       </div>
       <div>
         <span>Durata</span>

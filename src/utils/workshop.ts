@@ -1,5 +1,5 @@
-import { LIVE_FORMAT_EXTRA } from "../data/pricing";
-import type { AdminProject, ProjectStatus, Selection, Workshop } from "../types/domain";
+import { BUNDLE_PRICES, defaultCommercialConfig } from "../data/pricing";
+import type { AdminProject, CatalogBundle, CommercialConfig, ProjectStatus, Selection, Workshop } from "../types/domain";
 import type { WorkshopRequestRecord } from "../requestService";
 
 export function requestToAdminProject(request: WorkshopRequestRecord): AdminProject {
@@ -38,14 +38,24 @@ export function topicColorClass(topicId: string) {
   return `topic-color-${topicId}`;
 }
 
-export function getWorkshopSelectionPrice(workshop: Workshop, selection: Pick<Selection, "duration" | "format" | "custom">) {
-  const base = selection.duration === "2h" ? workshop.price2h : workshop.price1h;
-  const liveExtra = selection.format === "live" ? LIVE_FORMAT_EXTRA : 0;
-  const customExtra = selection.custom ? workshop.customExtra : 0;
+export function getWorkshopSelectionPrice(
+  workshop: Workshop,
+  selection: Pick<Selection, "duration" | "format" | "custom" | "recordingIncluded">,
+  commercialConfig: CommercialConfig = defaultCommercialConfig,
+) {
+  const base = commercialConfig.workshopBasePrice;
+  const liveExtra = selection.format === "live" ? commercialConfig.inPersonExtra : 0;
+  const customExtra = selection.custom ? commercialConfig.customExtra : 0;
+  const recordingDiscount = selection.recordingIncluded === false ? commercialConfig.recordingOptOutDiscount : 0;
   return {
     base,
     liveExtra,
     customExtra,
-    total: base + liveExtra + customExtra,
+    recordingDiscount,
+    total: Math.max(0, base + liveExtra + customExtra - recordingDiscount),
   };
+}
+
+export function getBundlePrice(bundle: CatalogBundle, commercialConfig: CommercialConfig = defaultCommercialConfig) {
+  return commercialConfig.bundlePrices[bundle.size] ?? BUNDLE_PRICES[bundle.size];
 }

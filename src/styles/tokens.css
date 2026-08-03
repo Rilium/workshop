@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --brand: #1cafb9;
   --brand-hover: #15969e;
   --brand-light: #e8f8f9;
@@ -16,6 +17,7 @@
   --neutral-800: #444748;
   --neutral-600: #747878;
   --neutral-400: #919191;
+  --eyebrow-color: var(--neutral-400);
   --neutral-300: #c4c7c7;
   --neutral-200: #e0e3e3;
   --neutral-100: #f4f4f4;
@@ -25,6 +27,7 @@
   --font-display: 'Caveat', cursive;
   --font-brand: 'Playwrite IT Trad', cursive;
   --fw-regular: 400;
+  --fw-semibold: 600;
   --fw-bold: 700;
   --fw-xbold: 800;
   --text-xs: 11px;
@@ -180,6 +183,7 @@
 /* ─── Dark mode token overrides ──────────────────────────────────────────── */
 
 html[data-theme="dark"] {
+  color-scheme: dark;
   --white: #1e2828;
   --neutral-50: #141c1c;
   --neutral-100: #1e2828;
@@ -189,6 +193,7 @@ html[data-theme="dark"] {
   --neutral-600: #8a9a9a;
   --neutral-800: #c4d0d0;
   --neutral-900: #e4eeee;
+  --eyebrow-color: var(--neutral-600);
 
   --brand-light: #0d2e30;
   --brand-mid: #1a4448;

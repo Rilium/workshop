@@ -223,7 +223,14 @@ export function DatePickerModal({
             {currentAlreadyScheduled ? <Check size={20} /> : <Clock3 size={20} />}
             <div>
               <strong>{currentAlreadyScheduled ? "Proposta salvata, puoi modificarla" : new Intl.DateTimeFormat("it-IT", { weekday: "short", day: "2-digit", month: "short" }).format(new Date(`${formattedDay}T12:00:00`))}</strong>
-              <span>{time} → {String(Number(time.slice(0, 2)) + (selection.duration === "2h" ? 2 : 1)).padStart(2, "0")}:00</span>
+              <span>
+                {time} → {(() => {
+                  const [hours, minutes] = time.split(":").map(Number);
+                  const durationMinutes = selection.duration === "2h" ? 120 : selection.duration === "1.5h" ? 90 : 60;
+                  const endMinutes = hours * 60 + minutes + durationMinutes;
+                  return `${String(Math.floor(endMinutes / 60) % 24).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
+                })()}
+              </span>
             </div>
             <em>{selection.duration}</em>
           </div>

@@ -65,24 +65,19 @@ async function run() {
     assert(selectedInterestRemoveButtons === 0, `Client view should start empty, found ${selectedInterestRemoveButtons} selected interest buttons`);
 
     await page.getByRole("button", { name: /Esplora catalogo/i }).click();
-    await page.getByRole("heading", { name: "Scegli interessi e temi", exact: true }).waitFor({ timeout: 5000 });
-    await page.locator("button:visible").filter({ hasText: "Ambito personale" }).first().click();
-    await page.getByRole("button", { name: /Vedi consigli/i }).click();
-    await page.getByRole("heading", { name: "Workshop consigliati", exact: true }).waitFor({ timeout: 5000 });
-    await page.getByRole("button", { name: /Aggiungi consigliati/i }).click();
     await page.getByRole("heading", { name: "Scegli workshop", exact: true }).waitFor({ timeout: 5000 });
-    await page.getByRole("button", { name: /Personalizza percorso/i }).click();
+    await page.getByRole("button", { name: "Aggiungi Le assicurazioni essenziali: quali servono davvero al percorso", exact: true }).click();
     await page.getByRole("button", { name: /Scegli le date/i }).click();
-    await page.getByRole("heading", { name: "Proponi date", exact: true }).waitFor({ timeout: 5000 });
+    await page.getByRole("heading", { name: "Quando vuoi definire le date?", exact: true }).waitFor({ timeout: 5000 });
+    await page.getByRole("button", { name: /Le conosco già/ }).click();
 
     await page.getByRole("button", { name: /^Scegli$/ }).first().click();
     await page.getByRole("dialog").waitFor({ timeout: 5000 });
-    await page.getByRole("button", { name: /^Adesso$/ }).click();
     await page.waitForTimeout(500);
 
     const activeDay = await page.locator(".day-grid button.active").innerText();
     const expectedDay = String(new Date().getDate());
-    assert(activeDay === expectedDay, `Adesso should select today (${expectedDay}), got ${activeDay}`);
+    assert(activeDay === expectedDay, `Calendar should select today (${expectedDay}), got ${activeDay}`);
 
     await page.getByRole("button", { name: /Conferma proposta/i }).click();
     await page.waitForTimeout(300);
@@ -90,14 +85,14 @@ async function run() {
     assert(pageText.includes(todayKey()), `Confirmed date should include ${todayKey()}`);
     assert(!errors.some((error) => /same key|duplicate/i.test(error)), `Duplicate-key console error found: ${errors.join(" | ")}`);
 
-    console.log("PASS manual regressions: empty client start, Adesso selects today, no duplicate toast keys");
+    console.log("PASS manual regressions: empty client start, calendar selects today, no duplicate toast keys");
   } finally {
     if (browser) await browser.close();
     server.kill("SIGTERM");
   }
 }
 
-run().catch((error) => {
+await run().catch((error) => {
   console.error(error);
   process.exit(1);
 });

@@ -1,44 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  AlertCircle,
-  BadgeCheck,
-  Banknote,
-  BookOpen,
-  BriefcaseBusiness,
-  CalendarCheck,
-  Check,
-  ChevronLeft,
-  CircleDollarSign,
-  Clock3,
-  ExternalLink,
-  FileCheck2,
-  FolderKanban,
-  InfoIcon,
-  Menu,
-  Megaphone,
-  Palette,
-  Presentation,
-  Plus,
-  RefreshCw,
-  Search,
-  Send,
-  Settings2,
-  SlidersHorizontal,
-  Sparkles,
-  Trash2,
-  UploadCloud,
-  UsersRound,
-  Video,
-  X,
-} from "../../../components/ui/FaIcons";
-import { topics } from "../../../data/catalog";
-import type { ExpertProfile, Theme } from "../../../types/domain";
+import { Trash2 } from "../../../components/ui/FaIcons";
+import type { ExpertProfile } from "../../../types/domain";
 import { AppButton } from "../../../components/ui/AppButton";
 import { ActionIconButton } from "../../../components/ui/IconButton";
 
 export function ExpertProfileModal({
   expert,
-  catalogThemeRows,
+  topics,
   onClose,
   onDelete,
   onChange,
@@ -47,7 +14,7 @@ export function ExpertProfileModal({
   deleting = false,
 }: {
   expert: ExpertProfile;
-  catalogThemeRows: Array<Theme & { topicId: string; topicTitle: string }>;
+  topics: Array<{ id: string; title: string }>;
   onClose: () => void;
   onDelete: () => void;
   onChange: (patch: Partial<ExpertProfile>) => void;
@@ -115,8 +82,9 @@ export function ExpertProfileModal({
               <textarea value={expert.bio} onChange={(event) => onChange({ bio: event.target.value })} />
             </label>
             <div className="expert-association-block">
-              <strong>Interessi associati</strong>
-              <div className="catalog-theme-chips">
+              <strong>Topic associati</strong>
+              <p>Definiscono quali workshop possono essere assegnati automaticamente a questo esperto.</p>
+              <div className="catalog-topic-pills">
                 {topics.map((topic) => {
                   const active = expert.topicIds.includes(topic.id);
                   return (
@@ -124,39 +92,14 @@ export function ExpertProfileModal({
                       key={topic.id}
                       type="button"
                       className={active ? "active" : ""}
-                      onClick={() => {
-                        const topicThemeIds = topic.themes.map((theme) => theme.id);
-                        onChange({
-                          topicIds: active ? expert.topicIds.filter((id) => id !== topic.id) : [...expert.topicIds, topic.id],
-                          themeIds: active
-                            ? expert.themeIds.filter((id) => !topicThemeIds.includes(id))
-                            : [...new Set([...expert.themeIds, ...topicThemeIds])],
-                        });
-                      }}
-                    >
-                      {topic.title}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="expert-association-block">
-              <strong>Temi associati</strong>
-              <div className="catalog-theme-chips">
-                {catalogThemeRows.map((theme) => {
-                  const active = expert.themeIds.includes(theme.id);
-                  return (
-                    <button
-                      key={`${theme.topicId}-${theme.id}`}
-                      type="button"
-                      className={active ? "active" : ""}
                       onClick={() =>
                         onChange({
-                          themeIds: active ? expert.themeIds.filter((id) => id !== theme.id) : [...expert.themeIds, theme.id],
+                          topicIds: active ? expert.topicIds.filter((id) => id !== topic.id) : [...expert.topicIds, topic.id],
+                          themeIds: [],
                         })
                       }
                     >
-                      {theme.title}
+                      {topic.title}
                     </button>
                   );
                 })}

@@ -50,12 +50,12 @@
   }
 
   .workshop-command-controls {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .workshop-command-actions {
-    justify-content: flex-start;
-    flex-wrap: wrap;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
   }
 }
 
@@ -270,6 +270,49 @@
 }
 
 @media (max-width: 820px) {
+  .topbar.topbar--public {
+    min-height: 76px;
+    padding: 10px 14px;
+  }
+
+  .topbar--public .logo-bubble {
+    width: 50px;
+    height: 50px;
+    border-radius: 15px;
+  }
+
+  .topbar--public .public-product-title {
+    font-size: clamp(1.35rem, 6vw, 1.9rem);
+  }
+
+  .catalog-mode-pills {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .catalog-mode-pills button {
+    min-width: 0;
+    justify-content: center;
+    padding-inline: 10px;
+  }
+
+  .bundle-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-result-heading {
+    align-items: start;
+  }
+
+  .bundle-card {
+    padding: var(--sp-3);
+  }
+
+  .bundle-price-row {
+    align-items: start;
+    flex-direction: column;
+  }
   :root {
     --bottom-sheet-bottom: 10px;
     --bottom-sheet-height: 128px;
@@ -430,8 +473,46 @@
     grid-template-columns: 1fr;
   }
 
+  .admin-email-account-card,
+  .admin-email-change-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-email-change-summary > div[aria-hidden="true"] {
+    transform: rotate(90deg);
+    justify-self: start;
+  }
+
   .google-health-status {
     justify-items: start;
+  }
+
+  .integration-settings-head,
+  .integration-settings-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .integration-settings-actions .app-btn,
+  .integration-settings-head .app-btn {
+    width: 100%;
+  }
+
+  .integration-email-test {
+    grid-template-columns: 1fr;
+  }
+
+  .integration-consent-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .integration-consent-card .app-btn {
+    width: 100%;
+  }
+
+  .integration-email-test .app-btn {
+    width: 100%;
   }
 
   .auth-invite-actions {
@@ -561,8 +642,8 @@
   }
 
   .workshop-command-actions {
-    justify-content: flex-start;
-    flex-wrap: wrap;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
   }
 
   .brand-mark {
@@ -605,8 +686,8 @@
   }
 
   .topic-grid {
-    grid-template-columns: 1fr;
-    gap: 18px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
     padding-block: 4px;
   }
 
@@ -657,6 +738,10 @@
 }
 
 @media (max-width: 560px) {
+  .topic-grid {
+    grid-template-columns: 1fr;
+  }
+
   .filter-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -725,7 +810,251 @@
   }
 }
 
+@media (max-width: 820px) {
+  .date-planning-choice-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workshop-command-bar.is-fixed {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sp-2);
+  }
+
+  .workshop-command-bar.is-fixed .catalog-mode-pills {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+  }
+
+  .workshop-filter-shell.open {
+    top: 0;
+    right: 0;
+    left: 0;
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    padding: 8px 14px calc(118px + env(safe-area-inset-bottom));
+  }
+
+  .workshop-command-controls {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--sp-2);
+  }
+
+  .workshop-command-actions {
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+  }
+
+  .workshop-command-actions button {
+    width: 46px;
+    min-width: 46px;
+    height: 46px;
+    min-height: 46px;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .workshop-command-actions button strong,
+  .workshop-command-actions button em {
+    display: none;
+  }
+
+  .search-field input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .filter-panel,
+  .filter-panel-head,
+  .filter-panel-head > div {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .filter-panel-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .filter-panel-head > div:last-child {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+  }
+
+  .filter-panel-head > div:last-child button {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .workshop-card {
+    height: auto;
+    scroll-margin-top: 190px;
+  }
+
+  .workshop-card .config-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workshop-card .config-row > select,
+  .workshop-card .config-row > .selection-detail-row,
+  .workshop-card .config-row > .custom-preview-toggle,
+  .workshop-card .config-row > .recording-toggle {
+    grid-column: 1 / -1;
+  }
+
+  .custom-check-button {
+    grid-template-columns: 26px minmax(0, 1fr);
+  }
+
+  .custom-check-button em {
+    grid-column: 2;
+  }
+
+  .custom-check-button strong,
+  .custom-check-button em {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .custom-preview-toggle p,
+  .custom-preview-toggle small {
+    margin-left: 0;
+  }
+
+  .workshop-card .card-remove-action {
+    opacity: 1;
+  }
+
+  .readiness-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .readiness-panel > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--neutral-200);
+  }
+
+  .readiness-panel > div:last-child {
+    border-bottom: 0;
+  }
+
+  .submission-preview-card {
+    align-items: center;
+    flex-direction: row;
+  }
+}
+
 @media (max-width: 640px) {
+  .workshop-command-summary {
+    flex-wrap: nowrap;
+    gap: 4px;
+    overflow-x: auto;
+    font-size: 10px;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    scrollbar-width: none;
+  }
+
+  .workshop-command-summary::-webkit-scrollbar {
+    display: none;
+  }
+
+  .workshop-command-view-label {
+    display: none;
+  }
+
+  .workshop-command-view-label-mobile {
+    display: inline;
+  }
+
+  .workshop-command-summary-selected {
+    min-height: 22px;
+    padding: 3px 7px;
+    font-size: 10px;
+  }
+
+  .topbar.topbar--public {
+    gap: 8px;
+    padding: 9px 12px;
+  }
+
+  .topbar--public .brand-mark {
+    gap: 10px;
+  }
+
+  .topbar--public .system-actions .system-action-login {
+    min-height: 42px;
+    padding-inline: 12px;
+  }
+
+  .workshop-card {
+    height: auto;
+    padding: var(--sp-3);
+    gap: var(--sp-3);
+    scroll-margin-top: 190px;
+  }
+
+  .workshop-card .config-row {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 10px;
+  }
+
+  .workshop-card .config-row > select,
+  .workshop-card .config-row > .selection-detail-row,
+  .workshop-card .config-row > .custom-preview-toggle,
+  .workshop-card .config-row > .recording-toggle {
+    grid-column: 1 / -1;
+  }
+
+  .custom-check-button {
+    grid-template-columns: 26px minmax(0, 1fr);
+  }
+
+  .custom-check-button em {
+    grid-column: 2;
+  }
+
+  .custom-check-button strong,
+  .custom-check-button em {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .custom-preview-toggle p,
+  .custom-preview-toggle small {
+    margin-left: 0;
+  }
+
+  .workshop-card .card-footer {
+    align-items: center;
+    gap: var(--sp-2);
+  }
+
+  .workshop-card .card-footer-actions {
+    min-width: 0;
+  }
+
+  .workshop-card .card-footer-actions .app-btn {
+    min-width: 0;
+    padding-inline: 16px;
+  }
+
+  .workshop-card .card-remove-action {
+    opacity: 1;
+  }
+
+  .filter-panel-head > div:last-child {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .topbar {
     align-items: center;
     gap: var(--sp-2);
@@ -1012,8 +1341,10 @@
   }
 
   .feedback-toast {
-    max-height: 112px;
-    overflow: auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
   }
 
   .feedback-toast-overflow {
@@ -1180,6 +1511,10 @@
 }
 
 @media (max-width: 420px) {
+  .meta-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .admin-section-nav button {
     min-width: 204px;
     padding: 8px 9px;

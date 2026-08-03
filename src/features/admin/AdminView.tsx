@@ -36,18 +36,23 @@ import {
 import { sendWorkflowNotification, type WorkflowNotificationPayload, type WorkflowNotificationRecipientRole } from "../../emailService";
 import { createExpertCalendarEvent, createWorkshopCalendarEvent, getWorkshopAvailability } from "../../googleCalendarService";
 import type { AssetDraftFolder, UploadedAsset } from "../../driveAssetService";
-import { clearBackendCaches, createSheetBackup, deleteExpert, getGoogleHealth, listCatalogConfig, listCatalogWorkshops, listExperts, listPricingRules, listWorkspaceSettings, runDailyMaintenance, runHealthMonitor, runRetentionCleanup, updateCatalogTopic, updateExpert, updatePricingRule, updateWorkspaceSetting, type CatalogWorkshopConfig, type GoogleHealth, type WorkspaceSetting } from "../../googleAdminService";
+import { clearBackendCaches, createSheetBackup, deleteExpert, getGoogleHealth, listCatalogConfig, listCatalogWorkshops, listExperts, listPricingRules, listWorkspaceSettings, runDailyMaintenance, runHealthMonitor, runRetentionCleanup, seedAdminConfig, updateCatalogTopic, updateCatalogWorkshop, updateExpert, updatePricingRule, updateWorkspaceSetting, updateWorkspaceSettings, type CatalogWorkshopConfig, type GoogleHealth, type WorkspaceSetting } from "../../googleAdminService";
 import { getDriveFolderPreview, type DriveFolderResponse } from "../../googleDriveService";
 import { deleteWorkshopRequest, listWorkshopRequests, updateWorkshopRequest, type RequestWorkshopRecord, type WorkshopRequestRecord } from "../../requestService";
-import { listAuthUsers, listAccessRequests, requestLoginCode, reviewAccessRequest } from "../../authService";
+import { changeAdminEmail, listAuthUsers, listAccessRequests, requestLoginCode, reviewAccessRequest } from "../../authService";
 import type { AuthRole, AuthUser, AccessRequest } from "../../types/auth";
 import { SECRET_SETTINGS } from "../../secretSettings";
 import { adminSettingDefinitions, adminSettingGroups, appEnv, projectStatuses, statusLabel } from "../../data/workflow";
-import { canvaCatalogSource, initialExpertProfiles, topics, workshops } from "../../data/catalog";
-import type { AdminProject, AdminProjectWorkshopRow, AdminWorkspacePanel, AppNotificationRole, CalendarEventRecord, DateApproval, DateDecision, DriveSlideLink, ExpertProfile, Format, NotifyOptions, PricingRule, ProjectStatus, Quote, Selection, Theme, Workshop } from "../../types/domain";
+import { canvaCatalogSource, initialExpertProfiles } from "../../data/adminSeed";
+import type { AdminProject, AdminProjectWorkshopRow, AdminWorkspacePanel, AppNotificationRole, CalendarEventRecord, CatalogBundle, CommercialConfig, DateApproval, DateDecision, DriveSlideLink, ExpertProfile, Format, NotifyOptions, PricingRule, ProjectStatus, Quote, Selection, Workshop } from "../../types/domain";
+import { CommercialPricingManager } from "./components/CommercialPricingManager";
 import type { AdminActionModalState, NotificationChoice } from "../../types/ui";
 import { money } from "../../utils/money";
 import { buildLocalAdminProject, requestToAdminProject, topicColorClass } from "../../utils/workshop";
+import { buildClientCatalogSeed } from "../../utils/clientCatalogImport";
+import { clientCatalogImport, fallbackCatalogBundles } from "../../data/clientCatalog";
+import { BundleManager } from "./components/BundleManager";
+import { CatalogWorkshopModal } from "./components/CatalogWorkshopModal";
 import { getFriendlyErrorMessage } from "../../utils/status";
 import { AppButton } from "../../components/ui/AppButton";
 import { ActionIconButton, ToolIconButton } from "../../components/ui/IconButton";
@@ -56,6 +61,7 @@ import { Info } from "../../components/ui/Info";
 import { Panel } from "../../components/ui/Panel";
 import { SectionTitle } from "../../components/ui/SectionTitle";
 import { ModalBackdrop } from "../../components/ui/Modal";
+import { Stepper } from "../../components/ui/Stepper";
 import { Skeleton, SkeletonCard } from "../../components/ui/Skeleton";
 import { BottomActionBar } from "../../components/layout/BottomActionBar";
 import { OperationalStrip } from "../../components/layout/OperationalStrip";
@@ -69,6 +75,7 @@ import { AdminSectionNav, type AdminSectionNavItem } from "./components/AdminSec
 import { CatalogEditModal } from "./components/CatalogEditModal";
 import { ExpertProfileModal } from "./components/ExpertProfileModal";
 import { EmailTemplatesSection } from "./components/EmailTemplatesSection";
+import { IntegrationSettingsWizard } from "./components/IntegrationSettingsWizard";
 import { readCachedGoogleHealth, writeCachedGoogleHealth } from "./adminHealthCache";
 import { getWorkshopSelectionPrice } from "../../utils/workshop";
 import { updateAuthUser } from "../../authService";
@@ -96,6 +103,7 @@ const queueSortOptions: Array<{ id: AdminQueueSort; label: string }> = [
   { id: "date_lontane", label: "Date più lontane" },
 ];
 const USER_MANUAL_URL = "/FunniFin_Manuale_Utente.docx";
+const AUTH_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const todoLabelPriority: AdminTodoLabel[] = ["date da rivedere", "date", "verifica", "esperti", "materiali", "deck", "brand", "evento"];
 const todoLabelCopy: Record<AdminTodoLabel, string> = {
   verifica: "verifica",
@@ -144,9 +152,32 @@ function formatQueueDate(date: Date | null, now = new Date()) {
   return { label, distance, dayOffset };
 }
 
+function commercialConfigFromSettings(settings: WorkspaceSetting[], fallback: CommercialConfig): CommercialConfig {
+  const values = new Map(settings.map((setting) => [setting.key, setting.value]));
+  let bundlePrices = fallback.bundlePrices;
+  try {
+    const parsed = JSON.parse(values.get("pricing.bundlePricesJson") || "{}") as Partial<CommercialConfig["bundlePrices"]>;
+    bundlePrices = { ...fallback.bundlePrices, ...parsed };
+  } catch {
+    bundlePrices = fallback.bundlePrices;
+  }
+  return {
+    ...fallback,
+    workshopBasePrice: Number(values.get("pricing.workshopBasePrice") || fallback.workshopBasePrice),
+    inPersonExtra: Number(values.get("pricing.inPersonExtra") || fallback.inPersonExtra),
+    customExtra: Number(values.get("pricing.customExtra") || fallback.customExtra),
+    recordingOptOutDiscount: Number(values.get("pricing.recordingOptOutDiscount") || fallback.recordingOptOutDiscount),
+    recordingDefault: String(values.get("pricing.recordingDefault") ?? fallback.recordingDefault).toLowerCase() !== "false",
+    bundlePrices,
+  };
+}
+
 export function AdminView({
+  workshops,
   projectStatus,
   quote,
+  commercialConfig,
+  setCommercialConfig,
   rules,
   selections,
   setRules,
@@ -167,8 +198,11 @@ export function AdminView({
   notificationFocusProjectId,
   notificationFocusToken,
 }: {
+  workshops: Workshop[];
   projectStatus: ProjectStatus;
   quote: Quote;
+  commercialConfig: CommercialConfig;
+  setCommercialConfig: (config: CommercialConfig) => void;
   rules: PricingRule[];
   selections: Selection[];
   setRules: (rules: PricingRule[]) => void;
@@ -215,13 +249,17 @@ export function AdminView({
     source: "",
   });
   const [adminWorkspacePanel, setAdminWorkspacePanel] = useState<AdminWorkspacePanel>("workshops");
-  const [editingTopicId, setEditingTopicId] = useState(topics[0].id);
+  const [editingTopicId, setEditingTopicId] = useState(clientCatalogImport.topics[0]?.id ?? "");
   const [catalogModalTopicId, setCatalogModalTopicId] = useState<string | null>(null);
   const [catalogSaving, setCatalogSaving] = useState(false);
   const [pricingSavedAt, setPricingSavedAt] = useState("");
   const [expertsSyncedAt, setExpertsSyncedAt] = useState("");
   const [catalogRefreshedAt, setCatalogRefreshedAt] = useState("");
   const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogImporting, setCatalogImporting] = useState(false);
+  const [bundlesSaving, setBundlesSaving] = useState(false);
+  const [catalogWorkshopDraft, setCatalogWorkshopDraft] = useState<CatalogWorkshopConfig | null>(null);
+  const [catalogWorkshopSaving, setCatalogWorkshopSaving] = useState(false);
   const [pricingLoading, setPricingLoading] = useState(false);
   const [expertsLoading, setExpertsLoading] = useState(false);
   const [sheetCatalogWorkshops, setSheetCatalogWorkshops] = useState<CatalogWorkshopConfig[]>([]);
@@ -256,7 +294,12 @@ export function AdminView({
   const [driveFolderPreview, setDriveFolderPreview] = useState<DriveFolderResponse | null>(null);
   const [driveFolderStatus, setDriveFolderStatus] = useState<{ loading: boolean; error: string }>({ loading: false, error: "" });
   const [catalogEdits, setCatalogEdits] = useState<Record<string, { title: string; description: string; badge: string; active: boolean }>>(() =>
-    Object.fromEntries(topics.map((topic) => [topic.id, { title: topic.title, description: topic.description, badge: topic.badge, active: true }])),
+    Object.fromEntries(clientCatalogImport.topics.map((topic) => [topic.id, {
+      title: topic.title,
+      description: topic.description,
+      badge: topic.badge,
+      active: topic.active,
+    }])),
   );
   const [dateApprovals, setDateApprovals] = useState<Record<string, DateApproval>>({});
   const [workshopExperts, setWorkshopExperts] = useState<Record<string, string>>({});
@@ -274,6 +317,13 @@ export function AdminView({
   const [inviteDisabled, setInviteDisabled] = useState(false);
   const [inviteSendMail, setInviteSendMail] = useState(true);
   const [inviteBusy, setInviteBusy] = useState(false);
+  const [adminEmailUser, setAdminEmailUser] = useState<AuthUser | null>(null);
+  const [adminEmailStep, setAdminEmailStep] = useState<"Account" | "Nuova email" | "Conferma">("Account");
+  const [adminEmailDraft, setAdminEmailDraft] = useState("");
+  const [adminEmailRepeat, setAdminEmailRepeat] = useState("");
+  const [adminEmailConfirmed, setAdminEmailConfirmed] = useState(false);
+  const [adminEmailSendCode, setAdminEmailSendCode] = useState(true);
+  const [adminEmailBusy, setAdminEmailBusy] = useState(false);
   useEffect(() => {
     let alive = true;
 
@@ -396,6 +446,69 @@ export function AdminView({
       notify("Aggiornamento accesso non riuscito", error instanceof Error ? error.message : "Controlla il backend auth.");
     } finally {
       setInviteBusy(false);
+    }
+  };
+
+  const resetAdminEmailWizard = () => {
+    if (adminEmailBusy) return;
+    setAdminEmailUser(null);
+    setAdminEmailStep("Account");
+    setAdminEmailDraft("");
+    setAdminEmailRepeat("");
+    setAdminEmailConfirmed(false);
+    setAdminEmailSendCode(true);
+  };
+
+  const openAdminEmailWizard = (user: AuthUser) => {
+    setAdminEmailUser(user);
+    setAdminEmailStep("Account");
+    setAdminEmailDraft("");
+    setAdminEmailRepeat("");
+    setAdminEmailConfirmed(false);
+    setAdminEmailSendCode(true);
+  };
+
+  const adminEmailNormalized = adminEmailDraft.trim().toLowerCase();
+  const adminEmailIsValid = AUTH_EMAIL_PATTERN.test(adminEmailNormalized);
+  const adminEmailMatches = adminEmailNormalized === adminEmailRepeat.trim().toLowerCase();
+  const adminEmailIsNew = adminEmailNormalized !== adminEmailUser?.email.trim().toLowerCase();
+  const currentAdminAccount = authUsers.find((user) => user.id === currentUserId && user.actualRole === "FunniFin")
+    ?? authUsers.find((user) => user.actualRole === "FunniFin" && !user.disabled)
+    ?? null;
+
+  const handleChangeAdminEmail = async () => {
+    if (!adminEmailUser || !adminEmailConfirmed || !adminEmailIsValid || !adminEmailMatches || !adminEmailIsNew) return;
+    setAdminEmailBusy(true);
+    try {
+      await changeAdminEmail(adminEmailUser.id, adminEmailUser.email, adminEmailNormalized);
+      let codeSent = false;
+      if (adminEmailSendCode) {
+        try {
+          await requestLoginCode(adminEmailNormalized, {
+            sendMail: true,
+            requestedRole: "FunniFin",
+            displayName: adminEmailUser.displayName,
+            invitedBy: currentUserEmail || "FunniFin",
+          });
+          codeSent = true;
+        } catch (error) {
+          notify("Email amministratore aggiornata", `Nuovo indirizzo: ${adminEmailNormalized}. Il codice non e stato inviato: ${error instanceof Error ? error.message : "invio non riuscito"}`);
+        }
+      }
+      if (!adminEmailSendCode || codeSent) {
+        notify(
+          "Email amministratore aggiornata",
+          codeSent
+            ? `${adminEmailNormalized} e attiva. Ho inviato anche un nuovo codice di accesso.`
+            : `${adminEmailNormalized} e ora l'indirizzo di accesso.`,
+        );
+      }
+      setAdminEmailBusy(false);
+      resetAdminEmailWizard();
+      await refreshAuthData();
+    } catch (error) {
+      notify("Cambio email non riuscito", error instanceof Error ? error.message : "Controlla il backend auth.");
+      setAdminEmailBusy(false);
     }
   };
 
@@ -615,7 +728,7 @@ export function AdminView({
           photo: expert.photo,
           bio: expert.bio,
           topicIds: expert.topicIds,
-          themeIds: expert.themeIds,
+          themeIds: [],
           availability: expert.availability,
           calendarId: expert.calendarId,
         })));
@@ -635,6 +748,7 @@ export function AdminView({
       .then((settings) => {
         if (!alive) return;
         setWorkspaceSettings(settings);
+        setCommercialConfig(commercialConfigFromSettings(settings, commercialConfig));
       })
       .catch((error) => {
         if (!alive) return;
@@ -984,7 +1098,7 @@ export function AdminView({
   };
   const saveExpertProfile = (expert: ExpertProfile) => {
     setExpertProfileSaving(true);
-    void updateExpert({ ...expert, active: true })
+    void updateExpert({ ...expert, themeIds: [], active: true })
       .then((savedExpert) => {
         setExpertDirectory((current) => current.map((item) => (item.id === savedExpert.id ? {
           id: savedExpert.id,
@@ -994,7 +1108,7 @@ export function AdminView({
           photo: savedExpert.photo,
           bio: savedExpert.bio,
           topicIds: savedExpert.topicIds.length ? savedExpert.topicIds : expert.topicIds,
-          themeIds: savedExpert.themeIds.length ? savedExpert.themeIds : expert.themeIds,
+          themeIds: [],
           availability: savedExpert.availability,
           calendarId: savedExpert.calendarId,
         } : item)));
@@ -1010,8 +1124,7 @@ export function AdminView({
   };
   const createExpertProfile = () => {
     const id = `esperto-${Date.now()}`;
-    const topicId = topics[0]?.id ?? "";
-    const themeIds = topics[0]?.themes.map((theme) => theme.id) ?? [];
+    const topicId = clientCatalogImport.topics[0]?.id ?? "";
     const next: ExpertProfile = {
       id,
       firstName: "Nuovo",
@@ -1020,7 +1133,7 @@ export function AdminView({
       photo: "",
       bio: "Descrizione breve del profilo e delle competenze.",
       topicIds: topicId ? [topicId] : [],
-      themeIds,
+      themeIds: [],
       availability: "da configurare",
       calendarId: "",
     };
@@ -1575,12 +1688,34 @@ export function AdminView({
     { id: "folder", title: "Materiali", body: "Logo, deck e review" },
     { id: "confirm", title: "Conferma", body: "Evento finale" },
   ] as const;
-  const catalogThemeRows = topics.flatMap((topic) => topic.themes.map((theme) => ({ ...theme, topicId: topic.id, topicTitle: topic.title })));
   const catalogWorkshopsForAdmin = sheetCatalogWorkshops.length > 0 ? sheetCatalogWorkshops : workshops;
+  const catalogTopicRows = useMemo(
+    () =>
+      clientCatalogImport.topics.map((sourceTopic) => {
+        const edit = catalogEdits[sourceTopic.id];
+        return {
+          id: sourceTopic.id,
+          title: edit?.title ?? sourceTopic.title,
+          description: edit?.description ?? sourceTopic.description,
+          badge: edit?.badge ?? sourceTopic.badge,
+          active: edit?.active ?? sourceTopic.active,
+        };
+      }),
+    [catalogEdits],
+  );
+  const topicIdsForWorkshop = (workshop: Pick<CatalogWorkshopConfig, "topicId" | "topicIds"> | Workshop) =>
+    workshop.topicIds?.length ? workshop.topicIds : [workshop.topicId].filter(Boolean);
+  const catalogBundles = useMemo<CatalogBundle[]>(() => {
+    const raw = workspaceSettings.find((setting) => setting.key === "catalog.bundlesJson")?.value;
+    if (!raw) return fallbackCatalogBundles;
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : fallbackCatalogBundles;
+    } catch {
+      return fallbackCatalogBundles;
+    }
+  }, [workspaceSettings]);
   const catalogSourceLabel = sheetCatalogWorkshops.length > 0 ? "Google Sheet" : "Sheet vuoto";
-  const sheetPreviewUrl = googleHealth?.spreadsheet.id
-    ? `https://docs.google.com/spreadsheets/d/${encodeURIComponent(googleHealth.spreadsheet.id)}/preview`
-    : "";
   const googleHealthMode = googleHealthLoading
     ? "refresh"
     : googleHealthError
@@ -1646,20 +1781,14 @@ export function AdminView({
       ok: Boolean(googleHealth),
     },
   ];
-  const orphanWorkshops = catalogWorkshopsForAdmin.filter((workshop) => {
-    const topic = topics.find((item) => item.id === workshop.topicId);
-    return !topic || !topic.themes.some((theme) => theme.id === workshop.themeId);
-  });
-  const catalogAudit = topics.map((topic) => {
-    const topicWorkshops = catalogWorkshopsForAdmin.filter((workshop) => workshop.topicId === topic.id);
-    const themeIds = new Set(topic.themes.map((theme) => theme.id));
-    return {
-      topic,
-      workshops: topicWorkshops,
-      mappedThemes: topic.themes.filter((theme) => topicWorkshops.some((workshop) => workshop.themeId === theme.id)),
-      orphanThemeCount: topicWorkshops.filter((workshop) => !themeIds.has(workshop.themeId)).length,
-    };
-  });
+  const catalogTopicIdSet = new Set(catalogTopicRows.map((topic) => topic.id));
+  const orphanWorkshops = catalogWorkshopsForAdmin.filter(
+    (workshop) => !topicIdsForWorkshop(workshop).some((topicId) => catalogTopicIdSet.has(topicId)),
+  );
+  const catalogAudit = catalogTopicRows.map((topic) => ({
+    topic,
+    workshops: catalogWorkshopsForAdmin.filter((workshop) => topicIdsForWorkshop(workshop).includes(topic.id)),
+  }));
   const driveLinkedCount = workshops.filter((workshop) => driveSlideLinks[workshop.id]).length;
   const activeAdminFlowIndex = adminFlowSteps.findIndex((step) => step.id === adminWorkspacePanel);
   const goAdminFlow = (delta: number) => {
@@ -1685,15 +1814,15 @@ export function AdminView({
     {
       id: "Catalogo",
       title: "Catalogo vendibile",
-      meta: `${catalogWorkshopsForAdmin.length} workshop`,
-      body: "Ambiti, categorie e tag da Sheet; presentazioni operative da Drive.",
+      meta: `${catalogTopicRows.length} topic · ${catalogWorkshopsForAdmin.length} workshop`,
+      body: "Gli 11 topic e i workshop arrivano dallo Sheet; le presentazioni operative da Drive.",
       icon: <BookOpen size={18} />,
     },
     {
       id: "Prezzi",
-      title: "Regole prezzo",
-      meta: `${rules.length} regole`,
-      body: "Bundle, sconti quantita, promo e preventivo dinamico.",
+      title: "Listino prezzi",
+      meta: "7 valori",
+      body: "Workshop, pacchetti 3/6/10, presenza, personalizzazione e registrazione.",
       icon: <CircleDollarSign size={18} />,
     },
     {
@@ -1929,7 +2058,7 @@ export function AdminView({
     if (adminTab === "Prezzi") {
       return {
         eyebrow: "Prezzi - Regole",
-        title: `${rules.length} regole prezzo`,
+        title: "Listino prezzi centralizzato",
         detail: pricingSavedAt ? `Ultimo salvataggio ${pricingSavedAt}` : `${currentRule.name} · ${currentRuleMode}`,
         meta: currentRuleRange,
       };
@@ -1991,6 +2120,44 @@ export function AdminView({
         notify("Coda non aggiornata", message);
       });
   };
+  const importClientCatalog = async () => {
+    setCatalogImporting(true);
+    try {
+      const [remoteTopics, remoteWorkshops] = await Promise.all([listCatalogConfig(), listCatalogWorkshops()]);
+      const seed = buildClientCatalogSeed(remoteTopics, remoteWorkshops);
+      const importedWorkshopIds = new Set(seed.catalogWorkshops.map((workshop) => workshop.id));
+      const archivedWorkshopCount = remoteWorkshops.filter((workshop) => !importedWorkshopIds.has(workshop.id)).length;
+      await seedAdminConfig({
+        replaceCatalog: true,
+        catalogTopics: seed.catalogTopics,
+        catalogWorkshops: seed.catalogWorkshops,
+        settings: seed.settings,
+      });
+      setSheetCatalogWorkshops(seed.catalogWorkshops);
+      setCatalogEdits(
+        Object.fromEntries(
+          seed.catalogTopics.map((topic) => [
+            topic.id,
+            {
+              title: topic.title,
+              description: topic.description,
+              badge: topic.badge,
+              active: topic.active,
+            },
+          ]),
+        ),
+      );
+      setCatalogRefreshedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+      notify(
+        "Catalogo cliente sostituito",
+        `${seed.catalogTopics.length} topic, ${seed.catalogWorkshops.length} workshop e ${seed.bundles.length} pacchetti attivi. ${archivedWorkshopCount} vecchi workshop archiviati.`,
+      );
+    } catch (error) {
+      notify("Importazione non riuscita", error instanceof Error ? error.message : "Google Sheets non disponibile.");
+    } finally {
+      setCatalogImporting(false);
+    }
+  };
   const refreshCatalogSection = () => {
     if (catalogView === "drive") {
       setDriveSlidesSyncedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
@@ -2021,7 +2188,7 @@ export function AdminView({
         notify(
           "Catalogo Sheet aggiornato",
           remoteTopics.length + remoteWorkshops.length > 0
-            ? `${remoteTopics.length || topics.length} ambiti e ${remoteWorkshops.length || catalogWorkshopsForAdmin.length} workshop letti da Google Sheets. Canva resta solo reference visuale.`
+            ? `${remoteTopics.length || catalogTopicRows.length} topic e ${remoteWorkshops.length || catalogWorkshopsForAdmin.length} workshop letti da Google Sheets. Canva resta solo reference visuale.`
             : "Lo Sheet catalogo ha risposto senza righe vendibili.",
         );
       })
@@ -2033,20 +2200,12 @@ export function AdminView({
   };
   const refreshPricingSection = () => {
     setPricingLoading(true);
-    void listPricingRules()
-      .then((remoteRules) => {
-        if (remoteRules.length > 0) {
-          setRules(remoteRules.map((rule) => ({
-            id: rule.id,
-            name: rule.name,
-            min: rule.min,
-            max: rule.max,
-            discountPercent: rule.discountPercent,
-            specialQuote: rule.specialQuote,
-          })));
-        }
+    void listWorkspaceSettings()
+      .then((settings) => {
+        setWorkspaceSettings(settings);
+        setCommercialConfig(commercialConfigFromSettings(settings, commercialConfig));
         setPricingSavedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
-        notify("Regole prezzo aggiornate", remoteRules.length > 0 ? `${remoteRules.length} regole lette da Google Sheets.` : "Lo Sheet prezzi ha risposto senza regole.");
+        notify("Listino aggiornato", "Fasce prezzo ed extra riletti da Google Sheets.");
       })
       .catch((error) => {
         setPricingSavedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
@@ -2067,7 +2226,7 @@ export function AdminView({
             photo: expert.photo,
             bio: expert.bio,
             topicIds: expert.topicIds,
-            themeIds: expert.themeIds,
+            themeIds: [],
             availability: expert.availability,
             calendarId: expert.calendarId,
           })));
@@ -2143,6 +2302,50 @@ export function AdminView({
         notify("Setting non salvata", error instanceof Error ? error.message : "Google Sheets non disponibile.");
         throw error;
       });
+  };
+  const saveWorkspaceSettingsBatch = async (settings: WorkspaceSetting[]) => {
+    const savedSettings = await updateWorkspaceSettings(settings);
+    setWorkspaceSettings((current) => {
+      const next = new Map(current.map((setting) => [setting.key, setting]));
+      savedSettings.forEach((setting) => next.set(setting.key, setting));
+      return Array.from(next.values());
+    });
+    return savedSettings;
+  };
+  const saveCommercialPricing = async (nextConfig: CommercialConfig) => {
+    const settings: WorkspaceSetting[] = [
+      { key: "pricing.workshopBasePrice", value: String(nextConfig.workshopBasePrice), group: "pricing", label: "Prezzo workshop singolo" },
+      { key: "pricing.bundlePricesJson", value: JSON.stringify(nextConfig.bundlePrices), group: "pricing", label: "Prezzi pacchetti 3/6/10" },
+      { key: "pricing.inPersonExtra", value: String(nextConfig.inPersonExtra), group: "pricing", label: "Maggiorazione in presenza" },
+      { key: "pricing.customExtra", value: String(nextConfig.customExtra), group: "pricing", label: "Maggiorazione personalizzazione" },
+      { key: "pricing.recordingOptOutDiscount", value: String(nextConfig.recordingOptOutDiscount), group: "pricing", label: "Riduzione senza registrazione" },
+      { key: "pricing.recordingDefault", value: String(nextConfig.recordingDefault), group: "pricing", label: "Registrazione inclusa di default" },
+    ];
+    setPricingLoading(true);
+    try {
+      const savedSettings = await updateWorkspaceSettings(settings);
+        setWorkspaceSettings((current) => {
+          const next = new Map(current.map((setting) => [setting.key, setting]));
+          savedSettings.forEach((setting) => next.set(setting.key, setting));
+          return Array.from(next.values());
+        });
+        setCommercialConfig(nextConfig);
+        setPricingSavedAt(new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+        notify("Listino salvato", "Fasce prezzo ed extra sono stati aggiornati per catalogo, survey e preventivo.");
+    } catch (error) {
+      notify("Listino non salvato", error instanceof Error ? error.message : "Google Sheets non disponibile.");
+    } finally {
+      setPricingLoading(false);
+    }
+  };
+  const saveCatalogBundles = (bundles: CatalogBundle[]) => {
+    setBundlesSaving(true);
+    void saveWorkspaceSetting({
+      key: "catalog.bundlesJson",
+      value: JSON.stringify(bundles),
+      group: "catalog",
+      label: "Bundle catalogo",
+    }).finally(() => setBundlesSaving(false));
   };
   const refreshAdminWorkspacePanel = () => {
     if (adminWorkspacePanel === "calendar") {
@@ -2455,7 +2658,7 @@ export function AdminView({
                   <div className="expert-assignment-list">
                     {currentProjectSelections.map((row) => {
                       const compatibleExperts = expertDirectory.filter(
-                        (expert) => expert.topicIds.includes(row.workshop.topicId) || expert.themeIds.includes(row.workshop.themeId),
+                        (expert) => topicIdsForWorkshop(row.workshop).some((topicId) => expert.topicIds.includes(topicId)),
                       );
                       const candidates = compatibleExperts.length ? compatibleExperts : expertDirectory;
                       return (
@@ -2619,12 +2822,48 @@ export function AdminView({
                 <ToolIconButton onClick={catalogView === "drive" ? syncDriveSlidesFromRoot : refreshCatalogSection} loading={catalogView === "sheet" && catalogLoading} label={catalogView === "drive" ? "Ricarica slide Drive" : "Ricarica catalogo Sheet"}>
                   <RefreshCw size={18} />
                 </ToolIconButton>
+                {catalogView === "sheet" && (
+                  <>
+                    <AppButton
+                      variant="secondary"
+                      onClick={() => setCatalogWorkshopDraft({
+                        id: "",
+                        topicId: catalogTopicRows[0]?.id || "",
+                        topicIds: catalogTopicRows[0] ? [catalogTopicRows[0].id] : [],
+                        themeId: catalogTopicRows[0]?.id || "",
+                        title: "",
+                        short: "",
+                        long: "",
+                        durationOptions: ["1h"],
+                        formatOptions: ["webinar", "live"],
+                        level: "base",
+                        target: "tutti",
+                        participants: "da definire",
+                        price1h: 0,
+                        price2h: 0,
+                        packageAvailable: true,
+                        customAvailable: false,
+                        customExtra: 0,
+                        masterSlide: "",
+                        experts: [],
+                        state: "da aggiornare",
+                        active: true,
+                        productionStatus: "draft",
+                      })}
+                    >
+                      <Plus size={17} /> Nuovo workshop
+                    </AppButton>
+                    <AppButton variant="secondary" onClick={importClientCatalog} loading={catalogImporting}>
+                      <UploadCloud size={17} /> Sostituisci con catalogo luglio 2026
+                    </AppButton>
+                  </>
+                )}
                 <ToolIconButton
                   label="Come funziona Catalogo Sheet e Slide Drive"
                   onClick={() =>
                     notify(
                       "Catalogo Sheet e Slide Drive",
-                      "Lo Sheet governa ambiti, categorie, tag e workshop vendibili. Canva resta una reference visuale consultabile dal link. Drive collega le presentazioni operative ai workshop.",
+                      "Lo Sheet governa gli 11 topic, i workshop vendibili e i pacchetti. Canva resta una reference visuale consultabile dal link. Drive collega le presentazioni operative ai workshop.",
                     )
                   }
                 >
@@ -2655,7 +2894,7 @@ export function AdminView({
                   <em>
                     {catalogRefreshedAt
                       ? `Riletto alle ${catalogRefreshedAt}`
-                      : "Ambiti, categorie/tag e workshop arrivano dallo Sheet quando Apps Script risponde."}
+                      : "Topic, workshop e pacchetti arrivano dallo Sheet quando Apps Script risponde."}
                   </em>
                 </div>
                 <div className="catalog-master-actions">
@@ -2680,14 +2919,16 @@ export function AdminView({
                     )}
                   </div>
                 </div>
-                {sheetPreviewUrl ? (
-                  <iframe title="Preview Google Sheet catalogo FunniFin" src={sheetPreviewUrl} loading="lazy" />
-                ) : googleHealthLoading ? (
+                {googleHealthLoading ? (
                   <Skeleton className="sheet-preview-skeleton" large />
                 ) : (
                   <div className="sheet-preview-empty">
                     <FolderKanban size={20} />
-                    <span>{googleHealthLoading ? "Sto leggendo lo Sheet collegato..." : "Premi Verifica Sheet per caricare la preview."}</span>
+                    <span>
+                      {googleHealth?.spreadsheet.id
+                        ? "Sheet privato verificato via Apps Script. Aprilo in Google per consultare o modificare i dati."
+                        : "Premi Verifica Sheet per controllare il collegamento."}
+                    </span>
                   </div>
                 )}
               </div>
@@ -2695,9 +2936,9 @@ export function AdminView({
               <div className="catalog-health-grid" aria-label="Controlli catalogo cliente">
                 <Info label="Fonte" value={catalogSourceLabel} />
                 <Info label="Workshop vendibili" value={String(catalogWorkshopsForAdmin.length)} />
-                <Info label="Ambiti" value={String(topics.length)} />
-                <Info label="Categorie/tag" value={String(catalogThemeRows.length)} />
-                <Info label="Correlazioni rotte" value={String(orphanWorkshops.length)} />
+                <Info label="Topic" value={String(catalogTopicRows.length)} />
+                <Info label="Pacchetti" value={String(catalogBundles.filter((bundle) => bundle.active).length)} />
+                <Info label="Workshop senza topic" value={String(orphanWorkshops.length)} />
               </div>
 
               <div className="inline-status-card">
@@ -2709,16 +2950,16 @@ export function AdminView({
               </div>
 
               <div className="catalog-map-list">
-                {catalogAudit.map(({ topic, workshops: topicWorkshops, mappedThemes, orphanThemeCount }) => (
+                {catalogAudit.map(({ topic, workshops: topicWorkshops }) => (
                   <article className="catalog-map-card" key={topic.id}>
                     <div className="catalog-map-head">
                       <span className={`color-dot ${topicColorClass(topic.id)}`} />
                       <div>
-                        <strong>{catalogEdits[topic.id]?.title ?? topic.title}</strong>
-                        <em>{topic.themes.length} temi · {topicWorkshops.length} workshop · {mappedThemes.length} temi con workshop</em>
+                        <strong>{topic.title}</strong>
+                        <em>{topicWorkshops.length} workshop collegati</em>
                       </div>
-                      <span className={orphanThemeCount === 0 ? "catalog-status active" : "catalog-status hidden"}>
-                        {orphanThemeCount === 0 ? "relazioni ok" : `${orphanThemeCount} da sistemare`}
+                      <span className={topic.active ? "catalog-status active" : "catalog-status hidden"}>
+                        {topic.active ? "visibile" : "nascosto"}
                       </span>
                       <ActionIconButton
                         onClick={() => {
@@ -2730,28 +2971,29 @@ export function AdminView({
                         <Settings2 size={17} />
                       </ActionIconButton>
                     </div>
-                    <div className="catalog-theme-chips" aria-label={`Temi ${topic.title}`}>
-                      {topic.themes.map((theme) => (
-                        <span key={theme.id} className={topicWorkshops.some((workshop) => workshop.themeId === theme.id) ? "active" : ""}>
-                          {theme.title}
-                        </span>
-                      ))}
-                    </div>
                     <div className="catalog-workshop-mini-list">
-                      {topicWorkshops.map((workshop) => {
-                        const theme = topic.themes.find((item) => item.id === workshop.themeId);
-                        return (
-                          <div key={workshop.id}>
+                      {topicWorkshops.map((workshop) => (
+                        <div key={`${topic.id}-${workshop.id}`}>
+                          <span>
                             <strong>{workshop.title}</strong>
-                            <span>{theme?.title ?? "Tema mancante"} · {workshop.durationOptions.join(" / ")} · {workshop.formatOptions.join(" / ")} · {money(workshop.price1h)}</span>
-                          </div>
-                        );
-                      })}
-                      {topicWorkshops.length === 0 && <span className="empty-selection">Nessun workshop collegato a questo interesse.</span>}
+                            <small>{workshop.durationOptions.join(" / ")} · {workshop.customAvailable ? "Personalizzabile" : "Standard"}</small>
+                          </span>
+                          <ActionIconButton onClick={() => setCatalogWorkshopDraft(workshop)} label={`Modifica ${workshop.title}`}>
+                            <Settings2 size={16} />
+                          </ActionIconButton>
+                        </div>
+                      ))}
+                      {topicWorkshops.length === 0 && <span className="empty-selection">Nessun workshop collegato a questo topic.</span>}
                     </div>
                   </article>
                 ))}
               </div>
+              <BundleManager
+                bundles={catalogBundles}
+                workshops={catalogWorkshopsForAdmin}
+                saving={bundlesSaving}
+                onSave={saveCatalogBundles}
+              />
             </div>
           )}
 
@@ -2829,8 +3071,9 @@ export function AdminView({
           )}
           {catalogModalTopicId && (
             <CatalogEditModal
-              topic={topics.find((topic) => topic.id === catalogModalTopicId) ?? topics[0]}
+              topic={catalogTopicRows.find((topic) => topic.id === catalogModalTopicId) ?? catalogTopicRows[0]}
               draft={catalogEdits[catalogModalTopicId]}
+              workshopCount={catalogWorkshopsForAdmin.filter((workshop) => topicIdsForWorkshop(workshop).includes(catalogModalTopicId)).length}
               onChange={(patch) =>
                 setCatalogEdits((current) => ({
                   ...current,
@@ -2838,7 +3081,7 @@ export function AdminView({
                 }))
               }
               onReset={() => {
-                const topic = topics.find((item) => item.id === catalogModalTopicId) ?? topics[0];
+                const topic = clientCatalogImport.topics.find((item) => item.id === catalogModalTopicId) ?? clientCatalogImport.topics[0];
                 setCatalogEdits((current) => ({
                   ...current,
                   [topic.id]: { title: topic.title, description: topic.description, badge: topic.badge, active: true },
@@ -2878,94 +3121,55 @@ export function AdminView({
               }}
             />
           )}
+          {catalogWorkshopDraft && (
+            <CatalogWorkshopModal
+              workshop={catalogWorkshopDraft}
+              topics={catalogTopicRows.map(({ id, title }) => ({ id, title }))}
+              saving={catalogWorkshopSaving}
+              onClose={() => setCatalogWorkshopDraft(null)}
+              onSave={(workshop) => {
+                setCatalogWorkshopSaving(true);
+                void updateCatalogWorkshop(workshop)
+                  .then((savedWorkshop) => {
+                    setSheetCatalogWorkshops((current) => {
+                      const exists = current.some((item) => item.id === savedWorkshop.id);
+                      return exists
+                        ? current.map((item) => (item.id === savedWorkshop.id ? savedWorkshop : item))
+                        : [...current, savedWorkshop];
+                    });
+                    notify("Workshop salvato", `${savedWorkshop.title} aggiornato nel catalogo Google.`);
+                    setCatalogWorkshopDraft(null);
+                  })
+                  .catch((error) => notify("Workshop non salvato", error instanceof Error ? error.message : "Google Sheets non disponibile."))
+                  .finally(() => setCatalogWorkshopSaving(false));
+              }}
+            />
+          )}
         </>
       )}
 
       {adminTab === "Prezzi" && (
         <>
           <SectionTitle
-            title="Regole prezzo"
+            title="Listino e fasce prezzo"
             icon={<CircleDollarSign size={20} />}
             actions={
-              <>
-                <ToolIconButton onClick={refreshPricingSection} loading={pricingLoading} label="Ricarica regole prezzo">
-                  <RefreshCw size={18} />
-                </ToolIconButton>
-                <ToolIconButton
-                  label="Modifica prima regola prezzo"
-                  onClick={() => setAdminActionModal({ type: "price", ruleId: rules[0].id })}
-                >
-                  <Settings2 size={18} />
-                </ToolIconButton>
-              </>
+              <ToolIconButton onClick={refreshPricingSection} loading={pricingLoading} label="Ricarica listino">
+                <RefreshCw size={18} />
+              </ToolIconButton>
             }
           />
           {pricingSavedAt && (
             <div className="inline-status-card">
               <Check size={18} />
-              <span>Regole prezzo salvate alle {pricingSavedAt}. Il preventivo cliente usa questi valori.</span>
+              <span>Listino salvato alle {pricingSavedAt}. Il preventivo cliente usa questi valori.</span>
             </div>
           )}
-          <div className="pricing-console">
-            <div className="pricing-hero-card">
-              <div>
-                <span className="eyebrow">Preventivo cliente</span>
-                <strong>{money(quote.total)}</strong>
-                <em>
-                  Regola attiva: {currentRule.name} · {currentRuleRange} workshop · {currentRuleMode}
-                </em>
-              </div>
-              <div className="pricing-hero-metrics" aria-label="Sintesi regole prezzo">
-                <Info label="Regole" value={String(rules.length)} />
-                <Info label="Automatiche" value={String(automaticPricingRules.length)} />
-                <Info label="Su preventivo" value={String(quoteOnlyRules.length)} />
-                <Info label="Sconto max" value={`${maxAutomaticDiscount}%`} />
-              </div>
-            </div>
-
-            <div className="pricing-rule-grid" aria-label="Regole commerciali configurate">
-              {rules.map((rule) => {
-                const rangeLabel = `${rule.min}-${rule.max === 99 ? "6+" : rule.max} workshop`;
-                const previewCount = rule.max >= 99 ? Math.max(rule.min, 6) : rule.max;
-                const previewGross = previewCount * 1000;
-                const previewTotal = Math.round(previewGross * (1 - rule.discountPercent / 100));
-                const isActiveRule = currentRule.id === rule.id;
-                return (
-                  <article className={`pricing-rule-card ${isActiveRule ? "active" : ""}`} key={rule.id}>
-                    <div className="pricing-rule-head">
-                      <div>
-                        <span className="pricing-rule-kicker">{isActiveRule ? "In uso ora" : rule.specialQuote ? "Preventivo manuale" : "Automatica"}</span>
-                        <strong>{rule.name}</strong>
-                        <em>{rangeLabel}</em>
-                      </div>
-                      <ActionIconButton onClick={() => setAdminActionModal({ type: "price", ruleId: rule.id })} label={`Modifica ${rule.name}`}>
-                        <Settings2 size={17} />
-                      </ActionIconButton>
-                    </div>
-                    <div className="pricing-rule-body">
-                      <div>
-                        <span>Sconto</span>
-                        <strong>{rule.specialQuote ? "nascosto" : `${rule.discountPercent}%`}</strong>
-                      </div>
-                      <div>
-                        <span>Cliente vede</span>
-                        <strong>{rule.specialQuote ? "Preventivo" : money(previewTotal)}</strong>
-                      </div>
-                      <div>
-                        <span>Scenario</span>
-                        <strong>{previewCount} ws</strong>
-                      </div>
-                    </div>
-                    <p>
-                      {rule.specialQuote
-                        ? "Usata quando serve valutazione commerciale prima di mostrare un totale finale."
-                        : `Listino ${money(previewGross)}: il preventivo applica automaticamente lo sconto configurato.`}
-                    </p>
-                  </article>
-                );
-              })}
-            </div>
-          </div>
+          <CommercialPricingManager
+            config={commercialConfig}
+            saving={pricingLoading}
+            onSave={saveCommercialPricing}
+          />
         </>
       )}
 
@@ -2995,7 +3199,7 @@ export function AdminView({
             {expertDirectory.map((expert) => {
               const fullName = expertFullName(expert);
               const compatibleRows = currentProjectSelections.filter(
-                (row) => expert.topicIds.includes(row.workshop.topicId) || row.assignedExpert === fullName,
+                (row) => topicIdsForWorkshop(row.workshop).some((topicId) => expert.topicIds.includes(topicId)) || row.assignedExpert === fullName,
               );
               const assignableRows = compatibleRows.length ? compatibleRows : currentProjectSelections;
               return (
@@ -3004,7 +3208,7 @@ export function AdminView({
                     <div className="expert-avatar">{expert.photo ? <img src={expert.photo} alt="" /> : `${expert.firstName[0] ?? ""}${expert.lastName[0] ?? ""}`}</div>
                     <div>
                       <strong>{fullName}</strong>
-                      <span>{expert.email} · {expert.topicIds.length} interessi · {expert.themeIds.length} temi</span>
+                      <span>{expert.email} · {expert.topicIds.length} topic</span>
                     </div>
                   </div>
                   <p>{expert.bio}</p>
@@ -3048,7 +3252,7 @@ export function AdminView({
           {selectedExpertProfile && (
             <ExpertProfileModal
               expert={selectedExpertProfile}
-              catalogThemeRows={catalogThemeRows}
+              topics={catalogTopicRows.map(({ id, title }) => ({ id, title }))}
               onClose={() => setSelectedExpertProfileId(null)}
               onDelete={() => deleteExpertProfile(selectedExpertProfile.id)}
               onChange={(patch) => updateExpertProfile(selectedExpertProfile.id, patch)}
@@ -3087,6 +3291,14 @@ export function AdminView({
                 <strong>{googleHealth ? `${googleHealth.spreadsheet.requests} richieste` : "--"}</strong>
               </div>
             </div>
+
+            <IntegrationSettingsWizard
+              health={googleHealth}
+              settings={workspaceSettings}
+              onSave={saveWorkspaceSettingsBatch}
+              onRefresh={() => refreshGoogleHealth({ refresh: true, preserveCurrent: true })}
+              notify={notify}
+            />
 
             <div className="google-ops-row" aria-label="Operazioni backend Google">
               <AppButton
@@ -3308,6 +3520,7 @@ export function AdminView({
             notify={notify}
             workspaceSettings={workspaceSettings}
             onSaveWorkspaceSetting={saveWorkspaceSetting}
+            onSaveWorkspaceSettings={saveWorkspaceSettingsBatch}
           />
         </>
       )}
@@ -3349,7 +3562,26 @@ export function AdminView({
             </div>
             {authLoading && <p style={{ color: "var(--color-muted)", marginTop: "0.5rem" }}>Carico utenti da Google Sheets...</p>}
             {authSectionTab === "utenti" ? (
-              <table className="auth-users-table">
+              <>
+                <div className="pricing-hero-card auth-invite-card auth-invite-card--compact admin-email-entry-card">
+                  <div>
+                    <span className="eyebrow">Amministratore principale</span>
+                    <strong>{currentAdminAccount?.email ?? "Account FunniFin da caricare"}</strong>
+                    <em>Cambia l'indirizzo di accesso con verifica in 3 passaggi.</em>
+                  </div>
+                  <div className="auth-invite-actions">
+                    <AppButton
+                      type="button"
+                      variant="secondary"
+                      onClick={() => currentAdminAccount && openAdminEmailWizard(currentAdminAccount)}
+                      disabled={!currentAdminAccount || authLoading || adminEmailBusy}
+                    >
+                      <Mail size={16} />
+                      Cambia email amministratore
+                    </AppButton>
+                  </div>
+                </div>
+                <table className="auth-users-table">
                 <thead>
                   <tr>
                     <th>Nome</th>
@@ -3384,6 +3616,16 @@ export function AdminView({
                           >
                             <Settings2 size={15} />
                           </ActionIconButton>
+                          {user.actualRole === "FunniFin" && (
+                            <ActionIconButton
+                              variant="neutral"
+                              onClick={() => openAdminEmailWizard(user)}
+                              disabled={inviteBusy || adminEmailBusy}
+                              label={`Cambia email amministratore per ${user.displayName}`}
+                            >
+                              <Mail size={15} />
+                            </ActionIconButton>
+                          )}
                           <ActionIconButton
                             variant={user.disabled ? "success" : "danger"}
                             onClick={() => {
@@ -3412,7 +3654,8 @@ export function AdminView({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </>
             ) : (
               <div className="auth-requests-tab">
                 {accessRequests.length === 0 ? (
@@ -3534,8 +3777,9 @@ export function AdminView({
                       placeholder="nome@azienda.it"
                       autoComplete="email"
                       required
-                      disabled={inviteBusy}
+                      disabled={inviteBusy || authModalMode === "edit"}
                     />
+                    {authModalMode === "edit" && <small>Per cambiarla usa l'icona email nella tabella utenti.</small>}
                   </label>
                   <label className="auth-invite-field">
                     Nome visualizzato
@@ -3600,6 +3844,151 @@ export function AdminView({
         </ModalBackdrop>
       )}
 
+      {adminEmailUser && (
+        <ModalBackdrop labelledBy="admin-email-modal-title" className="auth-user-modal-backdrop">
+          <section className="custom-modal admin-action-modal auth-user-modal admin-email-wizard">
+            <header className="modal-header">
+              <div>
+                <span className="eyebrow">Accesso FunniFin</span>
+                <strong id="admin-email-modal-title">Cambia email amministratore</strong>
+                <p>Procedura guidata per trasferire l'accesso senza interrompere la sessione corrente.</p>
+              </div>
+              <button type="button" className="modal-close" onClick={resetAdminEmailWizard} aria-label="Chiudi modal" disabled={adminEmailBusy}>
+                <X size={18} />
+              </button>
+            </header>
+            <div className="modal-body auth-user-modal-body">
+              <Stepper
+                steps={["Account", "Nuova email", "Conferma"]}
+                activeStep={adminEmailStep}
+                onStep={(step) => {
+                  if (step === "Account") setAdminEmailStep("Account");
+                  if (step === "Nuova email" && adminEmailStep === "Conferma") setAdminEmailStep("Nuova email");
+                }}
+              >
+                {adminEmailStep === "Account" && (
+                  <div className="admin-email-step">
+                    <span className="eyebrow">Passaggio 1</span>
+                    <strong>Verifica l'account da aggiornare</strong>
+                    <div className="admin-email-account-card">
+                      <div>
+                        <span>Amministratore</span>
+                        <strong>{adminEmailUser.displayName}</strong>
+                      </div>
+                      <div>
+                        <span>Email attuale</span>
+                        <strong>{adminEmailUser.email}</strong>
+                      </div>
+                      <span className={`user-status-badge ${adminEmailUser.disabled ? "disabled" : "active"}`}>
+                        {adminEmailUser.disabled ? "Disabilitato" : "Attivo"}
+                      </span>
+                    </div>
+                    <p className="admin-email-note">Verrà cambiato solo l'indirizzo usato per il login FunniFin. I destinatari delle notifiche operative restano invariati.</p>
+                  </div>
+                )}
+                {adminEmailStep === "Nuova email" && (
+                  <div className="admin-email-step">
+                    <span className="eyebrow">Passaggio 2</span>
+                    <strong>Inserisci il nuovo indirizzo</strong>
+                    <div className="auth-invite-grid auth-invite-grid--modal">
+                      <label className="auth-invite-field">
+                        Nuova email
+                        <input
+                          type="email"
+                          value={adminEmailDraft}
+                          onChange={(event) => setAdminEmailDraft(event.target.value)}
+                          placeholder="nuovo.admin@azienda.it"
+                          autoComplete="email"
+                          autoFocus
+                          disabled={adminEmailBusy}
+                        />
+                      </label>
+                      <label className="auth-invite-field">
+                        Ripeti nuova email
+                        <input
+                          type="email"
+                          value={adminEmailRepeat}
+                          onChange={(event) => setAdminEmailRepeat(event.target.value)}
+                          placeholder="nuovo.admin@azienda.it"
+                          autoComplete="off"
+                          disabled={adminEmailBusy}
+                        />
+                      </label>
+                    </div>
+                    {adminEmailDraft && !adminEmailIsValid && <p className="admin-email-error">Inserisci un indirizzo email valido.</p>}
+                    {adminEmailRepeat && !adminEmailMatches && <p className="admin-email-error">I due indirizzi non coincidono.</p>}
+                    {adminEmailIsValid && !adminEmailIsNew && <p className="admin-email-error">Inserisci un indirizzo diverso da quello attuale.</p>}
+                  </div>
+                )}
+                {adminEmailStep === "Conferma" && (
+                  <div className="admin-email-step">
+                    <span className="eyebrow">Passaggio 3</span>
+                    <strong>Controlla e conferma</strong>
+                    <div className="admin-email-change-summary">
+                      <div><span>Da</span><strong>{adminEmailUser.email}</strong></div>
+                      <div aria-hidden="true">→</div>
+                      <div><span>A</span><strong>{adminEmailNormalized}</strong></div>
+                    </div>
+                    <label className="auth-invite-toggle admin-email-confirm">
+                      <input
+                        type="checkbox"
+                        checked={adminEmailSendCode}
+                        onChange={(event) => setAdminEmailSendCode(event.target.checked)}
+                        disabled={adminEmailBusy}
+                      />
+                      <span>Invia un nuovo codice di accesso alla nuova email</span>
+                    </label>
+                    <label className="auth-invite-toggle admin-email-confirm">
+                      <input
+                        type="checkbox"
+                        checked={adminEmailConfirmed}
+                        onChange={(event) => setAdminEmailConfirmed(event.target.checked)}
+                        disabled={adminEmailBusy}
+                      />
+                      <span>Confermo che il nuovo indirizzo è corretto e accessibile</span>
+                    </label>
+                  </div>
+                )}
+              </Stepper>
+            </div>
+            <footer className="modal-footer auth-user-modal-footer">
+              <AppButton
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  if (adminEmailStep === "Conferma") setAdminEmailStep("Nuova email");
+                  else if (adminEmailStep === "Nuova email") setAdminEmailStep("Account");
+                  else resetAdminEmailWizard();
+                }}
+                disabled={adminEmailBusy}
+              >
+                {adminEmailStep === "Account" ? "Annulla" : "Indietro"}
+              </AppButton>
+              {adminEmailStep === "Account" && (
+                <AppButton type="button" variant="primary" onClick={() => setAdminEmailStep("Nuova email")} disabled={adminEmailUser.disabled}>
+                  Continua
+                </AppButton>
+              )}
+              {adminEmailStep === "Nuova email" && (
+                <AppButton
+                  type="button"
+                  variant="primary"
+                  onClick={() => setAdminEmailStep("Conferma")}
+                  disabled={!adminEmailIsValid || !adminEmailMatches || !adminEmailIsNew}
+                >
+                  Rivedi modifica
+                </AppButton>
+              )}
+              {adminEmailStep === "Conferma" && (
+                <AppButton type="button" variant="primary" loading={adminEmailBusy} disabled={!adminEmailConfirmed} onClick={() => void handleChangeAdminEmail()}>
+                  Cambia email
+                </AppButton>
+              )}
+            </footer>
+          </section>
+        </ModalBackdrop>
+      )}
+
       {requestDeleteConfirm && (
         <ModalBackdrop labelledBy="request-delete-modal-title" className="request-delete-modal-backdrop">
           <section className="custom-modal admin-action-modal request-delete-modal">
@@ -3656,6 +4045,7 @@ export function AdminView({
       {adminActionModal && (
         <AdminActionModal
           modal={adminActionModal}
+          workshops={workshops}
           rows={currentProjectSelections}
           project={selectedProject}
           recipientEmails={workspaceRecipientEmails}

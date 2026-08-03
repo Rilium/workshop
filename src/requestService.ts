@@ -1,5 +1,6 @@
 import { SECRET_SETTINGS } from "./secretSettings";
 import { appendSessionParams, withSessionPayload } from "./authTransport";
+import type { Duration, SurveyProfile } from "./types/domain";
 
 export type RequestProjectStatus =
   | "draft_cliente"
@@ -18,12 +19,13 @@ export type RequestProjectStatus =
 export type RequestWorkshopRecord = {
   workshopId: string;
   title: string;
-  duration: "1h" | "2h";
+  duration: Duration;
   format: "live" | "webinar" | "ibrido";
   date: string;
   time: string;
   price: number;
   custom: boolean;
+  recordingIncluded?: boolean;
   customNote?: string;
   status: string;
   approval?: "approved" | "rejected" | "change_requested" | "pending";
@@ -59,7 +61,10 @@ export type WorkshopRequestRecord = {
     total: number;
     saved: number;
     packageName: string;
+    recordingDiscount?: number;
   };
+  surveyProfile?: SurveyProfile;
+  datesDeferred?: boolean;
   materials?: {
     folderId?: string;
     folderName?: string;
@@ -93,6 +98,8 @@ export type CreateWorkshopRequestPayload = {
   quote: WorkshopRequestRecord["quote"];
   materials?: WorkshopRequestRecord["materials"];
   privacy?: WorkshopRequestRecord["privacy"];
+  surveyProfile?: SurveyProfile;
+  datesDeferred?: boolean;
 };
 
 function asStringArray(value: unknown): string[] {
@@ -105,12 +112,13 @@ function normalizeWorkshopRecord(record: Partial<RequestWorkshopRecord> & { id?:
   return {
     workshopId: String(record.workshopId || record.id || ""),
     title: String(record.title || ""),
-    duration: record.duration === "2h" ? "2h" : "1h",
+    duration: record.duration === "2h" ? "2h" : record.duration === "1.5h" ? "1.5h" : "1h",
     format: record.format === "live" || record.format === "ibrido" ? record.format : "webinar",
     date: String(record.date || ""),
     time: String(record.time || ""),
     price: Number(record.price || 0),
     custom: Boolean(record.custom),
+    recordingIncluded: record.recordingIncluded !== false,
     customNote: String(record.customNote || ""),
     status: String(record.status || "selezionato"),
     approval:
@@ -161,7 +169,10 @@ function normalizeWorkshopRequest(request: Partial<WorkshopRequestRecord> = {}):
       total: Number(quote.total || request.quoteTotal || 0),
       saved: Number(quote.saved || 0),
       packageName: String(quote.packageName || ""),
+      recordingDiscount: Number(quote.recordingDiscount || 0),
     },
+    surveyProfile: request.surveyProfile,
+    datesDeferred: Boolean(request.datesDeferred),
     materials: request.materials,
     privacy: request.privacy,
     calendarEvent: request.calendarEvent,

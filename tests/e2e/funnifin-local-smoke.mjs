@@ -76,8 +76,12 @@ async function run() {
     await page.getByRole("button", { name: /^Cliente$/ }).click();
 
     await page.getByRole("heading", { name: /Costruisci il piano formativo/ }).waitFor({ timeout: 8000 });
-    await page.getByRole("button", { name: /Inizia/ }).click();
-    await page.getByRole("heading", { name: "Su quali temi vuoi generare maggiore impatto?" }).waitFor({ timeout: 5000 });
+    const startGuided = page.getByRole("button", { name: "Inizia percorso guidato", exact: true });
+    if (await startGuided.count() === 0) {
+      await page.getByRole("button", { name: "Vedi dettagli", exact: true }).first().click();
+    }
+    await startGuided.click();
+    await page.getByRole("heading", { name: "Su quali ambiti vuoi generare maggiore impatto?" }).waitFor({ timeout: 5000 });
     await page.getByRole("button", { name: /Retribuzione/ }).click();
     await page.getByRole("button", { name: /Risparmio/ }).click();
     await page.getByRole("button", { name: /Investimenti/ }).click();
@@ -89,17 +93,17 @@ async function run() {
     await assertIconCentered(page);
     await page.locator(".survey-nav").getByRole("button", { name: "Continua" }).click();
 
-    await answerCurrentQuestion(page, /Formazione pratica/);
+    await answerCurrentQuestion(page, /Sensibilizzazione/);
     await page.getByRole("button", { name: /51-200/ }).click();
     await page.locator(".survey-nav").getByRole("button", { name: "Indietro" }).click();
     await page.getByRole("heading", { name: "Quale risultato vuoi ottenere?" }).waitFor({ timeout: 5000 });
     await page.locator(".survey-nav").getByRole("button", { name: "Continua" }).click();
     await answerCurrentQuestion(page, /51-200/);
-    await answerCurrentQuestion(page, /Webinar live/);
+    await answerCurrentQuestion(page, /^Online/);
     await answerCurrentQuestion(page, /2.000 - 5.000 €/);
 
     await page.getByRole("heading", { name: "Abbiamo trovato il percorso ideale" }).waitFor({ timeout: 10000 });
-    await page.getByRole("button", { name: /Aggiungi percorso consigliato/ }).waitFor({ timeout: 5000 });
+    await page.getByRole("button", { name: /Aggiungi (il pacchetto|i workshop) consigliat/ }).waitFor({ timeout: 5000 });
 
     console.log("PASS local e2e: injected auth session, guided survey back/forward, centered nav icons");
   } finally {
@@ -108,7 +112,7 @@ async function run() {
   }
 }
 
-run().catch((error) => {
+await run().catch((error) => {
   console.error(error);
   process.exit(1);
 });

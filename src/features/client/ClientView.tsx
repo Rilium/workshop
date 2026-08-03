@@ -8,6 +8,7 @@ import {
   BriefcaseBusiness,
   CalendarCheck,
   Check,
+  ChevronDown,
   ChevronLeft,
   CircleDollarSign,
   Clock3,
@@ -21,7 +22,6 @@ import {
   Palette,
   Presentation,
   Plus,
-  RefreshCw,
   Search,
   Send,
   Settings2,
@@ -36,7 +36,7 @@ import {
 import { createAssetDraftFolder, deleteAssetDraftFolder, uploadAssetFiles, type AssetDraftFolder, type UploadedAsset } from "../../driveAssetService";
 import { createWorkshopRequest, type RequestWorkshopRecord, type WorkshopRequestRecord } from "../../requestService";
 import { sendWorkshopRequestEmail } from "../../emailService";
-import type { ClientContact, Format, ProjectStatus, Quote, Selection, Topic, Workshop } from "../../types/domain";
+import type { CatalogBundle, ClientContact, CommercialConfig, Format, ProjectStatus, Quote, Selection, SurveyProfile, Topic, Workshop } from "../../types/domain";
 import { money } from "../../utils/money";
 import { AppButton } from "../../components/ui/AppButton";
 import { EmptyWorkflowState } from "../../components/ui/EmptyWorkflowState";
@@ -46,15 +46,19 @@ import { RemoveWorkshopButton } from "../../components/ui/RemoveWorkshopButton";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { Stepper } from "../../components/ui/Stepper";
 import { ToolIconButton } from "../../components/ui/IconButton";
+import { ExpandableCardText } from "../../components/ui/ExpandableCardText";
 import { BottomActionBar } from "../../components/layout/BottomActionBar";
 import { RoleHero } from "../../components/layout/RoleHero";
 import { EcommerceCart } from "../../components/workshop/EcommerceCart";
 import { QuoteStrip } from "../../components/workshop/QuoteStrip";
 import { ReadinessPanel } from "../../components/workshop/ReadinessPanel";
 import { WorkshopCard } from "../../components/workshop/WorkshopCard";
-import { getWorkshopSelectionPrice, topicColorClass } from "../../utils/workshop";
+import { BundleCard } from "../../components/workshop/BundleCard";
+import { getBundlePrice, getWorkshopSelectionPrice, topicColorClass } from "../../utils/workshop";
+import { buildSurveyRecommendation } from "../../utils/recommendation";
 
 type ClientJourneyStage = "loader" | "choice" | "survey" | "generating" | "result" | "manual";
+type CatalogSort = "editorial" | "price-asc" | "price-desc" | "title-asc" | "title-desc" | "level-asc" | "duration-asc";
 type SurveyQuestionKind = "single" | "multi";
 type SurveyAnswer = {
   id: string;
@@ -74,12 +78,29 @@ type SurveyQuestion = {
   answers: SurveyAnswer[];
 };
 
+const catalogSortOptions: Array<{ value: CatalogSort; label: string }> = [
+  { value: "editorial", label: "Consigliati da FunniFin" },
+  { value: "price-asc", label: "Prezzo: dal più basso" },
+  { value: "price-desc", label: "Prezzo: dal più alto" },
+  { value: "title-asc", label: "Alfabetico: A–Z" },
+  { value: "title-desc", label: "Alfabetico: Z–A" },
+  { value: "level-asc", label: "Difficoltà: base → avanzato" },
+  { value: "duration-asc", label: "Durata: più breve prima" },
+];
+
+const formatFilterOptions = [
+  { value: "all", label: "Tutti i formati" },
+  { value: "webinar", label: "Webinar" },
+  { value: "live", label: "In presenza" },
+  { value: "ibrido", label: "Ibrido" },
+];
+
 const PRIVACY_NOTICE_VERSION = "privacy-funnifin-mvp-2026-06-22";
 
 const guidedSurveyQuestions: SurveyQuestion[] = [
   {
     id: "topics",
-    title: "Su quali temi vuoi generare maggiore impatto?",
+    title: "Su quali ambiti vuoi generare maggiore impatto?",
     subtitle: "Seleziona tutte le aree prioritarie per il tuo percorso.",
     kind: "multi",
     answers: [
@@ -99,11 +120,9 @@ const guidedSurveyQuestions: SurveyQuestion[] = [
     title: "Quale risultato vuoi ottenere?",
     kind: "single",
     answers: [
-      { id: "sensibilizzazione", label: "Sensibilizzazione", description: "Aprire consapevolezza su temi finanziari chiave." },
-      { id: "formazione-base", label: "Formazione base", description: "Dare fondamenta comuni a tutta la popolazione aziendale." },
-      { id: "formazione-pratica", label: "Formazione pratica", description: "Portare strumenti applicabili subito nella vita quotidiana." },
-      { id: "continuativo", label: "Percorso continuativo", description: "Costruire un programma su più momenti durante l'anno." },
-      { id: "annuale", label: "Piano annuale", description: "Impostare un piano strutturato di educazione finanziaria." },
+      { id: "sensibilizzazione", label: "Sensibilizzazione", description: "Aprire consapevolezza sugli ambiti finanziari chiave." },
+      { id: "avanzata", label: "Avanzata", description: "Approfondire gli ambiti prioritari con un percorso strutturato." },
+      { id: "completa", label: "Completa", description: "Coprire in modo organico le principali aree del benessere finanziario." },
     ],
   },
   {
@@ -122,9 +141,8 @@ const guidedSurveyQuestions: SurveyQuestion[] = [
     title: "Come preferisci erogarlo?",
     kind: "single",
     answers: [
-      { id: "webinar", label: "Webinar live", description: "Massima scalabilità e partecipazione da remoto." },
-      { id: "live", label: "In presenza", description: "Esperienza più diretta per gruppi o sedi specifiche." },
-      { id: "ibrido", label: "Ibrido", description: "Combina accessibilità e momenti ad alto coinvolgimento." },
+      { id: "online", label: "Online", description: "Massima scalabilità e partecipazione da remoto." },
+      { id: "in-person", label: "In presenza", description: "Esperienza più diretta presso la sede del cliente." },
       { id: "consigliami", label: "Consigliami il formato migliore", description: "Lascia a FunniFin la proposta più coerente." },
     ],
   },
@@ -151,25 +169,32 @@ const guidedOutcomePreview = [
 ];
 
 function formatList(items: string[]) {
-  if (items.length === 0) return "temi da definire";
+  if (items.length === 0) return "ambiti da definire";
   if (items.length === 1) return items[0];
   return `${items.slice(0, -1).join(", ")} e ${items[items.length - 1]}`;
+}
+
+function workshopTopicIds(workshop: Workshop) {
+  return workshop.topicIds?.length ? workshop.topicIds : [workshop.topicId];
 }
 
 export function ClientView({
   topics,
   workshops,
+  bundles,
+  commercialConfig,
   activeTopics,
   activeThemes,
   selections,
   quote,
   coveredTopics,
-  coveredThemes,
   totalHours,
   setActiveTopics,
   setActiveThemes,
   toggleWorkshop,
   addWorkshops,
+  selectBundle,
+  clearSelections,
   updateSelection,
   setProjectStatus,
   notify,
@@ -180,24 +205,26 @@ export function ClientView({
   setAssetFolder,
   uploadedAssets,
   setUploadedAssets,
-  systemRefreshToken,
   systemSettingsToken,
   onGuidedLayerChange,
   onRequestCreated,
 }: {
   topics: Topic[];
   workshops: Workshop[];
+  bundles: CatalogBundle[];
+  commercialConfig: CommercialConfig;
   activeTopics: string[];
   activeThemes: string[];
   selections: Selection[];
   quote: Quote;
   coveredTopics: number;
-  coveredThemes: number;
   totalHours: number;
   setActiveTopics: (ids: string[]) => void;
   setActiveThemes: (ids: string[]) => void;
   toggleWorkshop: (id: string) => void;
-  addWorkshops: (ids: string[]) => void;
+  addWorkshops: (ids: string[], options?: { bundleId?: string; format?: Format }) => void;
+  selectBundle: (bundle: CatalogBundle, format?: Format) => void;
+  clearSelections: () => void;
   updateSelection: (id: string, patch: Partial<Selection>) => void;
   setProjectStatus: (status: ProjectStatus, title: string, body: string) => void;
   notify: (title: string, body: string) => void;
@@ -208,39 +235,51 @@ export function ClientView({
   setAssetFolder: (folder: AssetDraftFolder | null) => void;
   uploadedAssets: UploadedAsset[];
   setUploadedAssets: (value: UploadedAsset[] | ((current: UploadedAsset[]) => UploadedAsset[])) => void;
-  systemRefreshToken: number;
   systemSettingsToken: number;
   onGuidedLayerChange?: (active: boolean) => void;
   onRequestCreated: (request: WorkshopRequestRecord) => void;
 }) {
-  const clientSteps = ["Interessi", "Consigliati", "Workshop", "Personalizza", "Date", "Materiali", "Invio"];
+  const allClientSteps = ["Interessi", "Consigliati", "Workshop", "Personalizza", "Date", "Materiali", "Invio"];
   const debugNotify = (title: string, body: string) => {
     if (import.meta.env.DEV) notify(title, body);
   };
-  const [clientStep, setClientStep] = useState(clientSteps[0]);
+  const [clientStep, setClientStep] = useState(allClientSteps[0]);
   const [clientJourneyStage, setClientJourneyStage] = useState<ClientJourneyStage>("loader");
   const [choiceSheet, setChoiceSheet] = useState<"guided" | "catalog" | null>(null);
   const [topicPointer, setTopicPointer] = useState<{ emoji: string; x: number; y: number } | null>(null);
   const [surveyIndex, setSurveyIndex] = useState(0);
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string[]>>({});
-  const [workshopFilters, setWorkshopFilters] = useState({ topic: "all", theme: "all", format: "all" });
+  const [workshopFilters, setWorkshopFilters] = useState<{ topics: string[]; format: string }>({ topics: [], format: "all" });
+  const [catalogSort, setCatalogSort] = useState<CatalogSort>("editorial");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [surveyCompleted, setSurveyCompleted] = useState(false);
+  const [surveyGateStep, setSurveyGateStep] = useState<"Interessi" | "Consigliati" | null>(null);
+  const [preserveCatalogAfterSurvey, setPreserveCatalogAfterSurvey] = useState(false);
+  const [commandBarFixed, setCommandBarFixed] = useState(false);
+  const [commandBarHeight, setCommandBarHeight] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
+  const [catalogMode, setCatalogMode] = useState<"none" | "all" | "bundles" | "workshops">("none");
   const [sendingRequest, setSendingRequest] = useState(false);
   const [uploadingAssets, setUploadingAssets] = useState(false);
   const [assetUploadError, setAssetUploadError] = useState("");
+  const [logoPreview, setLogoPreview] = useState<{ name: string; url: string } | null>(null);
   const [requestFinalized, setRequestFinalized] = useState(false);
+  const [datesDeferred, setDatesDeferred] = useState(false);
+  const [datePlanningMode, setDatePlanningMode] = useState<"now" | "later" | null>(null);
+  const [dateSubmitGateOpen, setDateSubmitGateOpen] = useState(false);
+  const [selectedSurveyProfile, setSelectedSurveyProfile] = useState<SurveyProfile | null>(null);
   const [sharingCart, setSharingCart] = useState(false);
   const [contactTouched, setContactTouched] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [emailDeliveryMode, setEmailDeliveryMode] = useState<"sent" | "not_sent">("not_sent");
   const [flyToBar, setFlyToBar] = useState<{ id: number; title: string; x: number; y: number } | null>(null);
-  const [expandedTopicCards, setExpandedTopicCards] = useState<string[]>([]);
   const assetFolderRef = useRef<AssetDraftFolder | null>(null);
   const requestFinalizedRef = useRef(false);
   const topicPointerTimerRef = useRef<number | null>(null);
   const surveyQuestionPanelRef = useRef<HTMLElement | null>(null);
+  const commandBarAnchorRef = useRef<HTMLDivElement | null>(null);
+  const commandBarRef = useRef<HTMLDivElement | null>(null);
   const [contact, setContact] = useState<ClientContact>({
     firstName: "",
     lastName: "",
@@ -248,39 +287,120 @@ export function ClientView({
     company: "",
     phone: "",
   });
+  const surveyQuestions = useMemo<SurveyQuestion[]>(
+    () =>
+      guidedSurveyQuestions.map((question) =>
+        question.id === "topics"
+          ? {
+              ...question,
+              answers: topics.map((topic) => ({
+                id: topic.id,
+                label: topic.title,
+                description: topic.description || `Workshop dell’ambito ${topic.title}.`,
+                meta: `${workshops.filter((workshop) => (workshop.topicIds?.length ? workshop.topicIds : [workshop.topicId]).includes(topic.id)).length} workshop`,
+                topicIds: [topic.id],
+              })),
+            }
+          : question,
+      ),
+    [topics, workshops],
+  );
   const selectedTopics = topics.filter((item) => activeTopics.includes(item.id));
   const selectedTopicTitles = selectedTopics.map((item) => item.title).join(", ") || "nessun ambito";
   const allThemes = Array.from(new Map(topics.flatMap((item) => item.themes).map((theme) => [theme.id, theme])).values());
-  const activeStructuredFilterCount = [workshopFilters.topic, workshopFilters.theme, workshopFilters.format].filter((value) => value !== "all").length;
+  const activeStructuredFilterCount = workshopFilters.topics.length + (workshopFilters.format === "all" ? 0 : 1);
+  const activeOffcanvasControlCount = activeStructuredFilterCount + (catalogSort === "editorial" ? 0 : 1);
   const hasSearchQuery = searchQuery.trim() !== "";
   const hasCatalogQuery = hasSearchQuery || activeStructuredFilterCount > 0;
   const visibleWorkshops = workshops.filter(
     (workshop) =>
       hasCatalogQuery ||
-      activeTopics.includes(workshop.topicId) ||
+      workshopTopicIds(workshop).some((topicId) => activeTopics.includes(topicId)) ||
       activeThemes.includes(workshop.themeId) ||
       selections.some((item) => item.workshopId === workshop.id),
   );
   const filteredWorkshops = visibleWorkshops.filter((workshop) => {
-    const topic = topics.find((item) => item.id === workshop.topicId);
+    const topic = topics.find((item) => workshopTopicIds(workshop).includes(item.id));
     const theme = topic?.themes.find((item) => item.id === workshop.themeId);
     const haystack = `${workshop.title} ${workshop.short} ${workshop.long} ${topic?.title ?? ""} ${theme?.title ?? ""}`.toLowerCase();
     const matchesSearch = searchQuery.trim() === "" || haystack.includes(searchQuery.trim().toLowerCase());
     return (
       matchesSearch &&
-      (workshopFilters.topic === "all" || workshop.topicId === workshopFilters.topic) &&
-      (workshopFilters.theme === "all" || workshop.themeId === workshopFilters.theme) &&
+      (workshopFilters.topics.length === 0 || workshopTopicIds(workshop).some((topicId) => workshopFilters.topics.includes(topicId))) &&
       (workshopFilters.format === "all" || workshop.formatOptions.includes(workshopFilters.format as Format))
     );
+  }).sort((left, right) => {
+    if (catalogSort === "title-asc") return left.title.localeCompare(right.title, "it");
+    if (catalogSort === "title-desc") return right.title.localeCompare(left.title, "it");
+    if (catalogSort === "level-asc") {
+      const levelOrder = { base: 0, intermedio: 1, avanzato: 2 };
+      return levelOrder[left.level] - levelOrder[right.level] || left.title.localeCompare(right.title, "it");
+    }
+    if (catalogSort === "duration-asc") {
+      const leftDuration = Math.min(...left.durationOptions.map((value) => Number.parseFloat(value.replace(",", ".")) || Number.POSITIVE_INFINITY));
+      const rightDuration = Math.min(...right.durationOptions.map((value) => Number.parseFloat(value.replace(",", ".")) || Number.POSITIVE_INFINITY));
+      return leftDuration - rightDuration || left.title.localeCompare(right.title, "it");
+    }
+    return 0;
   });
-  const selectedWorkshopIds = useMemo(() => new Set(selections.map((selection) => selection.workshopId)), [selections]);
+  const activeBundles = useMemo(() => bundles.filter((bundle) => bundle.active), [bundles]);
+  const filteredBundles = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return activeBundles.filter((bundle) => {
+      const members = bundle.workshopIds
+        .map((workshopId) => workshops.find((workshop) => workshop.id === workshopId))
+        .filter(Boolean) as Workshop[];
+      const haystack = `${bundle.title} ${bundle.description ?? ""} ${members.map((workshop) => `${workshop.title} ${workshop.short}`).join(" ")}`.toLowerCase();
+      const matchesSearch = !query || haystack.includes(query);
+      const matchesTopic =
+        workshopFilters.topics.length === 0 ||
+        members.some((workshop) => workshopTopicIds(workshop).some((topicId) => workshopFilters.topics.includes(topicId)));
+      return matchesSearch && matchesTopic;
+    }).sort((left, right) => {
+      if (catalogSort === "price-asc") return getBundlePrice(left, commercialConfig) - getBundlePrice(right, commercialConfig);
+      if (catalogSort === "price-desc") return getBundlePrice(right, commercialConfig) - getBundlePrice(left, commercialConfig);
+      if (catalogSort === "title-asc") return left.title.localeCompare(right.title, "it");
+      if (catalogSort === "title-desc") return right.title.localeCompare(left.title, "it");
+      return 0;
+    });
+  }, [activeBundles, catalogSort, commercialConfig, searchQuery, workshopFilters.topics, workshops]);
+  const recommendedBundles = useMemo(() => {
+    if (activeTopics.length === 0 && activeThemes.length === 0) return [];
+    const activeTopicSet = new Set(activeTopics);
+    const activeThemeSet = new Set(activeThemes);
+
+    return activeBundles
+      .map((bundle) => {
+        const members = bundle.workshopIds
+          .map((workshopId) => workshops.find((workshop) => workshop.id === workshopId))
+          .filter(Boolean) as Workshop[];
+        const matchingMembers = members.filter(
+          (workshop) =>
+            workshopTopicIds(workshop).some((topicId) => activeTopicSet.has(topicId)) ||
+            activeThemeSet.has(workshop.themeId),
+        );
+        const coveredTopics = new Set(
+          matchingMembers.flatMap((workshop) => workshopTopicIds(workshop).filter((topicId) => activeTopicSet.has(topicId))),
+        ).size;
+        const coverage = members.length > 0 ? matchingMembers.length / members.length : 0;
+        return {
+          bundle,
+          score: coverage * 100 + coveredTopics * 12 + matchingMembers.length,
+          matchingMembers: matchingMembers.length,
+        };
+      })
+      .filter(({ matchingMembers }) => matchingMembers > 0)
+      .sort((a, b) => b.score - a.score || b.matchingMembers - a.matchingMembers || a.bundle.title.localeCompare(b.bundle.title, "it"))
+      .slice(0, 3)
+      .map(({ bundle }) => bundle);
+  }, [activeBundles, activeThemes, activeTopics, workshops]);
   const recommendedWorkshops = useMemo(() => {
     const activeTopicOrder = new Map(activeTopics.map((id, index) => [id, index]));
     const activeThemeOrder = new Map(activeThemes.map((id, index) => [id, index]));
     const orderedCandidates = workshops
-      .filter((workshop) => !selectedWorkshopIds.has(workshop.id))
       .map((workshop) => {
-        const topicIndex = activeTopicOrder.get(workshop.topicId);
+        const matchingTopicId = workshopTopicIds(workshop).find((topicId) => activeTopicOrder.has(topicId));
+        const topicIndex = matchingTopicId ? activeTopicOrder.get(matchingTopicId) : undefined;
         const themeIndex = activeThemeOrder.get(workshop.themeId);
         const matchesTopic = topicIndex !== undefined;
         const matchesTheme = themeIndex !== undefined;
@@ -299,9 +419,10 @@ export function ClientView({
     const seenTopics = new Set<string>();
     for (const candidate of orderedCandidates) {
       if (picks.length >= 3) break;
-      if (seenTopics.has(candidate.workshop.topicId)) continue;
+      const topicKey = workshopTopicIds(candidate.workshop).find((topicId) => activeTopicOrder.has(topicId)) ?? candidate.workshop.topicId;
+      if (seenTopics.has(topicKey)) continue;
       picks.push(candidate.workshop);
-      seenTopics.add(candidate.workshop.topicId);
+      seenTopics.add(topicKey);
     }
 
     if (picks.length < 3) {
@@ -313,25 +434,28 @@ export function ClientView({
     }
 
     return picks;
-  }, [activeThemes, activeTopics, selectedWorkshopIds]);
+  }, [activeThemes, activeTopics, workshops]);
   const selectedWorkshopRows = selections
     .map((selection) => ({ selection, workshop: workshops.find((item) => item.id === selection.workshopId)! }))
     .filter(({ workshop }) => Boolean(workshop));
+  const hasCustomizableSelections = selectedWorkshopRows.some(({ workshop }) => workshop.customAvailable);
+  const customizableWorkshopRows = selectedWorkshopRows.filter(({ workshop }) => workshop.customAvailable);
+  const fixedWorkshopRows = selectedWorkshopRows.filter(({ workshop }) => !workshop.customAvailable);
+  const clientSteps = hasCustomizableSelections
+    ? allClientSteps
+    : allClientSteps.filter((step) => step !== "Personalizza");
+  const selectedBundleId = selections.find((selection) => selection.bundleId)?.bundleId;
   const allCatalogActive = activeTopics.length === topics.length && activeThemes.length === allThemes.length;
   const selectedRecommendationCount = recommendedWorkshops.filter((workshop) => selections.some((selection) => selection.workshopId === workshop.id)).length;
-  const addRecommendedWorkshops = () => {
-    addWorkshops(recommendedWorkshops.map((workshop) => workshop.id));
-    setClientStep("Workshop");
-  };
   const missingDateRows = selectedWorkshopRows.filter(({ selection }) => !selection.dateConfirmed);
   const allDatesSelected = selectedWorkshopRows.length > 0 && missingDateRows.length === 0;
   const activeStepIndex = clientSteps.indexOf(clientStep);
   const goNext = () => setClientStep(clientSteps[Math.min(activeStepIndex + 1, clientSteps.length - 1)]);
   const goBack = () => setClientStep(clientSteps[Math.max(activeStepIndex - 1, 0)]);
   const clientCompletedSteps = new Set<string>([
-    ...(coveredTopics > 0 || coveredThemes > 0 || selections.length > 0 ? ["Interessi"] : []),
+    ...(coveredTopics > 0 || selections.length > 0 ? ["Interessi"] : []),
     ...(selectedWorkshopRows.length > 0 ? ["Consigliati", "Workshop", "Personalizza"] : []),
-    ...(allDatesSelected ? ["Date"] : []),
+    ...(allDatesSelected || datesDeferred ? ["Date"] : []),
     ...(requestFinalized ? ["Materiali", "Invio"] : []),
   ]);
   const contactReady =
@@ -347,6 +471,9 @@ export function ClientView({
   useEffect(() => {
     requestFinalizedRef.current = requestFinalized;
   }, [requestFinalized]);
+  useEffect(() => () => {
+    if (logoPreview?.url) URL.revokeObjectURL(logoPreview.url);
+  }, [logoPreview]);
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (assetFolderRef.current && !requestFinalizedRef.current) void deleteAssetDraftFolder(assetFolderRef.current.id, assetFolderRef.current.draftToken);
@@ -356,7 +483,55 @@ export function ClientView({
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, []);
-  const handleAssetFiles = async (files: FileList | null) => {
+  useEffect(() => {
+    if (clientStep !== "Workshop") {
+      setCommandBarFixed(false);
+      return;
+    }
+
+    let frame = 0;
+    const updateCommandBar = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const anchor = commandBarAnchorRef.current;
+        const bar = commandBarRef.current;
+        if (!anchor || !bar) return;
+        const stickyTop = 0;
+        const willBeFixed = anchor.getBoundingClientRect().top <= stickyTop;
+        setCommandBarHeight(bar.offsetHeight);
+        setCommandBarFixed(willBeFixed);
+      });
+    };
+
+    updateCommandBar();
+    const resizeObserver = new ResizeObserver(updateCommandBar);
+    if (commandBarRef.current) resizeObserver.observe(commandBarRef.current);
+    window.addEventListener("scroll", updateCommandBar, { passive: true });
+    window.addEventListener("resize", updateCommandBar);
+    return () => {
+      cancelAnimationFrame(frame);
+      resizeObserver.disconnect();
+      window.removeEventListener("scroll", updateCommandBar);
+      window.removeEventListener("resize", updateCommandBar);
+    };
+  }, [clientStep]);
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFiltersOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [filtersOpen]);
+  useEffect(() => {
+    if (!dateSubmitGateOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDateSubmitGateOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [dateSubmitGateOpen]);
+  const handleAssetFiles = async (files: FileList | File[] | null) => {
     const list = Array.from(files ?? []);
     if (!list.length) return;
 
@@ -377,15 +552,14 @@ export function ClientView({
       setUploadingAssets(false);
     }
   };
-  const submitRequest = async () => {
+  const submitRequest = async (deferMissingDates = false) => {
     if (selectedWorkshopRows.length === 0) {
       setClientStep("Workshop");
       notify("Aggiungi almeno un workshop", "Scegli un workshop dal catalogo prima di inviare la richiesta.");
       return;
     }
-    if (!allDatesSelected) {
-      setClientStep("Date");
-      notify("Date mancanti", `Scegli le date per ${missingDateRows.length} workshop prima di inviare.`);
+    if (!allDatesSelected && !datesDeferred && !deferMissingDates) {
+      setDateSubmitGateOpen(true);
       return;
     }
     if (!contactReady) {
@@ -409,8 +583,9 @@ export function ClientView({
         format: selection.format,
         date: selection.date,
         time: selection.time,
-        price: getWorkshopSelectionPrice(workshop, selection).total,
+        price: getWorkshopSelectionPrice(workshop, selection, commercialConfig).total,
         custom: selection.custom,
+        recordingIncluded: selection.recordingIncluded !== false,
         customNote: selection.customNote,
         status: selection.status,
         approval: selection.dateConfirmed ? "pending" : undefined,
@@ -425,6 +600,7 @@ export function ClientView({
           time: workshop.time,
           price: workshop.price,
           custom: workshop.custom,
+          recordingIncluded: workshop.recordingIncluded,
         })),
         quote: {
           gross: quote.gross,
@@ -434,6 +610,7 @@ export function ClientView({
           total: quote.total,
           saved: quote.saved,
           packageName: quote.rule.name,
+          recordingDiscount: quote.recordingDiscount,
         },
       };
       const request = await createWorkshopRequest({
@@ -447,7 +624,10 @@ export function ClientView({
           total: quote.total,
           saved: quote.saved,
           packageName: quote.rule.name,
+          recordingDiscount: quote.recordingDiscount,
         },
+        surveyProfile: selectedSurveyProfile ?? undefined,
+        datesDeferred: datesDeferred || deferMissingDates,
         materials: assetFolder
           ? {
               folderId: assetFolder.id,
@@ -591,7 +771,7 @@ export function ClientView({
     }
 
     selectedWorkshopRows.forEach(({ selection, workshop }, index) => {
-      const price = getWorkshopSelectionPrice(workshop, selection);
+      const price = getWorkshopSelectionPrice(workshop, selection, commercialConfig);
       const layout = rowLayouts[index];
       ctx.fillStyle = index % 2 === 0 ? "#f2f7f5" : "#ffffff";
       ctx.beginPath();
@@ -647,7 +827,7 @@ export function ClientView({
     const cartText = [
       "Carrello FunniFin",
       ...selectedWorkshopRows.map(({ selection, workshop }) => {
-        const price = getWorkshopSelectionPrice(workshop, selection);
+        const price = getWorkshopSelectionPrice(workshop, selection, commercialConfig);
         const date = selection.date ? `, ${selection.date} ${selection.time}` : "";
         return `- ${workshop.title}: ${selection.duration}, ${selection.format}${date} (${money(price.total)})`;
       }),
@@ -688,9 +868,10 @@ export function ClientView({
     setActiveThemes(activeThemes.filter((themeId) => !removedThemeIds.includes(themeId)));
   };
   const removeWorkshop = (workshopId: string) => {
-    const workshop = workshops.find((item) => item.id === workshopId);
     toggleWorkshop(workshopId);
-    if (workshop && workshopFilters.theme === workshop.themeId) setWorkshopFilters({ ...workshopFilters, theme: "all" });
+  };
+  const toggleCatalogFilters = () => {
+    setFiltersOpen((current) => !current);
   };
   const toggleWorkshopWithFeedback = (workshop: Workshop, event?: React.MouseEvent<HTMLButtonElement>) => {
     const alreadySelected = selections.some((selection) => selection.workshopId === workshop.id);
@@ -708,6 +889,18 @@ export function ClientView({
       }, 760);
     }
     toggleWorkshop(workshop.id);
+    if (!alreadySelected && window.matchMedia("(max-width: 820px)").matches) {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          const card = document.querySelector<HTMLElement>(`[data-workshop-id="${CSS.escape(workshop.id)}"]`);
+          const fixedBar = commandBarRef.current;
+          if (!card || !fixedBar?.classList.contains("is-fixed")) return;
+          const minimumTop = fixedBar.getBoundingClientRect().bottom + 12;
+          const cardTop = card.getBoundingClientRect().top;
+          if (cardTop < minimumTop) window.scrollBy({ top: cardTop - minimumTop, behavior: "smooth" });
+        });
+      });
+    }
   };
   const toggleTopic = (topicItem: Topic) => {
     const themeIds = topicItem.themes.map((theme) => theme.id);
@@ -719,13 +912,22 @@ export function ClientView({
     setActiveTopics(nextTopics);
     setActiveThemes([...new Set([...activeThemes, ...themeIds])]);
   };
+  const toggleWorkshopFilterTopic = (topicId: string) => {
+    setWorkshopFilters((current) => ({
+      ...current,
+      topics: current.topics.includes(topicId)
+        ? current.topics.filter((id) => id !== topicId)
+        : [...current.topics, topicId],
+    }));
+  };
   const selectAllTopics = () => {
     setActiveTopics(topics.map((item) => item.id));
     setActiveThemes([...new Set(topics.flatMap((item) => item.themes.map((theme) => theme.id)))]);
     setClientStep("Workshop");
   };
   const clearWorkshopDiscovery = () => {
-    setWorkshopFilters({ topic: "all", theme: "all", format: "all" });
+    setWorkshopFilters({ topics: [], format: "all" });
+    setCatalogSort("editorial");
     setSearchQuery("");
   };
   const resetWorkshopDiscovery = () => {
@@ -734,10 +936,10 @@ export function ClientView({
     clearWorkshopDiscovery();
     setFiltersOpen(false);
   };
-  const currentSurveyQuestion = guidedSurveyQuestions[surveyIndex];
+  const currentSurveyQuestion = surveyQuestions[surveyIndex];
   const currentSurveyAnswers = surveyAnswers[currentSurveyQuestion.id] ?? [];
-  const surveyProgress = Math.round(((surveyIndex + 1) / guidedSurveyQuestions.length) * 100);
-  const allSelectedSurveyAnswers = guidedSurveyQuestions.flatMap((question) => {
+  const surveyProgress = Math.round(((surveyIndex + 1) / surveyQuestions.length) * 100);
+  const allSelectedSurveyAnswers = surveyQuestions.flatMap((question) => {
     const ids = surveyAnswers[question.id] ?? [];
     return question.answers.filter((answer) => ids.includes(answer.id));
   });
@@ -748,21 +950,45 @@ export function ClientView({
     ? guidedThemeIds
     : topics.filter((topic) => resultTopicIds.includes(topic.id)).flatMap((topic) => topic.themes.map((theme) => theme.id));
   const resultTopicTitles = topics.filter((topic) => resultTopicIds.includes(topic.id)).map((topic) => topic.title);
-  const resultWorkshops = workshops
-    .filter((workshop) => resultTopicIds.includes(workshop.topicId) || resultThemeIds.includes(workshop.themeId))
-    .slice(0, 3);
-  const outcomeLabel = guidedSurveyQuestions.find((question) => question.id === "outcome")?.answers.find((answer) => surveyAnswers.outcome?.includes(answer.id))?.label ?? "Formazione pratica";
-  const employeesLabel = guidedSurveyQuestions.find((question) => question.id === "employees")?.answers.find((answer) => surveyAnswers.employees?.includes(answer.id))?.label ?? "Da definire";
-  const formatLabel = guidedSurveyQuestions.find((question) => question.id === "format")?.answers.find((answer) => surveyAnswers.format?.includes(answer.id))?.label ?? "Consigliato da FunniFin";
-  const budgetLabel = guidedSurveyQuestions.find((question) => question.id === "budget")?.answers.find((answer) => surveyAnswers.budget?.includes(answer.id))?.label ?? "Non ancora definito";
+  const selectedOutcome = (surveyAnswers.outcome?.[0] === "avanzata" || surveyAnswers.outcome?.[0] === "completa"
+    ? surveyAnswers.outcome[0]
+    : "sensibilizzazione") as SurveyProfile["outcome"];
+  const requestedFormat: SurveyProfile["requestedFormat"] =
+    surveyAnswers.format?.[0] === "in-person"
+      ? "in-person"
+      : surveyAnswers.format?.[0] === "online"
+        ? "online"
+        : "recommend";
+  const surveyProfile = useMemo(
+    () =>
+      buildSurveyRecommendation({
+        topicIds: resultTopicIds,
+        outcome: selectedOutcome,
+        employees: surveyAnswers.employees?.[0] ?? "",
+        requestedFormat,
+        budget: surveyAnswers.budget?.[0] ?? "unknown",
+        workshops,
+        bundles,
+        commercialConfig,
+      }),
+    [bundles, commercialConfig, requestedFormat, resultTopicIds.join("|"), selectedOutcome, surveyAnswers.budget, surveyAnswers.employees, workshops],
+  );
+  const resultWorkshops = surveyProfile.recommendedWorkshopIds
+    .map((workshopId) => workshops.find((workshop) => workshop.id === workshopId))
+    .filter(Boolean) as Workshop[];
+  const resultBundle = bundles.find((bundle) => bundle.id === surveyProfile.recommendedBundleId);
+  const outcomeLabel = surveyQuestions.find((question) => question.id === "outcome")?.answers.find((answer) => surveyAnswers.outcome?.includes(answer.id))?.label ?? "Sensibilizzazione";
+  const employeesLabel = surveyQuestions.find((question) => question.id === "employees")?.answers.find((answer) => surveyAnswers.employees?.includes(answer.id))?.label ?? "Da definire";
+  const formatLabel = surveyQuestions.find((question) => question.id === "format")?.answers.find((answer) => surveyAnswers.format?.includes(answer.id))?.label ?? "Consigliato da FunniFin";
+  const budgetLabel = surveyQuestions.find((question) => question.id === "budget")?.answers.find((answer) => surveyAnswers.budget?.includes(answer.id))?.label ?? "Non ancora definito";
   const topicProfileLabel =
-    guidedSurveyQuestions
+    surveyQuestions
       .find((question) => question.id === "topics")
       ?.answers.filter((answer) => surveyAnswers.topics?.includes(answer.id))
       .map((answer) => answer.label)
       .join(", ") || "Da definire";
   const profileGridItems = [
-    { label: "Temi prioritari", value: topicProfileLabel },
+    { label: "Ambiti prioritari", value: topicProfileLabel },
     { label: "Dipendenti", value: employeesLabel },
     { label: "Formato", value: formatLabel },
     { label: "Budget", value: budgetLabel },
@@ -776,11 +1002,18 @@ export function ClientView({
   };
   const startManualJourney = () => {
     setChoiceSheet(null);
+    setActiveTopics(topics.map((topic) => topic.id));
+    setActiveThemes([...new Set(topics.flatMap((topic) => topic.themes.map((theme) => theme.id)))]);
+    clearWorkshopDiscovery();
+    setFiltersOpen(false);
+    setCatalogMode("none");
     setClientJourneyStage("manual");
-    setClientStep("Interessi");
+    setClientStep("Workshop");
   };
-  const startGuidedJourney = () => {
+  const startGuidedJourney = (preserveCatalog = false) => {
     setChoiceSheet(null);
+    setSurveyGateStep(null);
+    setPreserveCatalogAfterSurvey(preserveCatalog);
     setTopicPointer(null);
     setSurveyIndex(0);
     setSurveyAnswers({});
@@ -825,13 +1058,19 @@ export function ClientView({
   };
   const continueSurvey = () => {
     if (!surveyCanContinue) return;
-    if (surveyIndex < guidedSurveyQuestions.length - 1) {
+    if (surveyIndex < surveyQuestions.length - 1) {
       setSurveyIndex(surveyIndex + 1);
       setTopicPointer(null);
       scrollSurveyQuestionTop();
       return;
     }
-    applyGuidedProfile();
+    if (preserveCatalogAfterSurvey) {
+      setActiveTopics(resultTopicIds);
+      setActiveThemes(resultThemeIds);
+    } else {
+      applyGuidedProfile();
+    }
+    setSurveyCompleted(true);
     setClientJourneyStage("generating");
     window.setTimeout(() => setClientJourneyStage("result"), 1250);
   };
@@ -845,14 +1084,45 @@ export function ClientView({
     setClientJourneyStage("choice");
   };
   const addGuidedWorkshops = () => {
-    addWorkshops(resultWorkshops.map((workshop) => workshop.id));
+    const recommendedBundle = bundles.find((bundle) => bundle.id === surveyProfile.recommendedBundleId);
+    if (recommendedBundle) {
+      selectBundle(recommendedBundle, requestedFormat === "online" ? "webinar" : undefined);
+    } else {
+      addWorkshops(resultWorkshops.map((workshop) => workshop.id), {
+        format: requestedFormat === "online" ? "webinar" : undefined,
+      });
+    }
+    resultWorkshops.forEach((workshop) => {
+      updateSelection(workshop.id, {
+        ...(requestedFormat === "online" ? { format: "webinar" as Format } : {}),
+        recordingIncluded: commercialConfig.recordingDefault,
+      });
+    });
+    setSelectedSurveyProfile(surveyProfile);
     setClientJourneyStage("manual");
-    setClientStep("Personalizza");
+    setClientStep(resultWorkshops.some((workshop) => workshop.customAvailable) ? "Personalizza" : "Date");
   };
   const openGuidedCatalog = () => {
-    applyGuidedProfile();
+    setActiveTopics(resultTopicIds);
+    setActiveThemes(resultThemeIds);
+    if (!preserveCatalogAfterSurvey) {
+      clearWorkshopDiscovery();
+      setCatalogMode(surveyProfile.recommendedBundleId ? "bundles" : "none");
+    }
     setClientJourneyStage("manual");
     setClientStep("Workshop");
+  };
+  const handleClientStep = (step: string) => {
+    if (!surveyCompleted && (step === "Interessi" || step === "Consigliati")) {
+      setSurveyGateStep(step);
+      return;
+    }
+    setClientStep(step);
+    if (step === "Personalizza") {
+      debugNotify("Personalizzazione su misura", "Qui decidi se aggiungere il lavoro di co-design FunniFin con i nostri esperti.");
+      return;
+    }
+    debugNotify("Step selezionato", `${step}: vai alla sezione operativa.`);
   };
   const clientMainAction = (() => {
     if (clientStep === "Interessi") {
@@ -864,29 +1134,30 @@ export function ClientView({
     }
     if (clientStep === "Consigliati") {
       return {
-        label: selectedRecommendationCount === recommendedWorkshops.length && selectedRecommendationCount > 0 ? "Vai al catalogo" : "Aggiungi consigliati",
-        disabled: recommendedWorkshops.length === 0,
-        action: selectedRecommendationCount === recommendedWorkshops.length && selectedRecommendationCount > 0 ? () => setClientStep("Workshop") : addRecommendedWorkshops,
+        label: "Continua al catalogo",
+        disabled: recommendedBundles.length === 0 && recommendedWorkshops.length === 0,
+        action: () => setClientStep("Workshop"),
       };
     }
-    if (clientStep === "Workshop") return { label: "Personalizza percorso", disabled: selectedWorkshopRows.length === 0, action: goNext };
+    if (clientStep === "Workshop") return {
+      label: hasCustomizableSelections ? "Personalizza percorso" : "Scegli le date",
+      disabled: selectedWorkshopRows.length === 0,
+      action: goNext,
+    };
     if (clientStep === "Personalizza") return { label: "Scegli le date", disabled: selectedWorkshopRows.length === 0, action: goNext };
-    if (clientStep === "Date") return { label: "Materiali opzionali", disabled: !allDatesSelected, action: goNext };
+    if (clientStep === "Date") return { label: "Materiali opzionali", disabled: !allDatesSelected && !datesDeferred, action: goNext };
     if (clientStep === "Materiali") return { label: uploadedAssets.length > 0 ? "Vai all'invio" : "Salta e vai all'invio", disabled: false, action: goNext };
     if (requestFinalized) return { label: "Richiesta inviata", disabled: true, action: () => {} };
-    return { label: "Invia richiesta", disabled: sendingRequest || selectedWorkshopRows.length === 0, action: submitRequest };
+    return { label: "Invia richiesta", disabled: sendingRequest || selectedWorkshopRows.length === 0, action: () => void submitRequest() };
   })();
-  const refreshClientSection = (section: string) => {
-    debugNotify("Sezione aggiornata", `${section}: dati locali e selezioni riletti nella vista corrente.`);
-  };
-  useEffect(() => {
-    if (systemRefreshToken === 0) return;
-    refreshClientSection(clientStep);
-  }, [systemRefreshToken]);
   useEffect(() => {
     if (systemSettingsToken === 0) return;
-    setClientStep(selectedWorkshopRows.length > 0 ? "Personalizza" : "Workshop");
+    setClientStep(selectedWorkshopRows.length > 0 && hasCustomizableSelections ? "Personalizza" : "Workshop");
   }, [systemSettingsToken]);
+  useEffect(() => {
+    if (clientStep !== "Personalizza" || hasCustomizableSelections) return;
+    setClientStep(selectedWorkshopRows.length > 0 ? "Date" : "Workshop");
+  }, [clientStep, hasCustomizableSelections, selectedWorkshopRows.length]);
   useEffect(() => {
     if (clientJourneyStage !== "loader") return;
     const timer = window.setTimeout(() => setClientJourneyStage("choice"), 1500);
@@ -924,7 +1195,7 @@ export function ClientView({
         benefits: ["Topic consigliati", "Workshop suggeriti", "Esperti associati", "Modificabile in seguito"],
         time: "~2 minuti",
         cta: "Inizia percorso guidato",
-        action: startGuidedJourney,
+        action: () => startGuidedJourney(),
       }
       : choiceSheet === "catalog"
         ? {
@@ -942,7 +1213,7 @@ export function ClientView({
       <section className="guided-entry" aria-labelledby="client-entry-title">
         <div className="guided-entry-pattern" aria-hidden="true" />
         <div className="guided-choice-head">
-          <span className="eyebrow guided-choice-eyebrow">Workshop planner</span>
+          <img className="guided-brand-lockup" src="/funnifin-logo.svg" alt="FunniFin" />
           <h1 id="client-entry-title">
             Costruisci il <span>piano formativo</span> più adatto alla tua azienda
           </h1>
@@ -959,13 +1230,13 @@ export function ClientView({
               <p>Rispondi a poche domande e ricevi una proposta già pronta, basata su obiettivi, popolazione aziendale e priorità formative.</p>
               <ul className="guided-choice-benefits" aria-label="Vantaggi percorso guidato">
                 <li><Check size={16} aria-hidden="true" /> Proposta iniziale generata in pochi minuti</li>
-                <li><Check size={16} aria-hidden="true" /> Temi suggeriti in base alle esigenze aziendali</li>
+                <li><Check size={16} aria-hidden="true" /> Ambiti suggeriti in base alle esigenze aziendali</li>
                 <li><Check size={16} aria-hidden="true" /> Workshop modificabili dopo la generazione</li>
               </ul>
             </div>
             <footer>
               <span>Scelta rapida con proposta FunniFin</span>
-              <AppButton className="guided-primary-cta" onClick={startGuidedJourney} rightIcon={<ArrowRight size={17} />}>
+              <AppButton className="guided-primary-cta" onClick={() => startGuidedJourney()} rightIcon={<ArrowRight size={17} />}>
                 Inizia percorso guidato
               </AppButton>
             </footer>
@@ -1047,7 +1318,7 @@ export function ClientView({
           <button type="button" onClick={goBackSurvey} aria-label="Indietro">
             {surveyIndex === 0 ? <X size={24} /> : <ChevronLeft size={24} />}
           </button>
-          <strong>{currentSurveyQuestion.id === "topics" ? "Temi" : currentSurveyQuestion.title}</strong>
+          <strong>{currentSurveyQuestion.id === "topics" ? "Ambiti" : currentSurveyQuestion.title}</strong>
         </header>
         <main className="survey-question-panel" ref={surveyQuestionPanelRef}>
           <div className="survey-question-box">
@@ -1082,7 +1353,7 @@ export function ClientView({
                     <small>{answer.description}</small>
                   </span>
                   {answer.meta && <em>{answer.meta}</em>}
-                  {selected && <Check size={19} />}
+                  {selected && <Check className="survey-option-check" size={20} aria-hidden="true" />}
                 </button>
               );
             })}
@@ -1120,7 +1391,7 @@ export function ClientView({
         <footer className="survey-footer">
           <div className="survey-progress">
             <span><i style={{ width: `${surveyProgress}%` }} /></span>
-            <em>{surveyIndex + 1} su {guidedSurveyQuestions.length}</em>
+            <em>{surveyIndex + 1} su {surveyQuestions.length}</em>
           </div>
           <div className="survey-nav">
             <button type="button" onClick={goBackSurvey} aria-label="Indietro">
@@ -1141,7 +1412,7 @@ export function ClientView({
         <div className="guided-generating-card">
           <Sparkles size={28} />
           <h1>Stiamo costruendo il tuo percorso</h1>
-          <p>Analizziamo obiettivi, temi e formato.</p>
+          <p>Analizziamo obiettivi, ambiti e formato.</p>
           <div className="animated-pill-row">
             {resultTopicTitles.map((title) => <span key={title}>{title}</span>)}
           </div>
@@ -1162,31 +1433,64 @@ export function ClientView({
           <article className="guided-profile-card">
             <strong>Profilo aziendale</strong>
             <dl>
-              <div><dt>Temi prioritari</dt><dd>{resultTopicTitles.join(", ")}</dd></div>
+              <div><dt>Ambiti prioritari</dt><dd>{resultTopicTitles.join(", ")}</dd></div>
               <div><dt>Dipendenti</dt><dd>{employeesLabel}</dd></div>
               <div><dt>Formato</dt><dd>{formatLabel}</dd></div>
               <div><dt>Budget</dt><dd>{budgetLabel}</dd></div>
             </dl>
           </article>
-          <div className="guided-workshop-stack">
-            {resultWorkshops.map((workshop) => {
-              const topic = topics.find((item) => item.id === workshop.topicId);
+          {resultBundle ? (
+            <div className="guided-bundle-recommendation">
+              <span className="eyebrow">Pacchetto consigliato</span>
+              <BundleCard
+                bundle={resultBundle}
+                workshops={workshops}
+                commercialConfig={commercialConfig}
+                selected={false}
+                onSelect={addGuidedWorkshops}
+                onOpenWorkshop={(workshop) => {
+                  openGuidedCatalog();
+                  setCatalogMode("workshops");
+                  setSearchQuery(workshop.title);
+                }}
+              />
+              <p className="guided-recommendation-reason">{surveyProfile.reason}</p>
+            </div>
+          ) : (
+            <div className="guided-workshop-stack">
+              {resultWorkshops.map((workshop) => {
+              const topic = topics.find((item) => workshopTopicIds(workshop).includes(item.id));
+              const previewFormat = requestedFormat === "online" ? "webinar" : workshop.formatOptions[0];
+              const previewPrice = getWorkshopSelectionPrice(
+                workshop,
+                {
+                  duration: workshop.durationOptions[0],
+                  format: previewFormat,
+                  custom: false,
+                  recordingIncluded: commercialConfig.recordingDefault,
+                },
+                commercialConfig,
+              ).total;
               return (
                 <article className="guided-workshop-card" key={workshop.id}>
-                  <span className="topic-badge">{topic?.title ?? "Consigliato"}</span>
+                  <span className={`card-taxonomy-eyebrow topic-outline-badge ${topicColorClass(topic?.id ?? "all")}`}>
+                    {topic?.title ?? "Workshop consigliato"}
+                  </span>
                   <strong>{workshop.title}</strong>
                   <p>{workshop.short}</p>
-                  <em>{workshop.durationOptions[0]} · {workshop.formatOptions[0]} · {money(workshop.price1h)}</em>
+                  <em>{workshop.durationOptions[0]} · {previewFormat === "webinar" ? "Online" : "In presenza"} · {money(previewPrice)}</em>
                 </article>
               );
-            })}
-          </div>
+              })}
+              <p className="guided-recommendation-reason">{surveyProfile.reason}</p>
+            </div>
+          )}
         </div>
         <BottomActionBar
           className="client-bottom-bar guided-result-bottom"
           context={`Match ${matchScore}%`}
-          detail={`${resultWorkshops.length} workshop consigliati`}
-          primaryLabel="Aggiungi percorso consigliato"
+          detail={resultBundle ? resultBundle.title : `${resultWorkshops.length} workshop consigliati`}
+          primaryLabel={resultBundle ? "Aggiungi il pacchetto consigliato" : "Aggiungi i workshop consigliati"}
           onPrimary={addGuidedWorkshops}
           secondaryLabel="Modifica dal catalogo"
           onSecondary={openGuidedCatalog}
@@ -1198,11 +1502,11 @@ export function ClientView({
   }
 
   return (
-    <section className="view-stack" aria-label="Planner workshop cliente FunniFin">
+    <section className="view-stack client-planner-view" aria-label="Planner workshop cliente FunniFin">
       <RoleHero
         className="client-path-hero"
         eyebrow="Crea il tuo percorso FunniFin"
-        title="Scegli temi utili, proponi date e ricevi la conferma dal team."
+        title="Scegli gli ambiti, proponi date e ricevi la conferma dal team."
         actions={
           <>
             <ToolIconButton
@@ -1230,7 +1534,6 @@ export function ClientView({
         selections={selections}
         quote={quote}
         coveredTopics={coveredTopics}
-        coveredThemes={coveredThemes}
         totalHours={totalHours}
         onCta={() => setClientStep("Invio")}
       />
@@ -1241,47 +1544,38 @@ export function ClientView({
         steps={clientSteps}
         activeStep={clientStep}
         completedSteps={clientCompletedSteps}
-        onStep={(step) => {
-          setClientStep(step);
-          if (step === "Personalizza") {
-            debugNotify("Personalizzazione su misura", "Qui decidi se aggiungere il lavoro di co-design FunniFin con i nostri esperti.");
-            return;
-          }
-          debugNotify("Step selezionato", `${step}: vai alla sezione operativa.`);
-        }}
+        gatedSteps={!surveyCompleted ? new Set(["Interessi", "Consigliati"]) : undefined}
+        onStep={handleClientStep}
       >
 
       {clientStep === "Interessi" && (
           <Panel>
             <SectionTitle
-              title="Scegli interessi e temi"
-              icon={<BookOpen size={20} />}
-              actions={
-                <ToolIconButton onClick={() => refreshClientSection("Interessi e temi")} label="Ricarica interessi e temi">
-                  <RefreshCw size={18} />
-                </ToolIconButton>
-              }
+              title="Scegli gli ambiti di interesse"
+              icon={<span className="section-title-emoji" aria-hidden="true">🧭</span>}
             />
             <div className="catalog-display-toolbar">
-              <span>{topics.length} interessi · {allThemes.length} temi · {workshops.length} workshop</span>
+              <span>{topics.length} ambiti · {workshops.length} workshop</span>
             </div>
             <div className="topic-grid">
               <article className="topic-card all-topics-card topic-color-all" aria-labelledby="all-catalog-title">
-                <span className="topic-icon"><BookOpen size={22} /></span>
-                <span className="topic-badge">vedi tutti</span>
-                <strong id="all-catalog-title">Tutto il catalogo</strong>
-                <small>Salta i consigli e vai direttamente al catalogo completo →</small>
-                <em>{allThemes.length} temi catalogo · {workshops.length} workshop</em>
+                <div className="topic-card-main all-topics-main">
+                  <span className="topic-icon"><BookOpen size={22} /></span>
+                  <span className="topic-card-copy">
+                    <strong id="all-catalog-title">Tutto il catalogo</strong>
+                    <small>Vai direttamente al catalogo completo.</small>
+                  </span>
+                  <span className="topic-badge">vedi tutti</span>
+                  <em className="topic-card-meta">{topics.length} ambiti · {workshops.length} workshop</em>
+                </div>
                 <AppButton className="all-topics-cta" variant="secondary" onClick={selectAllTopics} rightIcon={<ArrowRight size={16} />}>
                   Apri catalogo
                 </AppButton>
               </article>
               {topics.map((topicItem) => {
                 const themeIds = topicItem.themes.map((theme) => theme.id);
-                const count = workshops.filter((workshop) => workshop.topicId === topicItem.id || themeIds.includes(workshop.themeId)).length;
+                const count = workshops.filter((workshop) => workshopTopicIds(workshop).includes(topicItem.id) || themeIds.includes(workshop.themeId)).length;
                 const selected = activeTopics.includes(topicItem.id);
-                const expanded = expandedTopicCards.includes(topicItem.id);
-                const visibleThemes = expanded ? topicItem.themes : topicItem.themes.slice(0, 2);
                 return (
                   <article
                     key={topicItem.id}
@@ -1289,47 +1583,17 @@ export function ClientView({
                   >
                     <button className="topic-card-main" type="button" onClick={() => toggleTopic(topicItem)}>
                       <span className="topic-icon">{iconFor(topicItem.icon)}</span>
-                      <strong>{topicItem.title}</strong>
-                      <small>{topicItem.description}</small>
-                      <em className="topic-card-meta">
-                        {topicItem.themes.length} temi catalogo · {count} workshop
-                      </em>
-                    </button>
-                    {topicItem.badge !== "base" && <span className="topic-badge">{topicItem.badge}</span>}
-                    <div className="topic-theme-preview" aria-label={`Temi ${topicItem.title}`}>
-                      <span className="topic-theme-label">Temi inclusi</span>
-                      {visibleThemes.map((theme) => (
-                        <button
-                          key={theme.id}
-                          type="button"
-                          className={activeThemes.includes(theme.id) ? "active" : ""}
-                          onClick={() => {
-                            if (!activeTopics.includes(topicItem.id)) setActiveTopics([...activeTopics, topicItem.id]);
-                            setActiveThemes(
-                              activeThemes.includes(theme.id)
-                                ? activeThemes.filter((id) => id !== theme.id)
-                                : [...new Set([...activeThemes, theme.id])],
-                            );
-                          }}
-                        >
-                          {theme.title}
-                        </button>
-                      ))}
-                      {topicItem.themes.length > 2 && (
-                        <button
-                          type="button"
-                          className="topic-theme-more"
-                          aria-label={expanded ? `Comprimi temi ${topicItem.title}` : `Mostra tutti i temi ${topicItem.title}`}
-                          onClick={() =>
-                            setExpandedTopicCards((current) =>
-                              current.includes(topicItem.id) ? current.filter((id) => id !== topicItem.id) : [...current, topicItem.id],
-                            )
-                          }
-                        >
-                          {expanded ? "meno" : "..."}
-                        </button>
+                      <span className="topic-card-copy">
+                        <strong>{topicItem.title}</strong>
+                        <small>{topicItem.description}</small>
+                      </span>
+                      {selected ? (
+                        <span className="topic-selection-indicator" aria-hidden="true"><Check size={16} /></span>
+                      ) : (
+                        topicItem.badge !== "base" && <span className="topic-badge">{topicItem.badge}</span>
                       )}
-                    </div>
+                      <em className="topic-card-meta"><Presentation size={14} /> {count} workshop</em>
+                    </button>
                   </article>
                 );
               })}
@@ -1340,63 +1604,100 @@ export function ClientView({
       {clientStep === "Consigliati" && (
           <Panel>
             <SectionTitle
-              title="Workshop consigliati"
-              icon={<Sparkles size={20} />}
-              actions={
-                <ToolIconButton onClick={() => refreshClientSection("Workshop consigliati")} label="Ricarica workshop consigliati">
-                  <RefreshCw size={18} />
-                </ToolIconButton>
-              }
+              title="Percorsi consigliati"
+              icon={<span className="section-title-emoji" aria-hidden="true">✨</span>}
             />
             <div className="recommendation-intro">
               <div>
                 <span className="eyebrow">Dati dagli interessi scelti</span>
-                <strong>Ti proponiamo una prima combinazione, poi decidi tu.</strong>
+                <strong>Parti da un pacchetto coerente oppure scegli i singoli workshop.</strong>
                 <p>
-                  I workshop qui sotto non sono ancora nel carrello: li aggiungi solo se confermi. Puoi anche saltare e scegliere manualmente dal catalogo.
+                  Nulla viene aggiunto automaticamente: confronta i percorsi FunniFin e scegli la soluzione più adatta.
                 </p>
               </div>
               <div className="recommendation-meter">
                 <span>{selectedTopics.length} interessi</span>
-                <strong>{recommendedWorkshops.length} consigli</strong>
+                <strong>{recommendedBundles.length} pacchetti coerenti</strong>
                 {selectedRecommendationCount > 0
                   ? <em>{selectedRecommendationCount}/{recommendedWorkshops.length} già nel percorso</em>
-                  : <em>Aggiungi questi {recommendedWorkshops.length} workshop con un clic</em>
+                  : <em>{recommendedWorkshops.length} workshop alternativi</em>
                 }
               </div>
             </div>
-            {recommendedWorkshops.length > 0 ? (
-              <div className="recommendation-grid">
-                {recommendedWorkshops.map((workshop) => {
-                  const topic = topics.find((item) => item.id === workshop.topicId);
-                  const theme = topic?.themes.find((item) => item.id === workshop.themeId);
-                  const selected = selections.some((selection) => selection.workshopId === workshop.id);
-                  return (
-                    <article className={`recommendation-card ${selected ? "selected" : ""}`} key={workshop.id}>
-                      <div>
-                        <span className="topic-badge">{theme?.title ?? topic?.title ?? "consigliato"}</span>
-                        {selected && <span className="catalog-status active">nel percorso</span>}
-                      </div>
-                      <strong>{workshop.title}</strong>
-                      <p>{workshop.short}</p>
-                      <em>
-                        Consigliato per {topic?.title ?? "gli interessi scelti"} · {workshop.durationOptions[0]} · {workshop.formatOptions[0]} / {workshop.level.toUpperCase()}
-                      </em>
-                      <footer>
-                        <span>{money(workshop.price1h)}</span>
-                        <AppButton
-                          variant={selected ? "outline" : "secondary"}
-                          onClick={() => toggleWorkshopWithFeedback(workshop)}
-                        >
-                          {selected ? <Check size={17} /> : <Plus size={17} />}
-                          {selected ? "Aggiunto" : "Aggiungi"}
-                        </AppButton>
-                      </footer>
-                    </article>
-                  );
-                })}
-              </div>
-            ) : (
+            {recommendedBundles.length > 0 && (
+              <section className="catalog-result-section recommendation-section" aria-labelledby="recommended-bundles-title">
+                <div className="catalog-result-heading">
+                  <div>
+                    <span className="eyebrow">Proposta principale</span>
+                    <h3 id="recommended-bundles-title">Pacchetti più coerenti</h3>
+                  </div>
+                  <span>{recommendedBundles.length} risultati</span>
+                </div>
+                <div className="bundle-grid">
+                  {recommendedBundles.map((bundle) => (
+                    <BundleCard
+                      key={bundle.id}
+                      bundle={bundle}
+                      workshops={workshops}
+                      commercialConfig={commercialConfig}
+                      selected={selectedBundleId === bundle.id}
+                      onSelect={() => selectBundle(bundle, selectedSurveyProfile?.requestedFormat === "online" ? "webinar" : undefined)}
+                      onOpenWorkshop={(workshop) => {
+                        setClientStep("Workshop");
+                        setCatalogMode("workshops");
+                        setSearchQuery(workshop.title);
+                        window.requestAnimationFrame(() =>
+                          document.querySelector<HTMLElement>(`[data-workshop-id="${CSS.escape(workshop.id)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }),
+                        );
+                      }}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+            {recommendedWorkshops.length > 0 && (
+              <section className="catalog-result-section recommendation-section" aria-labelledby="recommended-workshops-title">
+                <div className="catalog-result-heading">
+                  <div>
+                    <span className="eyebrow">Alternativa flessibile</span>
+                    <h3 id="recommended-workshops-title">Workshop singoli consigliati</h3>
+                  </div>
+                  <span>{recommendedWorkshops.length} risultati</span>
+                </div>
+                <div className="recommendation-grid">
+                  {recommendedWorkshops.map((workshop) => {
+                    const topic = topics.find((item) => workshopTopicIds(workshop).includes(item.id));
+                    const selected = selections.some((selection) => selection.workshopId === workshop.id);
+                    return (
+                      <article className={`recommendation-card ${selected ? "selected" : ""}`} key={workshop.id}>
+                        <div>
+                          <span className={`card-taxonomy-eyebrow topic-outline-badge ${topicColorClass(topic?.id ?? "all")}`}>
+                            {topic?.title ?? "Workshop consigliato"}
+                          </span>
+                          {selected && <span className="catalog-status active">nel percorso</span>}
+                        </div>
+                        <strong>{workshop.title}</strong>
+                        <ExpandableCardText text={workshop.short} />
+                        <em className="recommendation-card-context eyebrow">
+                          {workshop.durationOptions[0]} · {workshop.formatOptions[0] === "webinar" ? "Online" : "In presenza"} · Livello {workshop.level}
+                        </em>
+                        <footer>
+                          <span>{money(workshop.price1h)}</span>
+                          <AppButton
+                            variant={selected ? "outline" : "secondary"}
+                            onClick={() => toggleWorkshopWithFeedback(workshop)}
+                          >
+                            {selected ? <Check size={17} /> : <Plus size={17} />}
+                            {selected ? "Aggiunto" : "Aggiungi"}
+                          </AppButton>
+                        </footer>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+            {recommendedBundles.length === 0 && recommendedWorkshops.length === 0 && (
               <EmptyWorkflowState
                 title="Nessun consiglio disponibile"
                 body="Scegli almeno un interesse o apri tutto il catalogo per vedere i workshop."
@@ -1411,56 +1712,168 @@ export function ClientView({
           <Panel>
             <SectionTitle
               title="Scegli workshop"
-              icon={<Presentation size={20} />}
-              actions={
-                <ToolIconButton onClick={() => refreshClientSection("Catalogo workshop")} label="Ricarica catalogo workshop">
-                  <RefreshCw size={18} />
-                </ToolIconButton>
-              }
+              icon={<span className="section-title-emoji" aria-hidden="true">🎓</span>}
             />
-            <div className="workshop-command-bar">
-              <div className="workshop-command-summary">
-                <strong>{filteredWorkshops.length} workshop</strong>
-                <span>
-                  {hasCatalogQuery || allCatalogActive ? "Risultati dal catalogo completo" : "Filtrati dagli interessi scelti"}
-                  {selectedWorkshopRows.length > 0 && ` · ${selectedWorkshopRows.length} selezionati`}
-                </span>
-              </div>
-              <div className="workshop-command-controls">
-                <label className="search-field" aria-label="Cerca workshop">
-                  <Search size={20} />
-                  <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Cerca workshop, tema o descrizione" />
-                  {searchQuery && (
-                    <button type="button" onClick={() => setSearchQuery("")} aria-label="Cancella ricerca">
-                      <X size={20} />
-                    </button>
-                  )}
-                </label>
-                <div className="workshop-command-actions">
-                  <button className={filtersOpen || activeStructuredFilterCount > 0 ? "active" : ""} onClick={() => setFiltersOpen(!filtersOpen)}>
-                    <SlidersHorizontal size={17} />
-                    <strong>Filtri</strong>
-                    <em>
-                      {activeStructuredFilterCount > 0
-                        ? `${activeStructuredFilterCount} attivi`
-                        : filtersOpen
-                          ? "Aperti"
-                          : "Inattivi"}
-                    </em>
+            <div ref={commandBarAnchorRef} className="workshop-command-anchor" aria-hidden="true" />
+            <div
+              className={`workshop-command-slot ${commandBarFixed ? "is-fixed" : ""}`}
+              style={commandBarFixed ? { minHeight: commandBarHeight } : undefined}
+            >
+              <div ref={commandBarRef} className={`workshop-command-bar ${commandBarFixed ? "is-fixed" : ""}`}>
+                <div className="catalog-mode-pills" aria-label="Filtra il tipo di proposta">
+                  <button
+                    type="button"
+                    className={catalogMode === "bundles" || catalogMode === "all" ? "active" : ""}
+                    aria-pressed={catalogMode === "bundles" || catalogMode === "all"}
+                    onClick={() =>
+                      setCatalogMode((current) =>
+                        current === "none"
+                          ? "bundles"
+                          : current === "bundles"
+                            ? "none"
+                            : current === "workshops"
+                              ? "all"
+                              : "workshops",
+                      )
+                    }
+                  >
+                    Pacchetti <span>{activeBundles.length}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={catalogMode === "workshops" || catalogMode === "all" ? "active" : ""}
+                    aria-pressed={catalogMode === "workshops" || catalogMode === "all"}
+                    onClick={() =>
+                      setCatalogMode((current) =>
+                        current === "none"
+                          ? "workshops"
+                          : current === "workshops"
+                            ? "none"
+                            : current === "bundles"
+                              ? "all"
+                              : "bundles",
+                      )
+                    }
+                  >
+                    Workshop <span>{filteredWorkshops.length}</span>
                   </button>
                 </div>
+                <div className="workshop-command-controls">
+                  <label className="search-field" aria-label="Cerca workshop">
+                    <Search size={20} />
+                    <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Cerca nel catalogo" />
+                    {searchQuery && (
+                      <button type="button" onClick={() => setSearchQuery("")} aria-label="Cancella ricerca">
+                        <X size={20} />
+                      </button>
+                    )}
+                  </label>
+                  <div className="workshop-command-actions">
+                    <button
+                      type="button"
+                      className={filtersOpen || activeOffcanvasControlCount > 0 ? "active" : ""}
+                      onClick={toggleCatalogFilters}
+                      aria-label={filtersOpen ? "Chiudi filtri catalogo" : "Apri filtri catalogo"}
+                      title={filtersOpen ? "Chiudi filtri" : "Apri filtri"}
+                    >
+                      <SlidersHorizontal size={17} />
+                      <strong>Filtri</strong>
+                      <em>
+                        {activeOffcanvasControlCount > 0
+                          ? `${activeOffcanvasControlCount} attivi`
+                          : filtersOpen
+                            ? "Aperti"
+                            : "Inattivi"}
+                      </em>
+                    </button>
+                  </div>
+                </div>
+                <div className="workshop-command-summary">
+                  <strong>
+                    {catalogMode === "bundles"
+                      ? `${filteredBundles.length} pacchetti`
+                      : catalogMode === "workshops"
+                        ? `${filteredWorkshops.length} workshop`
+                        : `${filteredBundles.length} pacchetti · ${filteredWorkshops.length} workshop`}
+                  </strong>
+                  <span aria-hidden="true">·</span>
+                  <span className="workshop-command-view-label">
+                    {catalogMode === "all" || catalogMode === "none" ? "Tutte le proposte FunniFin" : "Vista filtrata per tipologia"}
+                  </span>
+                  <span className="workshop-command-view-label-mobile">
+                    {catalogMode === "all" || catalogMode === "none" ? "Tutte le proposte" : "Per tipologia"}
+                  </span>
+                  {selectedWorkshopRows.length > 0 && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <em className="workshop-command-summary-selected">
+                        {selectedWorkshopRows.length} {selectedWorkshopRows.length === 1 ? "selezionato" : "selezionati"}
+                      </em>
+                    </>
+                  )}
+                </div>
+                {activeOffcanvasControlCount > 0 && (
+                  <div className="workshop-command-filter-chips" aria-label="Filtri e ordinamento applicati">
+                    {workshopFilters.topics.map((topicId) => {
+                      const topicItem = topics.find((item) => item.id === topicId);
+                      if (!topicItem) return null;
+                      return (
+                        <button key={topicId} type="button" className={topicColorClass(topicId)} onClick={() => toggleWorkshopFilterTopic(topicId)}>
+                          {topicItem.title}<X size={13} aria-hidden="true" />
+                        </button>
+                      );
+                    })}
+                    {workshopFilters.format !== "all" && (
+                      <button type="button" onClick={() => setWorkshopFilters((current) => ({ ...current, format: "all" }))}>
+                        {formatFilterOptions.find((option) => option.value === workshopFilters.format)?.label}<X size={13} aria-hidden="true" />
+                      </button>
+                    )}
+                    {catalogSort !== "editorial" && (
+                      <button type="button" onClick={() => setCatalogSort("editorial")}>
+                        {catalogSortOptions.find((option) => option.value === catalogSort)?.label}<X size={13} aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
-            <div className={`workshop-filter-shell ${filtersOpen ? "open" : "closed"}`}>
+            {filtersOpen && (
+              <button
+                type="button"
+                className="workshop-filter-backdrop"
+                aria-label="Chiudi pannello filtri"
+                onClick={() => setFiltersOpen(false)}
+              />
+            )}
+            <div
+              className={`workshop-filter-shell ${filtersOpen ? "open" : "closed"} ${commandBarFixed ? "is-command-fixed" : ""}`}
+              role={filtersOpen ? "dialog" : undefined}
+              aria-modal={filtersOpen ? true : undefined}
+              aria-label={filtersOpen ? "Filtri catalogo" : undefined}
+              style={{
+                "--fixed-command-height": `${commandBarHeight}px`,
+              } as React.CSSProperties}
+            >
               {filtersOpen && (
                 <div className="filter-panel">
                   <div className="filter-panel-head">
-                    <div>
-                      <strong>Filtri catalogo</strong>
-                      <span>Scegli ambito, tema e formato. La ricerca resta attiva sopra.</span>
+                    <div className="filter-panel-title-row">
+                      <div>
+                        <strong>Filtri catalogo</strong>
+                        <span>Scegli ambito e formato. La ricerca resta attiva sopra.</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="filter-panel-close"
+                        onClick={() => setFiltersOpen(false)}
+                        aria-label="Chiudi filtri"
+                        title="Chiudi filtri"
+                      >
+                        <X size={20} />
+                      </button>
                     </div>
                     <div>
-                      <button onClick={clearWorkshopDiscovery} disabled={!searchQuery && activeStructuredFilterCount === 0}>
+                      <button onClick={clearWorkshopDiscovery} disabled={!searchQuery && activeOffcanvasControlCount === 0}>
                         <X size={17} />
                         Pulisci
                       </button>
@@ -1471,35 +1884,40 @@ export function ClientView({
                     </div>
                   </div>
                   <div className="filter-compact-summary">
-                    <span>Base percorso</span>
-                    <strong>{selectedTopics.length} interessi · {activeThemes.length} temi attivi</strong>
+                    <span>Ambiti del filtro</span>
+                    <strong>{workshopFilters.topics.length > 0 ? `${workshopFilters.topics.length} selezionati` : "Tutti gli ambiti"}</strong>
                   </div>
                   <div className="workshop-filters">
-                    <label>
-                      Interesse
-                      <select value={workshopFilters.topic} onChange={(event) => setWorkshopFilters({ ...workshopFilters, topic: event.target.value })}>
-                        <option value="all">Tutti gli interessi</option>
-                        {topics.map((topicItem) => (
-                          <option key={topicItem.id} value={topicItem.id}>{topicItem.title}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      Tema
-                      <select value={workshopFilters.theme} onChange={(event) => setWorkshopFilters({ ...workshopFilters, theme: event.target.value })}>
-                        <option value="all">Tutti i temi</option>
-                        {allThemes.map((theme) => (
-                          <option key={theme.id} value={theme.id}>{theme.title}</option>
-                        ))}
-                      </select>
-                    </label>
+                    <fieldset className="workshop-topic-filter">
+                      <legend>Ambito</legend>
+                      <div className="workshop-topic-filter-grid">
+                        {topics.map((topicItem) => {
+                          const selected = workshopFilters.topics.includes(topicItem.id);
+                          return (
+                            <button
+                              key={topicItem.id}
+                              type="button"
+                              className={`${topicColorClass(topicItem.id)} ${selected ? "active" : ""}`}
+                              aria-pressed={selected}
+                              onClick={() => toggleWorkshopFilterTopic(topicItem.id)}
+                            >
+                              <span>{topicItem.title}</span>
+                              {selected && <Check size={15} aria-hidden="true" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
                     <label>
                       Formato
-                      <select value={workshopFilters.format} onChange={(event) => setWorkshopFilters({ ...workshopFilters, format: event.target.value })}>
-                        <option value="all">Tutti i formati</option>
-                        <option value="webinar">Webinar</option>
-                        <option value="live">In presenza</option>
-                        <option value="ibrido">Ibrido</option>
+                      <select value={workshopFilters.format} onChange={(event) => setWorkshopFilters((current) => ({ ...current, format: event.target.value }))}>
+                        {formatFilterOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      Ordina per
+                      <select value={catalogSort} onChange={(event) => setCatalogSort(event.target.value as CatalogSort)}>
+                        {catalogSortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                       </select>
                     </label>
                   </div>
@@ -1509,29 +1927,77 @@ export function ClientView({
                         ? `${filteredWorkshops.length} risultati su tutto il catalogo.`
                         : `${filteredWorkshops.length} risultati dagli interessi selezionati.`}
                     </span>
-                    <em>{activeStructuredFilterCount || searchQuery ? "Filtri applicati" : "Nessun filtro extra"}</em>
+                    <em>{activeOffcanvasControlCount || searchQuery ? "Filtri applicati" : "Nessun filtro extra"}</em>
                   </div>
                 </div>
               )}
             </div>
-            <div className="workshop-grid">
-              {filteredWorkshops.map((workshop) => {
-                const selection = selections.find((item) => item.workshopId === workshop.id);
-                return (
-                  <WorkshopCard
-                    key={workshop.id}
-                    workshop={workshop}
-                    selection={selection}
-                    topics={topics}
-                    onToggle={(event) => toggleWorkshopWithFeedback(workshop, event)}
-                    onChange={(patch) => updateSelection(workshop.id, patch)}
-                    onCustomRequest={() => openCustomRequest(workshop)}
-                    onCustomInfo={() => showCustomModal(workshop)}
-                  />
-                );
-              })}
-            </div>
-            {filteredWorkshops.length === 0 && <p className="empty-selection">Nessun workshop con questi filtri. Usa “Vedi tutti”.</p>}
+            {(catalogMode === "none" || catalogMode === "all" || catalogMode === "bundles") && (
+              <section className="catalog-result-section" aria-labelledby="bundle-results-title">
+                <div className="catalog-result-heading">
+                  <div>
+                    <span className="eyebrow">Pacchetti pronti</span>
+                    <h3 id="bundle-results-title">Percorsi curati con prezzo dedicato</h3>
+                  </div>
+                  <span>{filteredBundles.length} risultati</span>
+                </div>
+                <div className="bundle-grid">
+                  {filteredBundles.map((bundle) => (
+                    <BundleCard
+                      key={bundle.id}
+                      bundle={bundle}
+                      workshops={workshops}
+                      commercialConfig={commercialConfig}
+                      selected={selectedBundleId === bundle.id}
+                      onSelect={() => selectBundle(bundle, selectedSurveyProfile?.requestedFormat === "online" ? "webinar" : undefined)}
+                      onOpenWorkshop={(workshop) => {
+                        setCatalogMode("workshops");
+                        setSearchQuery(workshop.title);
+                        window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-workshop-id="${CSS.escape(workshop.id)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+                      }}
+                    />
+                  ))}
+                </div>
+                {filteredBundles.length === 0 && <p className="empty-selection">Nessun pacchetto corrisponde alla ricerca.</p>}
+              </section>
+            )}
+            {(catalogMode === "none" || catalogMode === "all" || catalogMode === "workshops") && (
+              <section className="catalog-result-section" aria-labelledby="workshop-results-title">
+                <div className="catalog-result-heading">
+                  <div>
+                    <span className="eyebrow">Catalogo workshop</span>
+                    <h3 id="workshop-results-title">Scegli anche singoli workshop</h3>
+                  </div>
+                  <span>{filteredWorkshops.length} risultati</span>
+                </div>
+                <div className="workshop-grid">
+                  {filteredWorkshops.map((workshop) => {
+                    const selection = selections.find((item) => item.workshopId === workshop.id);
+                    const memberships = activeBundles.filter((bundle) => bundle.workshopIds.includes(workshop.id));
+                    return (
+                      <WorkshopCard
+                        key={workshop.id}
+                        workshop={workshop}
+                        selection={selection}
+                        topics={topics}
+                        commercialConfig={commercialConfig}
+                        bundleMemberships={memberships}
+                        onOpenBundle={(bundle) => {
+                          setCatalogMode("bundles");
+                          setSearchQuery("");
+                          window.requestAnimationFrame(() => document.getElementById(`bundle-${bundle.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+                        }}
+                        onToggle={(event) => toggleWorkshopWithFeedback(workshop, event)}
+                        onChange={(patch) => updateSelection(workshop.id, patch)}
+                        onCustomRequest={() => openCustomRequest(workshop)}
+                        onCustomInfo={() => showCustomModal(workshop)}
+                      />
+                    );
+                  })}
+                </div>
+                {filteredWorkshops.length === 0 && <p className="empty-selection">Nessun workshop con questi filtri. Usa “Tutto il catalogo”.</p>}
+              </section>
+            )}
           </Panel>
       )}
 
@@ -1539,12 +2005,7 @@ export function ClientView({
           <Panel>
             <SectionTitle
               title="Personalizzazione su misura"
-              icon={<Sparkles size={20} />}
-              actions={
-                <ToolIconButton onClick={() => refreshClientSection("Personalizzazione")} label="Ricarica personalizzazione">
-                  <RefreshCw size={18} />
-                </ToolIconButton>
-              }
+              icon={<span className="section-title-emoji" aria-hidden="true">✍️</span>}
             />
             {selectedWorkshopRows.length === 0 ? (
               <EmptyWorkflowState
@@ -1555,11 +2016,11 @@ export function ClientView({
               />
             ) : (
               <div className="personalize-list">
-                {selectedWorkshopRows.map(({ selection, workshop }) => (
+                {customizableWorkshopRows.map(({ selection, workshop }) => (
                 <div className="personalize-row" key={workshop.id}>
                   <div>
                     <strong>{workshop.title}</strong>
-                    <span>Co-design con FunniFin e migliori esperti: +{money(workshop.customExtra)}</span>
+                    <span>Co-design con FunniFin e migliori esperti: +{money(commercialConfig.customExtra)}</span>
                   </div>
                   <button
                     className={`custom-mini-toggle ${selection.custom ? "active" : ""}`}
@@ -1581,6 +2042,31 @@ export function ClientView({
                   </div>
                 </div>
                 ))}
+                {fixedWorkshopRows.length > 0 && (
+                  <details className="personalize-unavailable-disclosure">
+                    <summary>
+                      <span>
+                        <strong>Personalizzazione non disponibile</strong>
+                        <small>Questi workshop restano comunque nel percorso.</small>
+                      </span>
+                      <span className="personalize-unavailable-count">{fixedWorkshopRows.length}</span>
+                      <ChevronDown size={18} aria-hidden="true" />
+                    </summary>
+                    <div className="personalize-unavailable-list">
+                      {fixedWorkshopRows.map(({ workshop }) => (
+                        <div className="personalize-row is-unavailable" key={workshop.id}>
+                          <div>
+                            <strong>{workshop.title}</strong>
+                            <span>Contenuto a formato fisso.</span>
+                          </div>
+                          <div className="personalize-row-actions">
+                            <RemoveWorkshopButton onClick={() => removeWorkshop(workshop.id)} label={workshop.title} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
               </div>
             )}
           </Panel>
@@ -1589,13 +2075,8 @@ export function ClientView({
       {clientStep === "Date" && (
           <Panel>
             <SectionTitle
-              title="Proponi date"
-              icon={<CalendarCheck size={20} />}
-              actions={
-                <ToolIconButton onClick={() => refreshClientSection("Date")} label="Ricarica date">
-                  <RefreshCw size={18} />
-                </ToolIconButton>
-              }
+              title="Quando vuoi definire le date?"
+              icon={<span className="section-title-emoji" aria-hidden="true">📅</span>}
             />
             {selectedWorkshopRows.length === 0 ? (
               <EmptyWorkflowState
@@ -1605,7 +2086,55 @@ export function ClientView({
                 onClick={() => setClientStep("Workshop")}
               />
             ) : (
-              <div className="date-choice-grid">
+              <>
+              <div className="date-planning-choice-grid" role="group" aria-label="Quando definire le date">
+                <button
+                  type="button"
+                  className={datePlanningMode === "now" ? "selected" : ""}
+                  aria-pressed={datePlanningMode === "now"}
+                  onClick={() => {
+                    setDatePlanningMode("now");
+                    setDatesDeferred(false);
+                  }}
+                >
+                  <CalendarCheck size={22} />
+                  <span>
+                    <strong>Le conosco già</strong>
+                    <small>Inseriscile ora per ciascun workshop.</small>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={datePlanningMode === "later" ? "selected" : ""}
+                  aria-pressed={datePlanningMode === "later"}
+                  onClick={() => {
+                    setDatePlanningMode("later");
+                    setDatesDeferred(true);
+                  }}
+                >
+                  <Clock3 size={22} />
+                  <span>
+                    <strong>Le definirò in seguito</strong>
+                    <small>Invia la richiesta e concordale poi con FunniFin.</small>
+                  </span>
+                </button>
+              </div>
+              {datePlanningMode === "later" && (
+                <div className="date-planning-confirmation" role="status">
+                  <span><Check size={18} /></span>
+                  <div>
+                    <strong>Perfetto, le date restano da concordare</strong>
+                    <small>FunniFin le verificherà insieme a esperti e fattibilità operativa.</small>
+                  </div>
+                </div>
+              )}
+              {datePlanningMode === "now" && (
+                <>
+                <div className="date-list-intro">
+                  <strong>Scegli una data per ogni workshop</strong>
+                  <span>Potrai modificarle finché la richiesta non viene inviata.</span>
+                </div>
+                <div className="date-choice-grid">
                 {selections.map((selection) => {
                 const workshop = workshops.find((item) => item.id === selection.workshopId)!;
                 const hasDate = Boolean(selection.date);
@@ -1633,7 +2162,10 @@ export function ClientView({
                   </div>
                 );
                 })}
-              </div>
+                </div>
+                </>
+              )}
+              </>
             )}
           </Panel>
       )}
@@ -1642,37 +2174,54 @@ export function ClientView({
           <Panel>
             <SectionTitle
               title="Logo e note cliente facoltativi"
-              icon={<UploadCloud size={20} />}
-              actions={
-                <ToolIconButton onClick={() => refreshClientSection("Materiali cliente")} label="Ricarica materiali cliente">
-                  <RefreshCw size={18} />
-                </ToolIconButton>
-              }
+              icon={<span className="section-title-emoji" aria-hidden="true">🖼️</span>}
             />
           <div className="upload-box">
             <UploadCloud size={32} />
-            <strong>Logo, brand guideline e note platea sono facoltativi</strong>
+            <strong>Carica il logo aziendale</strong>
             <span>
-              Puoi inviare la richiesta anche senza caricarli: se serviranno, FunniFin li richiedera successivamente.
+              È facoltativo. Puoi selezionare un’immagine, verificarla in anteprima e sostituirla con un clic.
             </span>
-            <span>
-              Se scegli di caricarli ora, verra creata una cartella Drive draft chiamata <strong>{assetClientName} data</strong>.
-            </span>
+            {logoPreview && (
+              <div className="company-logo-preview">
+                <img src={logoPreview.url} alt={`Anteprima ${logoPreview.name}`} />
+                <span>{logoPreview.name}</span>
+              </div>
+            )}
             <label className={`secondary-btn asset-upload-trigger ${uploadingAssets ? "app-btn-loading" : ""}`} aria-busy={uploadingAssets || undefined}>
               <input
                 type="file"
-                multiple
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
                 disabled={uploadingAssets}
                 onChange={(event) => {
-                  void handleAssetFiles(event.target.files);
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    setLogoPreview((current) => {
+                      if (current?.url) URL.revokeObjectURL(current.url);
+                      return { name: file.name, url: URL.createObjectURL(file) };
+                    });
+                    void handleAssetFiles([file]);
+                  }
                   event.target.value = "";
                 }}
               />
               <span className="app-btn-icon-slot" aria-hidden={!uploadingAssets}>
                 {uploadingAssets ? <Loader2 className="app-btn-spinner" size={16} aria-hidden="true" /> : <span className="app-btn-spinner-placeholder" />}
               </span>
-              Carica materiali facoltativi
+              {logoPreview ? "Sostituisci logo" : "Scegli logo"}
             </label>
+            {logoPreview && (
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={() => {
+                  URL.revokeObjectURL(logoPreview.url);
+                  setLogoPreview(null);
+                }}
+              >
+                Rimuovi anteprima
+              </button>
+            )}
             {assetFolder && (
               <a className="asset-folder-link" href={assetFolder.url} target="_blank" rel="noreferrer">
                 Apri cartella Drive: {assetFolder.name}
@@ -1713,14 +2262,9 @@ export function ClientView({
           <Panel>
             <SectionTitle
               title="Invio richiesta"
-              icon={<FileCheck2 size={20} />}
-              actions={
-                <ToolIconButton onClick={() => refreshClientSection("Invio richiesta")} label="Ricarica riepilogo invio">
-                  <RefreshCw size={18} />
-                </ToolIconButton>
-              }
+              icon={<span className="section-title-emoji" aria-hidden="true">✅</span>}
             />
-            <ReadinessPanel rows={selectedWorkshopRows} missingDateRows={missingDateRows} />
+            <ReadinessPanel rows={selectedWorkshopRows} missingDateRows={missingDateRows} datesDeferred={datesDeferred} />
             {requestFinalized ? (
               <div className="request-success-card">
                 <span className="success-check">
@@ -1783,10 +2327,13 @@ export function ClientView({
                     </label>
                   </div>
                 </div>
-                <div className="approval-card">
-                  <div>
+                <div className="approval-card submission-preview-card">
+                  <span className="submission-preview-icon" aria-hidden="true">
+                    <BadgeCheck size={22} />
+                  </span>
+                  <div className="submission-preview-copy">
                     <strong>Preventivo pronto per FunniFin</strong>
-                    <span>Riceverai un recap via email; FunniFin verifichera date, esperti e fattibilita operativa.</span>
+                    <span>Riceverai un recap via email. FunniFin verificherà date, esperti e fattibilità operativa.</span>
                   </div>
                 </div>
                 <label className={`approval-card privacy-consent ${contactTouched && !privacyAccepted ? "has-error" : ""}`}>
@@ -1806,26 +2353,102 @@ export function ClientView({
           </Panel>
       )}
       </Stepper>
+        {surveyGateStep && (
+          <div className="survey-gate-backdrop" role="presentation" onClick={() => setSurveyGateStep(null)}>
+            <section
+              className="survey-gate-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="survey-gate-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button type="button" className="survey-gate-close" aria-label="Chiudi" onClick={() => setSurveyGateStep(null)}>
+                <X size={19} />
+              </button>
+              <span className="survey-gate-icon" aria-hidden="true"><Sparkles size={24} /></span>
+              <div>
+                <span className="eyebrow">Proposta guidata</span>
+                <h2 id="survey-gate-title">
+                  {surveyGateStep === "Interessi" ? "Definisci prima i tuoi interessi" : "Genera i workshop consigliati"}
+                </h2>
+                <p>Questa sezione nasce dalle risposte della survey. Completala per ottenere indicazioni pertinenti; il catalogo e il percorso che hai già configurato resteranno invariati.</p>
+              </div>
+              <div className="survey-gate-actions">
+                <AppButton variant="secondary" onClick={() => setSurveyGateStep(null)}>Continua nel catalogo</AppButton>
+                <AppButton onClick={() => startGuidedJourney(true)} rightIcon={<ArrowRight size={17} />}>Inizia la survey</AppButton>
+              </div>
+            </section>
+          </div>
+        )}
+        {dateSubmitGateOpen && (
+          <div className="survey-gate-backdrop" role="presentation" onClick={() => setDateSubmitGateOpen(false)}>
+            <section
+              className="survey-gate-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="date-submit-gate-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button type="button" className="survey-gate-close" aria-label="Chiudi" onClick={() => setDateSubmitGateOpen(false)}>
+                <X size={19} />
+              </button>
+              <span className="survey-gate-icon" aria-hidden="true"><Clock3 size={24} /></span>
+              <div>
+                <span className="eyebrow">Date da definire</span>
+                <h2 id="date-submit-gate-title">Quando vuoi scegliere le date?</h2>
+                <p>Mancano le date per {missingDateRows.length} {missingDateRows.length === 1 ? "workshop" : "workshop"}. Puoi inserirle ora oppure inviare la richiesta e concordarle in seguito con FunniFin.</p>
+              </div>
+              <div className="survey-gate-actions date-submit-gate-actions">
+                <AppButton
+                  variant="secondary"
+                  onClick={() => {
+                    setDateSubmitGateOpen(false);
+                    setDatePlanningMode("now");
+                    setDatesDeferred(false);
+                    setClientStep("Date");
+                  }}
+                >
+                  Le scelgo ora
+                </AppButton>
+                <AppButton
+                  onClick={() => {
+                    setDateSubmitGateOpen(false);
+                    setDatePlanningMode("later");
+                    setDatesDeferred(true);
+                    void submitRequest(true);
+                  }}
+                  rightIcon={<ArrowRight size={17} />}
+                >
+                  Le definirò in seguito
+                </AppButton>
+              </div>
+            </section>
+          </div>
+        )}
         </div>
         <EcommerceCart
           rows={selectedWorkshopRows}
           quote={quote}
           onRemove={removeWorkshop}
+          onClear={clearSelections}
           onShare={handleShareCart}
           submitting={sharingCart}
+          commercialConfig={commercialConfig}
         />
       </div>
       <BottomActionBar
         className="client-bottom-bar"
         context={`Step ${activeStepIndex + 1} — ${clientStep}`}
-        detail={`${selectedWorkshopRows.length} workshop selezionati`}
+        detail={`${selectedWorkshopRows.length} workshop ${selectedWorkshopRows.length === 1 ? "selezionato" : "selezionati"}`}
         priceBefore={quote.saved > 0 ? money(quote.gross) : undefined}
         priceAfter={money(quote.total)}
         discountLabel={quote.saved > 0 ? `Sconto ${money(quote.saved)}` : undefined}
         caveat={
-          selectedWorkshopRows.length > 0 && selectedWorkshopRows.length < 3
-            ? `Aggiungi ${3 - selectedWorkshopRows.length} workshop per sconto del 20%`
-            : undefined
+          quote.bundleTitle
+            ? `${quote.bundleTitle}: prezzo pacchetto applicato`
+            : selectedWorkshopRows.length > 0
+              ? "Totale calcolato sui workshop selezionati"
+              : undefined
         }
         primaryHint={
           clientStep === "Interessi" && clientMainAction.disabled

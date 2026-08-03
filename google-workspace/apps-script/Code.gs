@@ -10,6 +10,9 @@ const SETTINGS = {
     .map((item) => item.trim())
     .filter(Boolean),
   internalRecipient: PropertiesService.getScriptProperties().getProperty("INTERNAL_RECIPIENT") || "",
+  mailSenderAlias: PropertiesService.getScriptProperties().getProperty("MAIL_SENDER_ALIAS") || "",
+  mailFromName: PropertiesService.getScriptProperties().getProperty("MAIL_FROM_NAME") || "FunniFin Workshop Planner",
+  mailReplyTo: PropertiesService.getScriptProperties().getProperty("MAIL_REPLY_TO") || "",
 };
 
 // Do not hardcode local/demo users here. Configure prod users with
@@ -38,12 +41,14 @@ function authorizeFunniFinSetup() {
     CalendarApp.getCalendarById(runtimeCalendarId);
   }
   MailApp.getRemainingDailyQuota();
+  const gmailAliases = GmailApp.getAliases();
 
   return {
     ok: true,
     spreadsheetId: spreadsheet.getId(),
     spreadsheetUrl: spreadsheet.getUrl(),
     mailQuota: MailApp.getRemainingDailyQuota(),
+    gmailAliases: gmailAliases,
   };
 }
 
@@ -145,7 +150,7 @@ function handleGet(event) {
   return jsonResponse({
     ok: true,
     service: "FunniFin Workshop Planner",
-    actions: ["freeBusy", "expertAvailability", "calendarLookup", "driveFolder", "brandPresentations", "publicCatalog", "listWorkshopRequests", "listRequestEvents", "listNotifications", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "listAuthUsers", "listAccessRequests", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "deleteWorkshopRequest", "createNotification", "updateNotification", "deleteNotification", "markNotificationsRead", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "createExpertCalendar", "connectExpertCalendar", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification", "requestLoginCode", "verifyLoginCode", "reviewAccessRequest", "updateAuthUser"],
+    actions: ["freeBusy", "expertAvailability", "calendarLookup", "driveFolder", "brandPresentations", "publicCatalog", "listWorkshopRequests", "listRequestEvents", "listNotifications", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "listAuthUsers", "listAccessRequests", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "deleteWorkshopRequest", "createNotification", "updateNotification", "deleteNotification", "markNotificationsRead", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "updateWorkspaceSettings", "testIntegrationSettings", "updateIntegrationProperties", "sendIntegrationTestEmail", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "createExpertCalendar", "connectExpertCalendar", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification", "requestLoginCode", "verifyLoginCode", "reviewAccessRequest", "updateAuthUser", "changeAdminEmail"],
   });
 }
 
@@ -215,6 +220,22 @@ function handlePost(event) {
   if (body.action === "updateWorkspaceSetting") {
     requireFunniFinSession(body.payload || {});
     return jsonResponse(updateWorkspaceSetting(body.payload || {}));
+  }
+  if (body.action === "updateWorkspaceSettings") {
+    requireFunniFinSession(body.payload || {});
+    return jsonResponse(updateWorkspaceSettings(body.payload || {}));
+  }
+  if (body.action === "testIntegrationSettings") {
+    requireFunniFinSession(body.payload || {});
+    return jsonResponse(testIntegrationSettings(body.payload || {}));
+  }
+  if (body.action === "sendIntegrationTestEmail") {
+    requireFunniFinSession(body.payload || {});
+    return jsonResponse(sendIntegrationTestEmail(body.payload || {}));
+  }
+  if (body.action === "updateIntegrationProperties") {
+    requireFunniFinSession(body.payload || {});
+    return jsonResponse(updateIntegrationProperties(body.payload || {}));
   }
   if (body.action === "clearBackendCaches") {
     requireFunniFinSession(body.payload || {});
@@ -289,6 +310,10 @@ function handlePost(event) {
     requireFunniFinSession(body.payload || {});
     return jsonResponse(updateAuthUser(body.payload || {}));
   }
+  if (body.action === "changeAdminEmail") {
+    const auth = requireFunniFinSession(body.payload || {});
+    return jsonResponse(changeAdminEmail(body.payload || {}, auth));
+  }
   if (body.action === "ensurePresentationStructure") {
     requireFunniFinSession(body.payload || {});
     return jsonResponse(ensurePresentationStructure(body.payload || {}));
@@ -322,7 +347,7 @@ function parsePostBody(event) {
 function handleFreeBusy(params) {
   const date = params.date;
   assertCalendarDateAllowed(date);
-  const duration = params.duration === "2h" ? 120 : 60;
+  const duration = params.duration === "2h" ? 120 : params.duration === "1.5h" ? 90 : 60;
   const calendars = buildCalendarIds(params.expertIds);
   const slots = buildFunniFinSlots(date, duration, calendars);
   return { source: "google-calendar-funnifin-slots", slots };
@@ -472,7 +497,7 @@ function createExpertCalendarEvent(payload, auth) {
   }
 
   const start = parseDateTime(payload.date, payload.time || "10:00");
-  const durationMinutes = payload.duration === "2h" ? 120 : 60;
+  const durationMinutes = payload.duration === "2h" ? 120 : payload.duration === "1.5h" ? 90 : 60;
   const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
   const createdByFunniFin = payload.mode === "assigned_by_funnifin";
   const title = createdByFunniFin
@@ -536,7 +561,7 @@ function createCalendarEvent(payload) {
   const firstWorkshop = payload.workshops[0];
   assertCalendarDateListAllowed(payload.workshops.map(function(workshop) { return workshop.date; }));
   const start = parseDateTime(firstWorkshop.date, firstWorkshop.time);
-  const totalMinutes = payload.workshops.reduce((sum, workshop) => sum + (workshop.duration === "2h" ? 120 : 60), 0);
+  const totalMinutes = payload.workshops.reduce((sum, workshop) => sum + (workshop.duration === "2h" ? 120 : workshop.duration === "1.5h" ? 90 : 60), 0);
   const end = new Date(start.getTime() + Math.max(totalMinutes, 60) * 60 * 1000);
   const hasOnlineWorkshop = payload.workshops.some((workshop) => workshop.format === "webinar" || workshop.format === "ibrido");
   const event = buildCalendarEvent(payload, eventMode, start, end, hasOnlineWorkshop, existingEventId);
@@ -656,13 +681,60 @@ function updateCalendarEvent(eventId, event, calendarId, payload) {
   }
 }
 
+function getGmailAuthorizationState() {
+  const info = ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL, ["https://mail.google.com/"]);
+  const required = info.getAuthorizationStatus() === ScriptApp.AuthorizationStatus.REQUIRED;
+  return {
+    required,
+    url: required ? String(info.getAuthorizationUrl() || "") : "",
+    aliases: required ? [] : GmailApp.getAliases().map(function(alias) { return String(alias || "").trim().toLowerCase(); }).filter(Boolean),
+  };
+}
+
+function getConfiguredMailAliases() {
+  const authorization = getGmailAuthorizationState();
+  if (authorization.required) throw new Error("Autorizzazione Gmail richiesta. Completa il consenso Google dalla configurazione email.");
+  return authorization.aliases;
+}
+
+function resolveMailSenderAlias(requestedAlias) {
+  const requested = String(requestedAlias || "").trim().toLowerCase();
+  if (!requested) return "";
+  const aliases = getConfiguredMailAliases();
+  if (aliases.indexOf(requested) === -1) {
+    throw new Error("Il sender scelto non e un alias autorizzato dell'account Gmail che esegue Apps Script.");
+  }
+  return requested;
+}
+
+function sendConfiguredEmail(options) {
+  const message = Object.assign({}, options || {});
+  if (!message.name) message.name = getSettingValue("mail.fromName", SETTINGS.mailFromName);
+  const replyTo = getSettingValue("mail.replyTo", SETTINGS.mailReplyTo);
+  if (replyTo && !message.replyTo) message.replyTo = replyTo;
+  const senderAlias = resolveMailSenderAlias(message.senderAlias == null ? getSettingValue("mail.senderAlias", SETTINGS.mailSenderAlias) : message.senderAlias);
+  delete message.senderAlias;
+  if (!senderAlias) {
+    MailApp.sendEmail(message);
+    return;
+  }
+  const to = String(message.to || "");
+  const subject = String(message.subject || "");
+  const body = String(message.body || "");
+  delete message.to;
+  delete message.subject;
+  delete message.body;
+  message.from = senderAlias;
+  GmailApp.sendEmail(to, subject, body, message);
+}
+
 function sendWorkshopRequestEmail(body) {
   try {
     const context = requestMailTemplateContext(body.payload || {});
     const subject = mailTemplateValue("request.client_received", "subject", body.subject, context);
     const htmlBody = mailTemplateValue("request.client_received", "html", body.html, context);
     const textBody = mailTemplateValue("request.client_received", "text", body.text || stripHtml(htmlBody || ""), context);
-    MailApp.sendEmail({
+    sendConfiguredEmail({
       to: body.to,
       cc: body.cc || getRuntimeInternalRecipient(),
       subject,
@@ -696,7 +768,7 @@ function sendWorkflowNotification(payload) {
     recipients.forEach(function(recipient, index) {
       const role = roles[index] || "";
       const rolePayload = withMailActionForRole(payload, role);
-      MailApp.sendEmail({
+      sendConfiguredEmail({
         to: recipient,
         subject,
         body: buildWorkflowEmailText(rolePayload),
@@ -954,6 +1026,8 @@ function createWorkshopRequest(payload) {
     quote: payload.quote || {},
     materials: payload.materials || {},
     privacy: payload.privacy || {},
+    surveyProfile: payload.surveyProfile || null,
+    datesDeferred: Boolean(payload.datesDeferred),
     createdAt: formatTimestamp(now),
     updatedAt: formatTimestamp(now),
   });
@@ -1010,12 +1084,42 @@ function getPublicCatalog(params) {
       return parsed;
     }
   }
+  const publicSettings = listWorkspaceSettings().settings.reduce(function(result, setting) {
+    result[setting.key] = setting.value;
+    return result;
+  }, {});
+  const parsePublicJson = function(key, fallback) {
+    try {
+      return publicSettings[key] ? JSON.parse(publicSettings[key]) : fallback;
+    } catch (error) {
+      return fallback;
+    }
+  };
+  const commercialConfig = {
+    workshopBasePrice: Number(publicSettings["pricing.workshopBasePrice"] || 1000),
+    inPersonExtra: Number(publicSettings["pricing.inPersonExtra"] || 500),
+    customExtra: Number(publicSettings["pricing.customExtra"] || 500),
+    recordingOptOutDiscount: Number(publicSettings["pricing.recordingOptOutDiscount"] || 100),
+    recordingDefault: String(publicSettings["pricing.recordingDefault"] || "true").toLowerCase() !== "false",
+    bundlePrices: parsePublicJson("pricing.bundlePricesJson", {
+      3: 2500,
+      6: 4500,
+      10: 6900,
+    }),
+    outcomeSizes: parsePublicJson("survey.outcomeSizesJson", {
+      sensibilizzazione: 3,
+      avanzata: 6,
+      completa: 10,
+    }),
+  };
   const catalog = {
     ok: true,
     source: "google-sheet",
     topics: listCatalogConfig().topics.filter((topic) => topic.active !== false),
     workshops: listCatalogWorkshops().workshops.filter((workshop) => workshop.active !== false && workshop.state !== "nascosto"),
     rules: listPricingRules().rules,
+    bundles: parsePublicJson("catalog.bundlesJson", []),
+    commercialConfig,
     updatedAt: formatTimestamp(new Date()),
     cached: false,
   };
@@ -1157,7 +1261,7 @@ function updateCatalogTopic(payload) {
 function listCatalogWorkshops() {
   const sheet = getCatalogWorkshopsSheet();
   const rows = sheet.getDataRange().getValues();
-  const workshops = rows.length <= 1 ? [] : rows.slice(1).map(rowToCatalogWorkshop).filter(Boolean).filter((workshop) => workshop.active !== false);
+  const workshops = rows.length <= 1 ? [] : rows.slice(1).map(rowToCatalogWorkshop).filter(Boolean);
   return {
     ok: true,
     source: "google-sheet",
@@ -1172,6 +1276,7 @@ function updateCatalogWorkshop(payload) {
   const workshop = {
     id: String(payload.id),
     topicId: String(payload.topicId || ""),
+    topicIds: normalizeStringList(payload.topicIds && payload.topicIds.length ? payload.topicIds : [payload.topicId]),
     themeId: String(payload.themeId || ""),
     title: String(payload.title || ""),
     short: String(payload.short || ""),
@@ -1189,6 +1294,9 @@ function updateCatalogWorkshop(payload) {
     masterSlide: String(payload.masterSlide || ""),
     experts: normalizeStringList(payload.experts),
     state: String(payload.state || "attivo"),
+    durationLabel: String(payload.durationLabel || ""),
+    adminNotes: String(payload.adminNotes || ""),
+    productionStatus: String(payload.productionStatus || "published") === "draft" ? "draft" : "published",
     active: payload.active !== false && payload.state !== "nascosto",
     updatedAt: now,
   };
@@ -1237,6 +1345,7 @@ function rowToCatalogWorkshop(row) {
     return {
       id: String(row[0] || payload.id || ""),
       topicId: String(row[1] || payload.topicId || ""),
+      topicIds: normalizeStringList(payload.topicIds && payload.topicIds.length ? payload.topicIds : [row[1] || payload.topicId]),
       themeId: String(row[2] || payload.themeId || ""),
       title: String(row[3] || payload.title || ""),
       short: String(row[4] || payload.short || ""),
@@ -1254,6 +1363,9 @@ function rowToCatalogWorkshop(row) {
       masterSlide: String(row[16] || payload.masterSlide || ""),
       experts: row[17] ? String(row[17]).split(",").filter(Boolean) : normalizeStringList(payload.experts),
       state: String(row[18] || payload.state || "attivo"),
+      durationLabel: String(payload.durationLabel || ""),
+      adminNotes: String(payload.adminNotes || ""),
+      productionStatus: String(payload.productionStatus || "published") === "draft" ? "draft" : "published",
       active: String(row[19] || payload.active).toUpperCase() !== "FALSE",
       updatedAt: String(row[20] || payload.updatedAt || ""),
     };
@@ -1745,9 +1857,14 @@ function listWorkspaceSettings() {
 function updateWorkspaceSetting(payload) {
   if (!payload.key) throw new Error("Missing setting key");
 
+  const settingKey = String(payload.key);
+  let settingValue = String(payload.value == null ? "" : payload.value);
+  if (settingKey === "mail.senderAlias") settingValue = resolveMailSenderAlias(settingValue);
+  if (settingKey === "mail.replyTo" && settingValue.trim()) settingValue = assertValidEmail(settingValue);
+
   const setting = {
-    key: String(payload.key),
-    value: String(payload.value == null ? "" : payload.value),
+    key: settingKey,
+    value: settingValue,
     group: String(payload.group || "general"),
     label: String(payload.label || payload.key),
     updatedAt: formatTimestamp(new Date()),
@@ -1759,6 +1876,129 @@ function updateWorkspaceSetting(payload) {
     ok: true,
     source: "google-sheet",
     setting,
+  };
+}
+
+function updateWorkspaceSettings(payload) {
+  const settings = Array.isArray(payload.settings) ? payload.settings : [];
+  if (!settings.length) throw new Error("Missing workspace settings");
+  if (settings.length > 50) throw new Error("Too many workspace settings");
+  const savedSettings = settings.map(function(setting) {
+    return updateWorkspaceSetting(setting).setting;
+  });
+  return {
+    ok: true,
+    source: "google-sheet",
+    settings: savedSettings,
+  };
+}
+
+function testIntegrationSettings(payload) {
+  const scope = String(payload.scope || "");
+  if (["calendar", "storage", "mail"].indexOf(scope) === -1) throw new Error("Ambito integrazione non valido.");
+
+  if (scope === "calendar") {
+    const requestedId = String(payload.calendarId || "").trim();
+    const requestedName = String(payload.calendarName || "").trim();
+    let calendar = requestedId ? CalendarApp.getCalendarById(requestedId) : null;
+    if (!calendar && requestedName) {
+      const matches = CalendarApp.getCalendarsByName(requestedName);
+      calendar = matches && matches.length ? matches[0] : null;
+    }
+    if (!calendar) throw new Error("Calendario non trovato o non condiviso con l'account Apps Script.");
+    return { ok: true, source: "google-workspace", scope, calendar: { id: calendar.getId(), name: calendar.getName() } };
+  }
+
+  const spreadsheet = getRequestsSpreadsheet();
+  if (scope === "storage") {
+    const rootId = String(payload.driveRootFolderId || "").trim();
+    const slidesId = String(payload.slidesRootFolderId || "").trim();
+    const rootFolder = rootId ? DriveApp.getFolderById(rootId) : null;
+    const slidesFolder = slidesId ? DriveApp.getFolderById(slidesId) : null;
+    if (!rootFolder && !slidesFolder) throw new Error("Inserisci almeno una cartella Drive accessibile.");
+    return {
+      ok: true,
+      source: "google-workspace",
+      scope,
+      spreadsheet: { id: spreadsheet.getId(), url: spreadsheet.getUrl(), name: spreadsheet.getName() },
+      drive: {
+        rootFolderId: rootFolder ? rootFolder.getId() : "",
+        rootFolderName: rootFolder ? rootFolder.getName() : "",
+        slidesRootFolderId: slidesFolder ? slidesFolder.getId() : "",
+        slidesRootFolderName: slidesFolder ? slidesFolder.getName() : "",
+      },
+    };
+  }
+
+  const replyTo = String(payload.replyTo || "").trim().toLowerCase();
+  if (replyTo) assertValidEmail(replyTo);
+  const aliases = getConfiguredMailAliases();
+  const senderAlias = resolveMailSenderAlias(payload.senderAlias || "");
+  const primarySender = Session.getEffectiveUser().getEmail() || "Account proprietario Apps Script";
+  return {
+    ok: true,
+    source: "google-workspace",
+    scope,
+    mail: {
+      senderEmail: senderAlias || primarySender,
+      primarySenderEmail: primarySender,
+      senderAlias,
+      aliases,
+      authorizationRequired: false,
+      authorizationUrl: "",
+      fromName: String(payload.fromName || getSettingValue("mail.fromName", SETTINGS.mailFromName)),
+      replyTo,
+      remainingDailyQuota: MailApp.getRemainingDailyQuota(),
+      provider: senderAlias ? "Google GmailApp alias" : "Google MailApp",
+    },
+  };
+}
+
+function updateIntegrationProperties(payload) {
+  const scope = String(payload.scope || "");
+  if (["calendar", "storage", "mail"].indexOf(scope) === -1) throw new Error("Ambito integrazione non valido.");
+  const properties = PropertiesService.getScriptProperties();
+  const values = {};
+  if (scope === "calendar") {
+    values.FUNNIFIN_CALENDAR_ID = String(payload.calendarId || "").trim();
+    values.FUNNIFIN_CALENDAR_NAME = String(payload.calendarName || "").trim();
+  } else if (scope === "storage") {
+    values.DRIVE_ROOT_FOLDER_ID = String(payload.driveRootFolderId || "").trim();
+    values.SLIDES_ROOT_FOLDER_ID = String(payload.slidesRootFolderId || "").trim();
+  } else {
+    const senderAlias = resolveMailSenderAlias(payload.senderAlias || "");
+    const replyTo = String(payload.replyTo || "").trim().toLowerCase();
+    if (replyTo) assertValidEmail(replyTo);
+    values.MAIL_SENDER_ALIAS = senderAlias;
+    values.MAIL_FROM_NAME = String(payload.fromName || "FunniFin Workshop Planner").trim();
+    values.MAIL_REPLY_TO = replyTo;
+  }
+  properties.setProperties(values, false);
+  CacheService.getScriptCache().remove("funnifin_google_health_v1");
+  return { ok: true, source: "script-properties", updated: Object.keys(values) };
+}
+
+function sendIntegrationTestEmail(payload) {
+  const to = assertValidEmail(payload.to);
+  const replyTo = String(payload.replyTo || "").trim().toLowerCase();
+  if (replyTo) assertValidEmail(replyTo);
+  const senderAlias = resolveMailSenderAlias(payload.senderAlias || "");
+  const fromName = String(payload.fromName || getSettingValue("mail.fromName", SETTINGS.mailFromName)).trim();
+  sendConfiguredEmail({
+    to,
+    subject: "Test configurazione email FunniFin",
+    body: "Questa email conferma che il mittente configurato nel Workshop Planner funziona correttamente.",
+    htmlBody: "<p>Questa email conferma che il <strong>mittente configurato</strong> nel Workshop Planner funziona correttamente.</p>",
+    name: fromName,
+    replyTo,
+    senderAlias,
+  });
+  return {
+    ok: true,
+    source: "google-workspace",
+    sent: true,
+    to,
+    senderEmail: senderAlias || Session.getEffectiveUser().getEmail() || "Account proprietario Apps Script",
   };
 }
 
@@ -1967,7 +2207,7 @@ function runHealthMonitor(payload) {
     };
     const monitorFallbackBody = ["Health monitor FunniFin", "", ...issues, "", JSON.stringify(health, null, 2)].join("\n");
     const monitorHtml = mailTemplateValue("system.health_monitor", "html", "", monitorContext);
-    MailApp.sendEmail({
+    sendConfiguredEmail({
       to: alertEmail,
       subject: mailTemplateValue("system.health_monitor", "subject", "FunniFin monitor alert", monitorContext),
       body: mailTemplateValue("system.health_monitor", "text", monitorFallbackBody, monitorContext),
@@ -2034,6 +2274,7 @@ function getGoogleHealth(params) {
   const calendarName = getRuntimeCalendarName();
   const driveRootFolderId = getRuntimeDriveRootFolderId();
   const slidesRootFolderId = getRuntimeSlidesRootFolderId();
+  const gmailAuthorization = getGmailAuthorizationState();
   const health = {
     ok: true,
     source: "google-workspace",
@@ -2064,11 +2305,20 @@ function getGoogleHealth(params) {
     },
     mail: {
       remainingDailyQuota: MailApp.getRemainingDailyQuota(),
+      senderEmail: getSettingValue("mail.senderAlias", SETTINGS.mailSenderAlias) || Session.getEffectiveUser().getEmail() || "Account proprietario Apps Script",
+      primarySenderEmail: Session.getEffectiveUser().getEmail() || "Account proprietario Apps Script",
+      senderAlias: getSettingValue("mail.senderAlias", SETTINGS.mailSenderAlias),
+      aliases: gmailAuthorization.aliases,
+      authorizationRequired: gmailAuthorization.required,
+      authorizationUrl: gmailAuthorization.url,
+      fromName: getSettingValue("mail.fromName", SETTINGS.mailFromName),
+      replyTo: getSettingValue("mail.replyTo", SETTINGS.mailReplyTo),
+      provider: getSettingValue("mail.senderAlias", SETTINGS.mailSenderAlias) ? "Google GmailApp alias" : "Google MailApp",
     },
     checkedAt: formatTimestamp(new Date()),
     cached: false,
   };
-  cache.put(cacheKey, JSON.stringify(health), 60);
+  if (!gmailAuthorization.required) cache.put(cacheKey, JSON.stringify(health), 60);
   return health;
 }
 
@@ -2089,23 +2339,117 @@ function seedAdminConfig(payload) {
   const result = {
     catalogTopics: 0,
     catalogWorkshops: 0,
+    archivedTopics: 0,
+    archivedWorkshops: 0,
     pricingRules: 0,
     experts: 0,
     settings: 0,
+    authDuplicatesRemoved: 0,
   };
 
-  (payload.catalogTopics || payload.topics || []).forEach((topic) => {
-    updateCatalogTopic(topic);
-    result.catalogTopics += 1;
-  });
-  (payload.catalogWorkshops || payload.workshops || []).forEach((workshop) => {
-    updateCatalogWorkshop(workshop);
-    result.catalogWorkshops += 1;
-  });
-  (payload.pricingRules || payload.rules || []).forEach((rule) => {
-    updatePricingRule(rule);
-    result.pricingRules += 1;
-  });
+  if (payload.replaceCatalog === true) {
+    const topicSheet = getCatalogTopicsSheet();
+    const workshopSheet = getCatalogWorkshopsSheet();
+    result.archivedTopics = Math.max(0, topicSheet.getLastRow() - 1);
+    result.archivedWorkshops = Math.max(0, workshopSheet.getLastRow() - 1);
+    if (result.archivedTopics > 0) topicSheet.deleteRows(2, result.archivedTopics);
+    if (result.archivedWorkshops > 0) workshopSheet.deleteRows(2, result.archivedWorkshops);
+
+    const now = formatTimestamp(new Date());
+    const topics = (payload.catalogTopics || payload.topics || []).map(function(topic) {
+      return {
+        id: String(topic.id || ""),
+        title: String(topic.title || ""),
+        description: String(topic.description || ""),
+        badge: String(topic.badge || ""),
+        active: topic.active !== false,
+        updatedAt: now,
+      };
+    }).filter(function(topic) {
+      return Boolean(topic.id);
+    });
+    const workshops = (payload.catalogWorkshops || payload.workshops || []).map(function(workshop) {
+      const state = String(workshop.state || "attivo");
+      return {
+        id: String(workshop.id || ""),
+        topicId: String(workshop.topicId || ""),
+        topicIds: normalizeStringList(workshop.topicIds && workshop.topicIds.length ? workshop.topicIds : [workshop.topicId]),
+        themeId: String(workshop.themeId || ""),
+        title: String(workshop.title || ""),
+        short: String(workshop.short || ""),
+        long: String(workshop.long || ""),
+        durationOptions: normalizeStringList(workshop.durationOptions),
+        formatOptions: normalizeStringList(workshop.formatOptions),
+        level: String(workshop.level || "base"),
+        target: String(workshop.target || ""),
+        participants: String(workshop.participants || ""),
+        price1h: Number(workshop.price1h || 0),
+        price2h: Number(workshop.price2h || 0),
+        packageAvailable: workshop.packageAvailable !== false,
+        customAvailable: workshop.customAvailable !== false,
+        customExtra: Number(workshop.customExtra || 0),
+        masterSlide: String(workshop.masterSlide || ""),
+        experts: normalizeStringList(workshop.experts),
+        state,
+        durationLabel: String(workshop.durationLabel || ""),
+        adminNotes: String(workshop.adminNotes || ""),
+        productionStatus: String(workshop.productionStatus || "published") === "draft" ? "draft" : "published",
+        active: workshop.active !== false && state !== "nascosto",
+        updatedAt: now,
+      };
+    }).filter(function(workshop) {
+      return Boolean(workshop.id);
+    });
+
+    if (topics.length > 0) {
+      topicSheet.getRange(2, 1, topics.length, CATALOG_TOPIC_HEADERS.length)
+        .setValues(topics.map(catalogTopicToRow));
+    }
+    if (workshops.length > 0) {
+      workshopSheet.getRange(2, 1, workshops.length, CATALOG_WORKSHOP_HEADERS.length)
+        .setValues(workshops.map(catalogWorkshopToRow));
+    }
+    result.catalogTopics = topics.length;
+    result.catalogWorkshops = workshops.length;
+  } else {
+    (payload.catalogTopics || payload.topics || []).forEach(function(topic) {
+      updateCatalogTopic(topic);
+      result.catalogTopics += 1;
+    });
+    (payload.catalogWorkshops || payload.workshops || []).forEach(function(workshop) {
+      updateCatalogWorkshop(workshop);
+      result.catalogWorkshops += 1;
+    });
+  }
+  if (payload.replacePricingRules === true) {
+    const pricingSheet = getPricingRulesSheet();
+    const existingPricingRows = Math.max(0, pricingSheet.getLastRow() - 1);
+    if (existingPricingRows > 0) pricingSheet.deleteRows(2, existingPricingRows);
+    const now = formatTimestamp(new Date());
+    const pricingRules = (payload.pricingRules || payload.rules || []).map(function(rule) {
+      return {
+        id: String(rule.id || ""),
+        name: String(rule.name || ""),
+        min: Number(rule.min || 1),
+        max: Number(rule.max || 1),
+        discountPercent: Number(rule.discountPercent || 0),
+        specialQuote: Boolean(rule.specialQuote),
+        updatedAt: now,
+      };
+    }).filter(function(rule) {
+      return Boolean(rule.id);
+    });
+    if (pricingRules.length > 0) {
+      pricingSheet.getRange(2, 1, pricingRules.length, PRICING_RULE_HEADERS.length)
+        .setValues(pricingRules.map(pricingRuleToRow));
+    }
+    result.pricingRules = pricingRules.length;
+  } else {
+    (payload.pricingRules || payload.rules || []).forEach(function(rule) {
+      updatePricingRule(rule);
+      result.pricingRules += 1;
+    });
+  }
   (payload.experts || []).forEach((expert) => {
     updateExpert(expert);
     result.experts += 1;
@@ -2114,6 +2458,7 @@ function seedAdminConfig(payload) {
     updateWorkspaceSetting(setting);
     result.settings += 1;
   });
+  result.authDuplicatesRemoved = dedupeAuthUsersSheet();
 
   appendRequestEvent("admin", "admin_config_seeded", "Configurazione admin riallineata da seed batch.", result);
 
@@ -2176,7 +2521,7 @@ function validateWorkshopRequestPayload(payload) {
   workshops.forEach((workshop) => {
     assertShortText(workshop.workshopId, "Workshop", 80);
     assertShortText(workshop.title, "Titolo workshop", 180);
-    if (["1h", "2h"].indexOf(String(workshop.duration || "")) === -1) throw new Error("Durata workshop non valida.");
+    if (["1h", "1.5h", "2h"].indexOf(String(workshop.duration || "")) === -1) throw new Error("Durata workshop non valida.");
     if (["live", "webinar", "ibrido"].indexOf(String(workshop.format || "")) === -1) throw new Error("Formato workshop non valido.");
     if (Number(workshop.price || 0) < 0 || Number(workshop.price || 0) > 50000) throw new Error("Prezzo workshop non valido.");
     assertShortText(workshop.customNote, "Nota custom", 1200);
@@ -2478,12 +2823,35 @@ function listAuthUsers() {
   seedAuthUsersIfNeeded();
   const sheet = getAuthUsersSheet();
   const rows = sheet.getDataRange().getValues();
-  const users = rows.length <= 1 ? [] : rows.slice(1).map(rowToAuthUser).filter(Boolean);
+  const usersById = new Map();
+  if (rows.length > 1) {
+    rows.slice(1).map(rowToAuthUser).filter(Boolean).forEach(function(user) {
+      usersById.set(user.id, user);
+    });
+  }
   return {
     ok: true,
     source: "google-sheet",
-    users,
+    users: Array.from(usersById.values()),
   };
+}
+
+function dedupeAuthUsersSheet() {
+  const sheet = getAuthUsersSheet();
+  const rows = sheet.getDataRange().getValues();
+  const seenIds = {};
+  let removed = 0;
+  for (let index = rows.length - 1; index >= 1; index -= 1) {
+    const id = String(rows[index][0] || "");
+    if (!id) continue;
+    if (seenIds[id]) {
+      sheet.deleteRow(index + 1);
+      removed += 1;
+    } else {
+      seenIds[id] = true;
+    }
+  }
+  return removed;
 }
 
 function listAccessRequests() {
@@ -2600,7 +2968,7 @@ function requestLoginCode(payload) {
     const invitePayload = { email, code, requestedRole: String(payload.requestedRole || issuingUser?.actualRole || ""), displayName: String(payload.displayName || email) };
     const inviteContext = authMailTemplateContext(invitePayload);
     const inviteHtml = mailTemplateValue("auth.invite", "html", "", inviteContext);
-    MailApp.sendEmail({
+    sendConfiguredEmail({
       to: email,
       cc: payload.cc || SETTINGS.internalRecipient,
       subject: mailTemplateValue("auth.invite", "subject", "Invito FunniFin - codice accesso", inviteContext),
@@ -2724,7 +3092,7 @@ function reviewAccessRequest(payload) {
       const invitePayload = { email: next.email, code, requestedRole: String(next.requestedRole || ""), displayName: String(payload.displayName || next.email) };
       const inviteContext = authMailTemplateContext(invitePayload);
       const inviteHtml = mailTemplateValue("auth.invite", "html", "", inviteContext);
-      MailApp.sendEmail({
+      sendConfiguredEmail({
         to: next.email,
         cc: payload.cc || SETTINGS.internalRecipient,
         subject: mailTemplateValue("auth.invite", "subject", "Invito FunniFin - codice accesso", inviteContext),
@@ -3085,8 +3453,12 @@ function updateAuthUser(payload) {
   const existingRow = rowIndex >= 1 ? rows[rowIndex] : null;
   if (!existingRow) throw new Error("Auth user not found");
   const current = rowToAuthUser(existingRow);
+  const requestedEmail = String(payload.email || current.email || "").trim().toLowerCase();
+  if (requestedEmail !== String(current.email || "").trim().toLowerCase()) {
+    throw new Error("Usa la procedura guidata per cambiare l'email di un account.");
+  }
   const next = Object.assign({}, current, {
-    email: String(payload.email || current.email || "").trim().toLowerCase(),
+    email: requestedEmail,
     actualRole: String(payload.actualRole || current.actualRole || "Brand"),
     expertId: String(payload.expertId == null ? current.expertId || "" : payload.expertId),
     displayName: String(payload.displayName || current.displayName || payload.email || current.email || ""),
@@ -3100,6 +3472,66 @@ function updateAuthUser(payload) {
     source: "google-sheet",
     user: next,
   };
+}
+
+function changeAdminEmail(payload, auth) {
+  return withSheetLock(function() {
+    const userId = String(payload.userId || "");
+    const currentEmail = String(payload.currentEmail || "").trim().toLowerCase();
+    const newEmail = String(payload.newEmail || "").trim().toLowerCase();
+    if (!userId) throw new Error("Utente amministratore mancante.");
+    if (!currentEmail || !newEmail) throw new Error("Email mancante.");
+    assertValidEmail(newEmail);
+    if (currentEmail === newEmail) throw new Error("La nuova email coincide con quella attuale.");
+
+    const usersSheet = getAuthUsersSheet();
+    const rows = usersSheet.getDataRange().getValues();
+    const rowIndex = rows.findIndex(function(row, index) {
+      return index > 0 && String(row[0] || "") === userId;
+    });
+    if (rowIndex < 1) throw new Error("Account amministratore non trovato.");
+
+    const current = rowToAuthUser(rows[rowIndex]);
+    if (!current || current.actualRole !== "FunniFin") {
+      throw new Error("Il cambio email guidato e disponibile solo per account FunniFin.");
+    }
+    if (String(current.email || "").toLowerCase() !== currentEmail) {
+      throw new Error("L'email attuale non corrisponde piu: ricarica gli utenti e riprova.");
+    }
+    const duplicate = rowToAuthUser(findAuthUserRowByEmail(newEmail, usersSheet));
+    if (duplicate && duplicate.id !== current.id) {
+      throw new Error("La nuova email e gia associata a un altro account.");
+    }
+
+    const updatedUser = Object.assign({}, current, {
+      email: newEmail,
+      updatedAt: formatTimestamp(new Date()),
+    });
+    usersSheet.getRange(rowIndex + 1, 1, 1, AUTH_USER_HEADERS.length).setValues([authUserToRow(updatedUser)]);
+
+    const sessionsSheet = getAuthSessionsSheet();
+    const sessionRows = sessionsSheet.getDataRange().getValues();
+    let updatedSessions = 0;
+    let activeSession = null;
+    for (let index = 1; index < sessionRows.length; index += 1) {
+      const session = rowToAuthSession(sessionRows[index]);
+      if (!session || session.userId !== userId) continue;
+      session.email = newEmail;
+      session.actualRole = updatedUser.actualRole;
+      session.user = Object.assign({}, updatedUser);
+      sessionsSheet.getRange(index + 1, 1, 1, AUTH_SESSION_HEADERS.length).setValues([authSessionToRow(session)]);
+      updatedSessions += 1;
+      if (auth && auth.session && session.token === auth.session.token) activeSession = session;
+    }
+
+    return {
+      ok: true,
+      source: "google-sheet",
+      user: updatedUser,
+      session: activeSession,
+      updatedSessions,
+    };
+  });
 }
 
 function rowToAuthUser(row) {
@@ -3417,6 +3849,7 @@ function normalizeWorkshopRequest(request) {
     time: workshop.time || "",
     price: Number(workshop.price || 0),
     custom: Boolean(workshop.custom),
+    recordingIncluded: workshop.recordingIncluded !== false,
     customNote: workshop.customNote || "",
     status: workshop.status || "selezionato",
     approval: workshop.approval || "pending",
@@ -3453,7 +3886,10 @@ function normalizeWorkshopRequest(request) {
       total: Number(quote.total || request.quoteTotal || 0),
       saved: Number(quote.saved || 0),
       packageName: quote.packageName || "",
+      recordingDiscount: Number(quote.recordingDiscount || 0),
     },
+    surveyProfile: request.surveyProfile || null,
+    datesDeferred: Boolean(request.datesDeferred),
     materials: request.materials || {},
     privacy: {
       accepted: request.privacy && request.privacy.accepted === true,

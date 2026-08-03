@@ -4,6 +4,7 @@ import {
   getUserFromSession,
   logout as serviceLogout,
   requestLoginCode,
+  AUTH_SESSION_UPDATED_EVENT,
   setSessionEffectiveRole,
   verifyLoginCode,
 } from "./authService";
@@ -58,6 +59,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    const refreshSession = () => {
+      const stored = getStoredSession();
+      setSession(stored);
+      setCurrentUser(stored ? getUserFromSession(stored) : null);
+    };
+    window.addEventListener(AUTH_SESSION_UPDATED_EVENT, refreshSession);
+    return () => window.removeEventListener(AUTH_SESSION_UPDATED_EVENT, refreshSession);
   }, []);
 
   const requestCode = async (email: string, options?: RequestLoginCodeOptions) => {

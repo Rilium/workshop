@@ -52,7 +52,10 @@ export function BottomActionBar({
   ].filter(Boolean).join(" ");
 
   return (
-    <aside className={`bottom-action-bar ${className ?? ""}`} aria-label="Azione principale">
+    <aside
+      className={`bottom-action-bar ${primaryDisabled && primaryHint ? "bottom-action-bar--with-hint" : ""} ${className ?? ""}`}
+      aria-label="Azione principale"
+    >
       {leftContent ?? (
         <div className="bottom-action-copy">
           <div>

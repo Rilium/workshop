@@ -3,6 +3,18 @@ import type { ProjectStatus, WorkspaceSettingDefinition } from "../types/domain"
 
 export const adminSettingGroups: Array<{ id: string; title: string; description: string; icon: "settings" | "send" | "users" }> = [
   {
+    id: "pricing",
+    title: "Prezzi cliente",
+    description: "Maggiorazioni e registrazione applicate al preventivo pubblico.",
+    icon: "settings",
+  },
+  {
+    id: "survey",
+    title: "Survey cliente",
+    description: "Dimensioni dei percorsi generati dalla survey.",
+    icon: "settings",
+  },
+  {
     id: "mail",
     title: "Gmail e invii",
     description: "Destinatari e mittente usati adesso dalle notifiche del pannello FunniFin.",
@@ -24,12 +36,48 @@ export const adminSettingGroups: Array<{ id: string; title: string; description:
 
 export const adminSettingDefinitions: WorkspaceSettingDefinition[] = [
   {
+    key: "pricing.inPersonExtra",
+    value: "500",
+    group: "pricing",
+    label: "Extra in presenza (€)",
+    helper: "Maggiorazione applicata a ogni workshop svolto presso il cliente.",
+    placeholder: "500",
+    updatedAt: "",
+  },
+  {
+    key: "pricing.recordingOptOutDiscount",
+    value: "100",
+    group: "pricing",
+    label: "Sconto senza registrazione (€)",
+    helper: "Importo sottratto per ogni workshop quando il cliente esclude la registrazione.",
+    placeholder: "100",
+    updatedAt: "",
+  },
+  {
+    key: "pricing.recordingDefault",
+    value: "true",
+    group: "pricing",
+    label: "Registrazione inclusa di default",
+    helper: "Usa true o false per il valore iniziale delle selezioni cliente.",
+    placeholder: "true",
+    updatedAt: "",
+  },
+  {
+    key: "survey.outcomeSizesJson",
+    value: "{\"sensibilizzazione\":3,\"avanzata\":6,\"completa\":10}",
+    group: "survey",
+    label: "Dimensioni percorsi",
+    helper: "Configurazione JSON delle quantità associate ai tre risultati.",
+    placeholder: "{\"sensibilizzazione\":3,\"avanzata\":6,\"completa\":10}",
+    updatedAt: "",
+  },
+  {
     key: "mail.provider",
-    value: "Google MailApp",
+    value: "Google MailApp / GmailApp alias",
     group: "mail",
     label: "Provider invii",
-    helper: "Provider logico usato dal backend. Oggi invia tramite Apps Script MailApp/Gmail.",
-    placeholder: "Google MailApp",
+    helper: "MailApp usa l'account principale; GmailApp usa un alias Invia come verificato.",
+    placeholder: "Google MailApp / GmailApp alias",
     updatedAt: "",
   },
   {
@@ -39,6 +87,26 @@ export const adminSettingDefinitions: WorkspaceSettingDefinition[] = [
     label: "Nome mittente",
     helper: "Nome visibile nelle email inviate dal flusso.",
     placeholder: "FunniFin Workshop Planner",
+    updatedAt: "",
+  },
+  {
+    key: "mail.senderAlias",
+    value: "",
+    group: "mail",
+    label: "Alias mittente",
+    helper: "Indirizzo From verificato in Gmail. Deve comparire tra gli alias Invia come dell'account Apps Script.",
+    inputType: "email",
+    placeholder: "alias@azienda.it",
+    updatedAt: "",
+  },
+  {
+    key: "mail.replyTo",
+    value: "",
+    group: "mail",
+    label: "Rispondi a",
+    helper: "Indirizzo che riceve le risposte. Il mittente reale resta l'account Google proprietario di Apps Script.",
+    inputType: "email",
+    placeholder: "team@azienda.it",
     updatedAt: "",
   },
   {

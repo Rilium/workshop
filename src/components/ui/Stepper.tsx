@@ -1,11 +1,12 @@
 import React, { useEffect, useRef } from "react";
-import { Check } from "../../components/ui/FaIcons";
+import { Check, Sparkles } from "../../components/ui/FaIcons";
 
 export function Stepper({
   steps,
   activeStep,
   onStep,
   completedSteps,
+  gatedSteps,
   children,
 }: {
   steps: string[];
@@ -13,6 +14,8 @@ export function Stepper({
   onStep: (step: string) => void;
   /** If provided, a past step shows ✓ only if its name is in this set */
   completedSteps?: Set<string>;
+  /** Visible steps that require the guided survey before they can be opened. */
+  gatedSteps?: Set<string>;
   children?: React.ReactNode;
 }) {
   const activeIndex = steps.indexOf(activeStep);
@@ -36,16 +39,18 @@ export function Stepper({
           const pastActive = index < activeIndex;
           const isDone = pastActive && (completedSteps ? completedSteps.has(step) : true);
           const isActive = index === activeIndex;
+          const isGated = gatedSteps?.has(step) ?? false;
           return (
             <button
               key={step}
               ref={isActive ? activeTabRef : undefined}
-              className={`ff-tab ${isDone ? "ff-tab--done" : isActive ? "ff-tab--active" : "ff-tab--future"}`}
+              className={`ff-tab ${isDone ? "ff-tab--done" : isActive ? "ff-tab--active" : "ff-tab--future"} ${isGated ? "ff-tab--gated" : ""}`}
               onClick={() => onStep(step)}
               aria-current={isActive ? "step" : undefined}
+              aria-label={isGated ? `${step}: completa prima il percorso guidato` : undefined}
             >
               <span className="ff-tab-indicator">
-                {isDone ? <Check size={11} /> : index + 1}
+                {isGated ? <Sparkles size={11} /> : isDone ? <Check size={11} /> : index + 1}
               </span>
               <span className="ff-tab-label">{step}</span>
             </button>

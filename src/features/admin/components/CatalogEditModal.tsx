@@ -1,6 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { Topic } from "../../../types/domain";
-import { workshops } from "../../../data/catalog";
+import React from "react";
 import { topicColorClass } from "../../../utils/workshop";
 import { AppButton } from "../../../components/ui/AppButton";
 
@@ -11,14 +9,16 @@ export function CatalogEditModal({
   onReset,
   onSave,
   onClose,
+  workshopCount,
   saving = false,
 }: {
-  topic: Topic;
+  topic: { id: string; title: string; description: string; badge: string; active: boolean };
   draft: { title: string; description: string; badge: string; active: boolean };
   onChange: (patch: Partial<{ title: string; description: string; badge: string; active: boolean }>) => void;
   onReset: () => void;
   onSave: () => void;
   onClose: () => void;
+  workshopCount: number;
   saving?: boolean;
 }) {
   return (
@@ -26,8 +26,8 @@ export function CatalogEditModal({
       <section className="custom-modal catalog-edit-modal">
         <header className="modal-header">
           <div>
-            <span className="topic-badge">Catalogo</span>
-            <h2 id="catalog-edit-title">Modifica ambito</h2>
+            <span className="eyebrow">Catalogo</span>
+            <h2 id="catalog-edit-title">Modifica topic</h2>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Chiudi">
             x
@@ -37,10 +37,10 @@ export function CatalogEditModal({
           <div className="catalog-modal-summary">
             <span className={`color-dot ${topicColorClass(topic.id)}`} />
             <strong>{draft.title}</strong>
-            <em>{draft.badge} · {topic.themes.length} temi · {workshops.filter((workshop) => workshop.topicId === topic.id).length} workshop</em>
+            <em>{workshopCount} workshop collegati</em>
           </div>
           <label>
-            Titolo catalogo
+            Nome topic
             <input value={draft.title} onChange={(event) => onChange({ title: event.target.value })} />
           </label>
           <label>
@@ -48,7 +48,7 @@ export function CatalogEditModal({
             <textarea value={draft.description} onChange={(event) => onChange({ description: event.target.value })} />
           </label>
           <label>
-            Badge commerciale
+            Evidenza commerciale
             <select value={draft.badge} onChange={(event) => onChange({ badge: event.target.value })}>
               <option value="base">base</option>
               <option value="popolare">popolare</option>

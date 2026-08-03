@@ -9,6 +9,7 @@ type EmailWorkshop = {
   time: string;
   price: number;
   custom: boolean;
+  recordingIncluded?: boolean;
 };
 
 export type WorkshopRequestEmailPayload = {
@@ -28,6 +29,7 @@ export type WorkshopRequestEmailPayload = {
     total: number;
     saved: number;
     packageName: string;
+    recordingDiscount?: number;
   };
   mail?: {
     cc?: string;
@@ -217,7 +219,7 @@ function buildEmailHtml(payload: WorkshopRequestEmailPayload) {
           <strong style="display:block;color:#171d1d;font-size:15px;line-height:1.35;margin-bottom:6px;">${workshop.title}</strong>
           <span style="display:inline-block;margin-right:6px;padding:3px 9px;border-radius:999px;background:rgba(28,175,185,0.12);color:#1cafb9;font-size:11px;font-weight:700;">${workshop.duration}</span>
           <span style="display:inline-block;margin-right:6px;padding:3px 9px;border-radius:999px;background:#f0f1f3;color:#747878;font-size:11px;font-weight:700;">${workshop.format}</span>
-          <span style="color:#8c9096;font-size:12px;">${workshop.date || "data da concordare"}${workshop.time ? " · " + workshop.time : ""}${workshop.custom ? " · su misura" : ""}</span>
+          <span style="color:#8c9096;font-size:12px;">${workshop.date || "data da concordare"}${workshop.time ? " · " + workshop.time : ""}${workshop.custom ? " · su misura" : ""}${workshop.recordingIncluded === false ? " · senza registrazione" : " · registrazione disponibile"}</span>
         </td>
         <td align="right" style="padding:15px 16px;${i > 0 ? "border-top:1px solid #dde0e3;" : ""}white-space:nowrap;vertical-align:top;">
           <strong style="color:#1cafb9;font-size:15px;">${euro(workshop.price)}</strong>
@@ -229,6 +231,7 @@ function buildEmailHtml(payload: WorkshopRequestEmailPayload) {
     `<tr><td style="padding:5px 0;color:#747878;font-size:13px;">Listino workshop</td><td align="right" style="padding:5px 0;font-size:13px;color:#444748;">${euro(payload.quote.gross)}</td></tr>`,
     `<tr><td style="padding:5px 0;color:#747878;font-size:13px;">Pacchetto: ${payload.quote.packageName}</td><td align="right" style="padding:5px 0;font-size:13px;color:#1a9e6a;font-weight:700;">−${euro(payload.quote.discount)}</td></tr>`,
     payload.quote.promoDiscount ? `<tr><td style="padding:5px 0;color:#747878;font-size:13px;">Sconto date flessibili</td><td align="right" style="padding:5px 0;font-size:13px;color:#1a9e6a;font-weight:700;">−${euro(payload.quote.promoDiscount)}</td></tr>` : "",
+    payload.quote.recordingDiscount ? `<tr><td style="padding:5px 0;color:#747878;font-size:13px;">Workshop senza registrazione</td><td align="right" style="padding:5px 0;font-size:13px;color:#1a9e6a;font-weight:700;">−${euro(payload.quote.recordingDiscount)}</td></tr>` : "",
     payload.quote.customTotal ? `<tr><td style="padding:5px 0;color:#747878;font-size:13px;">Adattamenti su misura</td><td align="right" style="padding:5px 0;font-size:13px;color:#444748;">+${euro(payload.quote.customTotal)}</td></tr>` : "",
   ].join("");
 
@@ -277,7 +280,7 @@ function buildEmailHtml(payload: WorkshopRequestEmailPayload) {
 
 function buildEmailText(payload: WorkshopRequestEmailPayload) {
   const workshops = payload.workshops
-    .map((workshop) => `- ${workshop.title}: ${workshop.duration} · ${workshop.format} · ${workshop.date || "data da proporre"} ${workshop.time || ""} · ${euro(workshop.price)}`)
+    .map((workshop) => `- ${workshop.title}: ${workshop.duration} · ${workshop.format} · ${workshop.date || "data da proporre"} ${workshop.time || ""} · ${workshop.recordingIncluded === false ? "senza registrazione" : "registrazione disponibile"} · ${euro(workshop.price)}`)
     .join("\n");
 
   return [

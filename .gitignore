@@ -1,6 +1,8 @@
 node_modules/
 dist/
 test-results/
+outputs/
+*.inspect.ndjson
 .DS_Store
 *.log
 .env
@@ -8,4 +10,5 @@ test-results/
 !.env.example
 .vercel/
 google-workspace/google-settings.local.json
+src/components/ui/FaIcons 2.tsx
 .vercel

@@ -1,0 +1,858 @@
+{
+  "source": "Ambiti_Workshop_aggiornato_Luglio 2026.xlsx",
+  "version": "2026-07",
+  "topics": [
+    {
+      "id": "retribuzione",
+      "title": "Retribuzione",
+      "description": "",
+      "badge": "base",
+      "active": true
+    },
+    {
+      "id": "assicurazione",
+      "title": "Assicurazione",
+      "description": "",
+      "badge": "base",
+      "active": true
+    },
+    {
+      "id": "risparmio",
+      "title": "Risparmio",
+      "description": "",
+      "badge": "base",
+      "active": true
+    },
+    {
+      "id": "famiglia",
+      "title": "Famiglia",
+      "description": "",
+      "badge": "base",
+      "active": true
+    },
+    {
+      "id": "pensione",
+      "title": "Pensione",
+      "description": "",
+      "badge": "base",
+      "active": true
+    },
+    {
+      "id": "investimenti",
+      "title": "Investimenti",
+      "description": "",
+      "badge": "base",
+      "active": true
+    },
+    {
+      "id": "finanziamenti",
+      "title": "Finanziamenti",
+      "description": "",
+      "badge": "base",
+      "active": true
+    },
+    {
+      "id": "fiscalita",
+      "title": "Fiscalità",
+      "description": "",
+      "badge": "base",
+      "active": true
+    },
+    {
+      "id": "eredita",
+      "title": "Eredità",
+      "description": "",
+      "badge": "base",
+      "active": true
+    },
+    {
+      "id": "casa",
+      "title": "Casa",
+      "description": "",
+      "badge": "base",
+      "active": true
+    },
+    {
+      "id": "extra",
+      "title": "Extra",
+      "description": "",
+      "badge": "base",
+      "active": true
+    }
+  ],
+  "workshops": [
+    {
+      "id": "ws-come-leggere-una-busta-paga",
+      "topicIds": [
+        "retribuzione"
+      ],
+      "title": "Come leggere una busta paga",
+      "description": "Un workshop pratico per imparare a leggere correttamente la busta paga, comprendere le voci della retribuzione e le trattenute fiscali e previdenziali, aumentando la consapevolezza sulle proprie condizioni economiche e contrattuali.",
+      "customAvailable": true,
+      "durationLabel": "1 -1.30",
+      "productionStatus": "published",
+      "adminNotes": "Modifica a seconda del cedolino che si riceve",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-welfare-aziendale-e-fringe-benefit-sfruttarli-al-meglio",
+      "topicIds": [
+        "retribuzione"
+      ],
+      "title": "Welfare aziendale e fringe benefit: sfruttarli al meglio",
+      "description": "Un workshop per comprendere come funzionano welfare, flexible benefit e fringe benefit, quali vantaggi fiscali offrono e come massimizzarne il valore economico all’interno del proprio pacchetto retributivo.",
+      "customAvailable": true,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "Personalizzare in base al provider welfare del cliente",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-premio-di-risultato-welfare-o-cash",
+      "topicIds": [
+        "retribuzione"
+      ],
+      "title": "Premio di risultato: welfare o cash?",
+      "description": "Un workshop per capire come funziona il premio di risultato, valutare la convenienza tra erogazione in denaro e conversione in welfare e scegliere l’opzione più adatta alla propria situazione fiscale e familiare.",
+      "customAvailable": true,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "Personalizzare in base all’accordo aziendale",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-le-assicurazioni-essenziali-quali-servono-davvero",
+      "topicIds": [
+        "assicurazione"
+      ],
+      "title": "Le assicurazioni essenziali: quali servono davvero",
+      "description": "Un workshop per orientarsi tra le principali coperture (casa, vita, salute), distinguere ciò che è indispensabile da ciò che è superfluo ed evitare sia i buchi di protezione sia la sovrassicurazione.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-proteggere-la-famiglia-vita-e-non-autosufficienza",
+      "topicIds": [
+        "assicurazione"
+      ],
+      "title": "Proteggere la famiglia: vita e non autosufficienza",
+      "description": "Un workshop per capire quando e perché serve una copertura vita (TCM) o Long Term Care, valutarne il costo reale e tutelare chi dipende economicamente da noi.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "",
+      "suggestedExperts": "Nelson/Andrea A."
+    },
+    {
+      "id": "ws-come-leggere-una-polizza",
+      "topicIds": [
+        "assicurazione"
+      ],
+      "title": "Come leggere una polizza",
+      "description": "Come leggere una polizza: riscatto, anticipi, rischi e perché, nella maggior parte dei casi, una polizza finanziaria non conviene.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-gli-utilizzi-della-polizza-collegato-alla-successione",
+      "topicIds": [
+        "assicurazione"
+      ],
+      "title": "Gli utilizzi della polizza (collegato alla successione)",
+      "description": "Le polizze possono essere utilizzate per proteggere la famiglia, tutelare il patrimonio, pianificare la successione o investire il capitale. È fondamentale scegliere la soluzione più adatta ai propri obiettivi.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-sanita-integrativa-e-polizza-invalida-e-malattia",
+      "topicIds": [
+        "assicurazione"
+      ],
+      "title": "Sanità integrativa e polizza invalidà e malattia",
+      "description": "Un workshop per comprendere il funzionamento dei fondi sanitari e delle polizze salute, spesso previsti dal welfare aziendale, e imparare a usarli al meglio per sé e per la famiglia.",
+      "customAvailable": true,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "Personalizzare in base al fondo sanitario del cliente. Si crea solo su richiesta espicita",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-budgeting-personale-step-by-step",
+      "topicIds": [
+        "risparmio"
+      ],
+      "title": "Budgeting personale step by step",
+      "description": "Un workshop pratico per imparare a gestire con maggiore consapevolezza le proprie finanze, monitorando entrate e uscite, riconoscendo le spese superflue e costruendo un budget mensile personalizzato con il supporto di strumenti digitali.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-budgeting-avanzato",
+      "topicIds": [
+        "risparmio"
+      ],
+      "title": "Budgeting avanzato",
+      "description": "Un workshop avanzato per consolidare le tecniche di budgeting e pianificazione finanziaria, organizzare le spese in modo più consapevole e costruire un metodo sostenibile che funzioni nel tempo.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-la-gestione-della-liquidita-gestione-dei-risparmi-fondo-emergenza",
+      "topicIds": [
+        "risparmio"
+      ],
+      "title": "La gestione della liquidità / Gestione dei risparmi / Fondo Emergenza",
+      "description": "Un workshop per imparare a gestire la liquidità in modo più efficiente, bilanciando riserva, risparmio e investimento e organizzando i conti in funzione di spese, emergenze e obiettivi futuri.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": "Manuele/Andrea T. / Giulia"
+    },
+    {
+      "id": "ws-risparmio-investimenti-e-debito-sostenibile",
+      "topicIds": [
+        "risparmio",
+        "investimenti",
+        "finanziamenti"
+      ],
+      "title": "Risparmio, Investimenti e Debito Sostenibile",
+      "description": "Un workshop per imparare a trovare il giusto equilibrio tra risparmio, investimenti e ricorso al debito, prendendo decisioni finanziarie sostenibili e coerenti con i propri obiettivi di vita.",
+      "customAvailable": false,
+      "durationLabel": "2",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-budgeting-personale-finanze-di-coppia",
+      "topicIds": [
+        "risparmio"
+      ],
+      "title": "Budgeting Personale + Finanze di Coppia",
+      "description": "Un workshop pratico sul budgeting personale con un focus finale sulla gestione delle finanze di coppia",
+      "customAvailable": false,
+      "durationLabel": "1.30 - 2",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-finanze-nella-coppia-come-gestire-il-patrimonio-senza-intoppi",
+      "topicIds": [
+        "famiglia"
+      ],
+      "title": "Finanze nella coppia: come gestire il patrimonio senza intoppi",
+      "description": "Un workshop per acquisire strumenti pratici per la gestione delle finanze familiari, scegliere il modello organizzativo più adatto alla coppia e prevenire disallineamenti economici attraverso esempi concreti di pianificazione delle spese.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-futuri-genitori-pianificare-economicamente-l-arrivo-di-un-figlio",
+      "topicIds": [
+        "famiglia"
+      ],
+      "title": "Futuri genitori: pianificare economicamente l’arrivo di un figlio",
+      "description": "Un workshop per comprendere maternità, paternità, congedi e permessi, pianificare le spese legate alla nascita e ai primi anni di vita, conoscere bonus e agevolazioni disponibili e impostare un piano di risparmio per il futuro del figlio.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-coppie-e-patrimonio-diritti-e-tutele",
+      "topicIds": [
+        "famiglia"
+      ],
+      "title": "Coppie & patrimonio: Diritti e tutele",
+      "description": "Un workshop per comprendere le principali implicazioni legali ed economiche di convivenza e matrimonio, distinguere le diverse forme di tutela patrimoniale e successoria e compiere scelte più consapevoli nella gestione dei rapporti affettivi e finanziari.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-mutuo-o-affitto-come-decidere",
+      "topicIds": [
+        "famiglia",
+        "casa"
+      ],
+      "title": "Mutuo o affitto: come decidere",
+      "description": "Un workshop per confrontare affitto e acquisto nel lungo periodo, comprendere il funzionamento di mutui, tassi e costi e valutare con maggiore consapevolezza condizioni e rischi prima di rivolgersi alla banca.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": "Giulia/Nelson/Virginia"
+    },
+    {
+      "id": "ws-la-piramide-finanziaria-in-famiglia-le-fondamenta",
+      "topicIds": [
+        "famiglia"
+      ],
+      "title": "La piramide finanziaria in famiglia: le fondamenta",
+      "description": "Un workshop per costruire le basi del benessere finanziario familiare: impostare il budget di casa (inclusa l’educazione al denaro dei figli), creare un fondo di emergenza adeguato e proteggere la famiglia con le coperture assicurative essenziali.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "Primo di due moduli sulla piramide finanziaria",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-la-piramide-finanziaria-in-famiglia-crescita-e-futuro",
+      "topicIds": [
+        "famiglia"
+      ],
+      "title": "La piramide finanziaria in famiglia: crescita e futuro",
+      "description": "Un workshop per lavorare sulla parte alta della piramide: pianificare la previdenza, avviare percorsi di investimento (anche per i figli) e impostare il passaggio patrimoniale con una successione consapevole.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "Secondo di due moduli sulla piramide finanziaria",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-educazione-finanziaria-per-i-figli-la-paghetta-e-oltre",
+      "topicIds": [
+        "famiglia"
+      ],
+      "title": "Educazione finanziaria per i figli: la paghetta e oltre",
+      "description": "Un workshop per aiutare i genitori a trasmettere ai figli un rapporto sano con il denaro, dalla paghetta alle prime spese autonome, scegliendo strumenti e linguaggi adatti a ogni età per crescere adulti finanziariamente consapevoli.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-tfr-e-previdenza-complementare-base",
+      "topicIds": [
+        "pensione"
+      ],
+      "title": "TFR e Previdenza Complementare: Base",
+      "description": "Un workshop per comprendere il funzionamento del TFR e della previdenza complementare, valutare quando aderire a un fondo pensione e confrontare le principali soluzioni disponibili.",
+      "customAvailable": true,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "Pronti fondi: Fonchi, Cometa ,Pegaso,Previndai, FOnte",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-tfr-e-previdenza-complementare-avanzato",
+      "topicIds": [
+        "pensione"
+      ],
+      "title": "TFR e Previdenza Complementare: Avanzato",
+      "description": "Un workshop per approfondire il funzionamento della previdenza pubblica e complementare, con focus su linee e comparti di investimento, strategie di scelta e modifica nel tempo, pensionamento anticipato tramite RITA ed esempi pratici per valutare scenari e decisioni previdenziali.",
+      "customAvailable": true,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "Pronti fondi: Fonchi, Cometa,Fonte, Previndai,Pegaso",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-fondi-pensione-come-protezione-successione-e-tutela-del-patrimonio",
+      "topicIds": [
+        "pensione"
+      ],
+      "title": "Fondi pensione come protezione: Successione e Tutela del Patrimonio",
+      "description": "Un workshop per guardare la previdenza complementare con occhi diversi: quando può essere uno strumento utile alle successioni e alla tutela del patrimonio",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "",
+      "suggestedExperts": "Nelson/Manuele"
+    },
+    {
+      "id": "ws-abc-degli-investimenti-le-basi-da-conoscere-prima-di-iniziare",
+      "topicIds": [
+        "investimenti"
+      ],
+      "title": "ABC degli investimenti: le basi da conoscere prima di iniziare",
+      "description": "Un workshop per comprendere i principi fondamentali degli investimenti, valutare rendimento, rischio, tempo e costi, conoscere i principali strumenti finanziari e costruire un metodo coerente con il proprio profilo di rischio.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-investimenti-gli-strumenti-complessi",
+      "topicIds": [
+        "investimenti"
+      ],
+      "title": "Investimenti, gli strumenti complessi",
+      "description": "Un workshop avanzato per conoscere fondi comuni, ETF e strumenti finanziari complessi, comprendendo le differenze tra gestione attiva e passiva, il ruolo di benchmark, indici e costi e i rischi legati a futures, opzioni e CFD.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-come-avviare-un-pac-in-etf-in-autonomia",
+      "topicIds": [
+        "investimenti"
+      ],
+      "title": "Come avviare un PAC in ETF in autonomia",
+      "description": "Un workshop pratico per costruire passo dopo passo una strategia d’investimento e avviarla in autonomia, utilizzando strumenti concreti e immediatamente applicabili.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-mercati-strumenti-finanziari-e-pianificazione",
+      "topicIds": [
+        "investimenti"
+      ],
+      "title": "Mercati, Strumenti Finanziari e Pianificazione",
+      "description": "Un workshop per comprendere il funzionamento dei mercati finanziari, conoscere i principali strumenti di investimento e acquisire un metodo di pianificazione coerente con i propri obiettivi di vita e il proprio profilo di rischio.",
+      "customAvailable": false,
+      "durationLabel": "2",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": "Manuele/Andrea T. /Marco"
+    },
+    {
+      "id": "ws-blockchain-e-criptovalute-capire-il-fenomeno",
+      "topicIds": [
+        "investimenti"
+      ],
+      "title": "Blockchain e criptovalute: capire il fenomeno",
+      "description": "Un workshop per comprendere cosa sono blockchain, criptovalute e token, come funziona la tecnologia sottostante e quali sono volatilità, rischi e implicazioni fiscali, così da orientarsi nel fenomeno in modo informato, riconoscere le truffe più comuni ed evitare decisioni impulsive.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "Difficle da far passare alle persone comuni. Impronta a scopo didattico",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-finanziamenti-e-mutuo",
+      "topicIds": [
+        "finanziamenti"
+      ],
+      "title": "Finanziamenti & mutuo",
+      "description": "Un workshop per comprendere le principali tipologie di finanziamento, dai mutui ai prestiti personali fino alla cessione del quinto, imparando a confrontare tassi, costi e condizioni per scegliere la soluzione più adatta alle proprie esigenze.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-come-approcciarsi-alle-banche",
+      "topicIds": [
+        "finanziamenti"
+      ],
+      "title": "Come approcciarsi alle banche",
+      "description": "Un workshop per comprendere come dialogare con le banche, prepararsi alla richiesta di un finanziamento, valutare le diverse offerte e negoziare condizioni più favorevoli in modo consapevole.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-uscire-dai-debiti-strategie-di-rientro",
+      "topicIds": [
+        "finanziamenti"
+      ],
+      "title": "Uscire dai debiti: strategie di rientro",
+      "description": "Un workshop per organizzare i debiti in essere, scegliere un metodo di rimborso sostenibile e valutare strumenti come consolidamento e rinegoziazione.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-la-nuova-legge-di-bilancio",
+      "topicIds": [
+        "fiscalita"
+      ],
+      "title": "La nuova legge di bilancio",
+      "description": "Un workshop per comprendere le principali novità fiscali introdotte dalla legge di bilancio, valutarne l’impatto su stipendi e IRPEF e conoscere bonus e agevolazioni disponibili per famiglie e genitori.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "2026",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-bonus-detrazioni-e-agevolazioni-fiscali-conoscerli-per-usarli-bene",
+      "topicIds": [
+        "fiscalita"
+      ],
+      "title": "Bonus, Detrazioni e Agevolazioni Fiscali: conoscerli per usarli bene",
+      "description": "Un workshop per conoscere i principali bonus, le detrazioni e le agevolazioni fiscali disponibili, comprendere come accedervi e sfruttarli al meglio per ottimizzare la propria situazione economica.",
+      "customAvailable": false,
+      "durationLabel": "2",
+      "productionStatus": "published",
+      "adminNotes": "2026 (Ibrido tra lorenzo bertalli e Davide Anni)",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-dichiarazione-dei-redditi-detrazioni-e-agevolazioni-fiscali",
+      "topicIds": [
+        "fiscalita"
+      ],
+      "title": "Dichiarazione dei redditi: detrazioni e agevolazioni fiscali",
+      "description": "Un workshop per comprendere come funziona la dichiarazione dei redditi e il 730, conoscere le principali detrazioni e agevolazioni fiscali e capire quali spese e documenti valorizzare per non perdere benefici disponibili.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-isee-come-funziona-e-come-ottimizzarlo",
+      "topicIds": [
+        "fiscalita"
+      ],
+      "title": "ISEE: come funziona e come ottimizzarlo",
+      "description": "Un workshop per comprendere il calcolo dell’ISEE, sapere quali documenti servono e quali agevolazioni e bonus si possono sbloccare presentandolo correttamente.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-la-fiscalita-degli-investimenti",
+      "topicIds": [
+        "fiscalita"
+      ],
+      "title": "La fiscalità degli investimenti",
+      "description": "Un workshop per capire come vengono tassati rendimenti e plusvalenze, la differenza tra regime amministrato e dichiarativo e come gestire minusvalenze e imposte in modo consapevole.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-eredita-successioni-e-famiglia",
+      "topicIds": [
+        "eredita"
+      ],
+      "title": "Eredità, Successioni e Famiglia",
+      "description": "Un workshop per comprendere il funzionamento della successione legale e testamentaria, conoscere strumenti come testamento, donazione e polizze vita e pianificare il passaggio patrimoniale tutelando i propri cari e prevenendo possibili conflitti familiari.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-donazioni-e-pianificazione-in-vita",
+      "topicIds": [
+        "eredita"
+      ],
+      "title": "Donazioni e pianificazione in vita",
+      "description": "Un workshop per conoscere donazioni, usufrutto e strumenti di pianificazione anticipata del patrimonio, tutelando i propri cari e riducendo i rischi di conflitto.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-polizza-vita-e-pianificazione-successoria",
+      "topicIds": [
+        "eredita"
+      ],
+      "title": "Polizza Vita e pianificazione successoria",
+      "description": "Un workshop dedicato al ruolo delle polizze assicurative nella pianificazione successoria. Analizzeremo quando possono essere uno strumento efficace per tutelare la famiglia, trasmettere il patrimonio e ridurre i tempi di liquidazione, evidenziandone anche limiti, costi e gli errori più comuni da evitare.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "",
+      "suggestedExperts": "Nelson/Andrea A."
+    },
+    {
+      "id": "ws-coppie-e-patrimonio-diritti-e-tutele-base",
+      "topicIds": [
+        "eredita"
+      ],
+      "title": "Coppie & patrimonio: Diritti e tutele (Base)",
+      "description": "Un workshop per comprendere le principali implicazioni legali ed economiche di convivenza e matrimonio, distinguere le diverse forme di tutela patrimoniale e successoria e compiere scelte più consapevoli nella gestione dei rapporti affettivi e finanziari.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "published",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-comprare-casa-tutti-i-costi-anche-nascosti",
+      "topicIds": [
+        "casa"
+      ],
+      "title": "Comprare casa: tutti i costi (anche nascosti)",
+      "description": "Un workshop per mappare l’intero costo dell’acquisto — notaio, imposte, agenzia, spese accessorie — e arrivare alla trattativa senza sorprese.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-bonus-casa-e-ristrutturazione",
+      "topicIds": [
+        "casa"
+      ],
+      "title": "Bonus casa e ristrutturazione",
+      "description": "Un workshop per orientarsi tra le detrazioni edilizie disponibili, capire come e quando accedervi e pianificare gli interventi ottimizzando il beneficio fiscale.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "",
+      "suggestedExperts": "Marco/Manuele"
+    },
+    {
+      "id": "ws-conviene-comprare-una-casa-come-investimento",
+      "topicIds": [
+        "casa"
+      ],
+      "title": "Conviene comprare una casa come investimento?",
+      "description": "Un workshop per valutare se l'acquisto di un immobile rappresenta davvero un buon investimento, analizzando costi, rendimenti, rischi e le principali alternative disponibili.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-donne-e-denaro-colmare-il-gender-gap-finanziario",
+      "topicIds": [
+        "extra"
+      ],
+      "title": "Donne e denaro: colmare il gender gap finanziario",
+      "description": "Un workshop dedicato ai divari retributivi e previdenziali di genere e agli strumenti per costruire autonomia e sicurezza finanziaria.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "Adatto a percorsi DE&I",
+      "suggestedExperts": ""
+    },
+    {
+      "id": "ws-benessere-finanziario-e-stress-da-denaro",
+      "topicIds": [
+        "extra"
+      ],
+      "title": "Benessere finanziario e stress da denaro",
+      "description": "Un workshop sul rapporto emotivo con il denaro, per riconoscere lo stress finanziario e adottare abitudini che migliorano serenità e capacità decisionale.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "",
+      "suggestedExperts": "Giulia/Manuele"
+    },
+    {
+      "id": "ws-finanza-comportamentale-i-bias-che-ci-costano",
+      "topicIds": [
+        "extra"
+      ],
+      "title": "Finanza comportamentale: i bias che ci costano",
+      "description": "Un workshop per riconoscere le trappole psicologiche che influenzano le decisioni finanziarie — dall'avversione alle perdite agli acquisti impulsivi — e imparare tecniche pratiche per scegliere in modo più lucido e consapevole.",
+      "customAvailable": false,
+      "durationLabel": "1 - 1.30",
+      "productionStatus": "draft",
+      "adminNotes": "",
+      "suggestedExperts": ""
+    }
+  ],
+  "bundles": [
+    {
+      "id": "bundle-di-educazione-finanziaria-base",
+      "title": "Bundle di Educazione Finanziaria Base",
+      "size": 3,
+      "workshopIds": [
+        "ws-budgeting-personale-step-by-step",
+        "ws-la-gestione-della-liquidita-gestione-dei-risparmi-fondo-emergenza",
+        "ws-abc-degli-investimenti-le-basi-da-conoscere-prima-di-iniziare"
+      ],
+      "memberTitles": [
+        "Budgeting personale step by step",
+        "Gestione della Liquidità",
+        "ABC dell'investimento"
+      ],
+      "active": true
+    },
+    {
+      "id": "bundle-investimento",
+      "title": "Bundle Investimento",
+      "size": 3,
+      "workshopIds": [
+        "ws-abc-degli-investimenti-le-basi-da-conoscere-prima-di-iniziare",
+        "ws-la-gestione-della-liquidita-gestione-dei-risparmi-fondo-emergenza",
+        "ws-come-avviare-un-pac-in-etf-in-autonomia"
+      ],
+      "memberTitles": [
+        "ABC dell'investimento",
+        "Gestione della Liquidità",
+        "Come creare un PAC in ETF in autonomia"
+      ],
+      "active": true
+    },
+    {
+      "id": "bundle-pensione",
+      "title": "Bundle Pensione",
+      "size": 3,
+      "workshopIds": [
+        "ws-tfr-e-previdenza-complementare-base",
+        "ws-tfr-e-previdenza-complementare-avanzato",
+        "ws-fondi-pensione-come-protezione-successione-e-tutela-del-patrimonio"
+      ],
+      "memberTitles": [
+        "TFR e Previdenza Complementare base",
+        "TFR e Previdenza Complemenetare avanzato",
+        "Fondi pensione come protezione: Successione e Tutela del Patrimonio"
+      ],
+      "active": true
+    },
+    {
+      "id": "bundle-finanziamenti",
+      "title": "Bundle Finanziamenti",
+      "size": 3,
+      "workshopIds": [
+        "ws-finanziamenti-e-mutuo",
+        "ws-la-gestione-della-liquidita-gestione-dei-risparmi-fondo-emergenza",
+        "ws-uscire-dai-debiti-strategie-di-rientro"
+      ],
+      "memberTitles": [
+        "Mutui e Finanziamenti",
+        "Gestione della Liquidità",
+        "Uscire dai debiti: strategie di rientro"
+      ],
+      "active": true
+    },
+    {
+      "id": "bundle-famiglia",
+      "title": "Bundle Famiglia",
+      "size": 3,
+      "workshopIds": [
+        "ws-mutuo-o-affitto-come-decidere",
+        "ws-futuri-genitori-pianificare-economicamente-l-arrivo-di-un-figlio",
+        "ws-coppie-e-patrimonio-diritti-e-tutele"
+      ],
+      "memberTitles": [
+        "Mutuo o affitto: come decidere",
+        "Futuri genitori: pianificare economicamente l’arrivo di un figlio",
+        "Coppie e patrimonio: Diritti e tutele"
+      ],
+      "active": true
+    },
+    {
+      "id": "bundle-casa",
+      "title": "Bundle Casa",
+      "size": 3,
+      "workshopIds": [
+        "ws-mutuo-o-affitto-come-decidere",
+        "ws-comprare-casa-tutti-i-costi-anche-nascosti",
+        "ws-conviene-comprare-una-casa-come-investimento"
+      ],
+      "memberTitles": [
+        "Mutuo o affitto: come decidere",
+        "Comprare casa: tutti i costi (anche nascosti)",
+        "Conviene comprare una casa come investimento?"
+      ],
+      "active": true
+    },
+    {
+      "id": "bundle-educazione-finanziaria-essenziale",
+      "title": "Bundle Educazione Finanziaria Essenziale",
+      "size": 6,
+      "workshopIds": [
+        "ws-come-leggere-una-busta-paga",
+        "ws-budgeting-personale-step-by-step",
+        "ws-la-gestione-della-liquidita-gestione-dei-risparmi-fondo-emergenza",
+        "ws-abc-degli-investimenti-le-basi-da-conoscere-prima-di-iniziare",
+        "ws-mutuo-o-affitto-come-decidere",
+        "ws-tfr-e-previdenza-complementare-base"
+      ],
+      "memberTitles": [
+        "Come leggere una busta paga",
+        "Budgeting personale step by step",
+        "Gestione della Liquidità",
+        "ABC dell'investimento",
+        "Mutuo o Affitto, come decidere?",
+        "TFR e Previdenza Complementare (base)"
+      ],
+      "active": true
+    },
+    {
+      "id": "bundle-educazione-finanziaria-avanzata",
+      "title": "Bundle Educazione Finanziaria Avanzata",
+      "size": 6,
+      "workshopIds": [
+        "ws-budgeting-avanzato",
+        "ws-coppie-e-patrimonio-diritti-e-tutele",
+        "ws-tfr-e-previdenza-complementare-avanzato",
+        "ws-investimenti-gli-strumenti-complessi",
+        "ws-finanziamenti-e-mutuo",
+        "ws-finanza-comportamentale-i-bias-che-ci-costano"
+      ],
+      "memberTitles": [
+        "Budgeting: workshop avanzato",
+        "Coppie e Patrimonio: Diritti e tutele",
+        "TFR e Previdenza Complementare (avanzato)",
+        "Investimenti: gli strumenti complessi",
+        "Mutui e Finanziamenti",
+        "Finanza Comportamentale: i bias che ci costano"
+      ],
+      "active": true
+    },
+    {
+      "id": "bundle-educazione-finanziaria-completa",
+      "title": "Bundle Educazione Finanziaria Completa",
+      "size": 10,
+      "workshopIds": [
+        "ws-come-leggere-una-busta-paga",
+        "ws-budgeting-personale-step-by-step",
+        "ws-la-gestione-della-liquidita-gestione-dei-risparmi-fondo-emergenza",
+        "ws-abc-degli-investimenti-le-basi-da-conoscere-prima-di-iniziare",
+        "ws-finanziamenti-e-mutuo",
+        "ws-mutuo-o-affitto-come-decidere",
+        "ws-tfr-e-previdenza-complementare-base",
+        "ws-tfr-e-previdenza-complementare-avanzato",
+        "ws-coppie-e-patrimonio-diritti-e-tutele",
+        "ws-finanza-comportamentale-i-bias-che-ci-costano"
+      ],
+      "memberTitles": [
+        "Come leggere una busta paga",
+        "Budgeting personale step by step",
+        "Gestione della Liquidità",
+        "ABC dell'investimento",
+        "Mutui e Finanziamenti",
+        "Mutuo o Affitto, come decidere?",
+        "TFR e Previdenza Complementare (base)",
+        "TFR e Previdenza Complementare (avanzato)",
+        "Coppie e Patrimonio: Diritti e Tutele",
+        "Finanza Comportamentale: i bias che ci costano"
+      ],
+      "active": true
+    }
+  ]
+}

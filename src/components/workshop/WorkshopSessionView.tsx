@@ -1,6 +1,6 @@
 import React from "react";
 import { CalendarCheck, FolderKanban, Presentation, Video } from "../../components/ui/FaIcons";
-import type { CalendarEventRecord } from "../../types/domain";
+import type { CalendarEventRecord, Duration } from "../../types/domain";
 import { EventLink } from "../ui/EventLink";
 import { Info } from "../ui/Info";
 
@@ -9,7 +9,7 @@ export type WorkshopSessionItem = {
   title: string;
   date: string;
   time: string;
-  duration: "1h" | "2h";
+  duration: Duration;
   format: "live" | "webinar" | "ibrido";
   expertName?: string;
 };

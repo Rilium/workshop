@@ -178,7 +178,7 @@ async function run() {
   }
 }
 
-run().catch((error) => {
+await run().catch((error) => {
   console.error(error);
   process.exit(1);
 });

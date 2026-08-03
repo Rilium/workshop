@@ -24,12 +24,18 @@ export function Topbar({
   const visibleStatusLabel = projectStatusLabel ?? statusLabel[projectStatus];
 
   return (
-    <header className="topbar">
+    <header className={`topbar ${showProjectStatus ? "" : "topbar--public"}`.trim()}>
       <div className="brand-mark">
         <img className="logo-bubble" src="/Logo.png" alt="FunniFin" width="60" height="60" decoding="async" fetchPriority="high" />
         <div className="brand-copy">
           <div className="brand-title-row">
-            <strong>FunniFin <span className="brand-product-detail">Workshop Planner</span></strong>
+            <strong>
+              {showProjectStatus ? (
+                <>FunniFin <span className="brand-product-detail">Workshop Planner</span></>
+              ) : (
+                <span className="public-product-title">Workshop planner</span>
+              )}
+            </strong>
             {showProjectStatus && (
               <span className={`request-status-chip ${projectStatus === "confermato" ? "status-confirmed" : projectStatus === "draft_cliente" ? "status-draft" : "status-active"}`} title={statusDescription[projectStatus]}>
                 <strong>{visibleStatusLabel}</strong>

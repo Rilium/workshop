@@ -1,9 +1,9 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useDarkMode } from "./hooks/useDarkMode";
 import { DarkModeToggle } from "./components/ui/DarkModeToggle";
-import { initialRules } from "./data/pricing";
-import { topics as initialTopics, workshops as initialWorkshops } from "./data/catalog";
-import type { AppNotificationRole, PricingRule, ProjectStatus, Role, Selection, Topic, Workshop } from "./types/domain";
+import { defaultCommercialConfig, initialRules } from "./data/pricing";
+import { fallbackCatalogBundles, fallbackCatalogTopics as initialTopics, fallbackCatalogWorkshops as initialWorkshops } from "./data/clientCatalog";
+import type { AppNotificationRole, CatalogBundle, CommercialConfig, PricingRule, ProjectStatus, Role, Selection, Topic, Workshop } from "./types/domain";
 import { getPublicCatalog } from "./publicCatalogService";
 import { useQuote } from "./hooks/useQuote";
 import { useToasts } from "./hooks/useToasts";
@@ -90,6 +90,8 @@ function AppInner() {
   const [catalogTopics, setCatalogTopics] = useState<Topic[]>(initialTopics);
   const [catalogWorkshops, setCatalogWorkshops] = useState<Workshop[]>(initialWorkshops);
   const [rules, setRules] = useState<PricingRule[]>(initialRules);
+  const [catalogBundles, setCatalogBundles] = useState<CatalogBundle[]>(fallbackCatalogBundles);
+  const [commercialConfig, setCommercialConfig] = useState<CommercialConfig>(defaultCommercialConfig);
   const [clientAssetFolder, setClientAssetFolder] = useState<AssetDraftFolder | null>(null);
   const [clientUploadedAssets, setClientUploadedAssets] = useState<UploadedAsset[]>([]);
   const [currentRequest, setCurrentRequest] = useState<WorkshopRequestRecord | null>(null);
@@ -111,8 +113,12 @@ function AppInner() {
     clearClosedNotifications,
     deleteClosedNotification,
   } = useToasts(role, currentUser?.id, currentUser?.email);
-  const { selections, toggleWorkshop, addWorkshops, updateSelection } = useWorkshopSelection(catalogWorkshops, notify);
-  const quote = useQuote(selections, catalogWorkshops, rules);
+  const { selections, toggleWorkshop, addWorkshops, selectBundle, updateSelection, clearSelections } = useWorkshopSelection(
+    catalogWorkshops,
+    notify,
+    commercialConfig.recordingDefault,
+  );
+  const quote = useQuote(selections, catalogWorkshops, rules, commercialConfig, catalogBundles);
   const lastConfettiTokenRef = useRef<string | null>(null);
   const manualRoleChangeRef = useRef(false);
 
@@ -162,6 +168,8 @@ function AppInner() {
         if (catalog.topics.length) setCatalogTopics(catalog.topics);
         if (catalog.workshops.length) setCatalogWorkshops(catalog.workshops);
         if (catalog.rules.length) setRules(catalog.rules);
+        if (catalog.bundles.length) setCatalogBundles(catalog.bundles);
+        setCommercialConfig(catalog.commercialConfig);
         if (catalog.source === "local-fallback") {
           notify("Catalogo locale attivo", "Apps Script non disponibile: stai usando il seed locale di sviluppo.");
         }
@@ -217,8 +225,10 @@ function AppInner() {
     .map((selection) => ({ selection, workshop: catalogWorkshops.find((workshop) => workshop.id === selection.workshopId)! }))
     .filter(({ workshop }) => Boolean(workshop));
   const coveredTopics = new Set(selectedWorkshops.map(({ workshop }) => workshop.topicId)).size;
-  const coveredThemes = new Set(selectedWorkshops.map(({ workshop }) => workshop.themeId)).size;
-  const totalHours = selectedWorkshops.reduce((total, { selection }) => total + (selection.duration === "2h" ? 2 : 1), 0);
+  const totalHours = selectedWorkshops.reduce(
+    (total, { selection }) => total + (selection.duration === "2h" ? 2 : selection.duration === "1.5h" ? 1.5 : 1),
+    0,
+  );
 
   const setStatusWithFeedback = (status: ProjectStatus, title: string, body: string) => {
     setProjectStatus(status);
@@ -295,7 +305,7 @@ function AppInner() {
       <Topbar
         projectStatus={projectStatus}
         notify={notify}
-        showProjectStatus={role !== "Cliente" || projectStatus !== "draft_cliente" || Boolean(currentRequest)}
+        showProjectStatus={role !== "Cliente"}
         projectStatusLabel={projectStatus === "draft_cliente" && currentRequest ? "Bozza salvata" : undefined}
         systemControls={
           <SystemBar
@@ -361,17 +371,20 @@ function AppInner() {
           <ClientView
             topics={catalogTopics}
             workshops={catalogWorkshops}
+            bundles={catalogBundles}
+            commercialConfig={commercialConfig}
             activeTopics={activeTopics}
             activeThemes={activeThemes}
             selections={selections}
             quote={quote}
             coveredTopics={coveredTopics}
-            coveredThemes={coveredThemes}
             totalHours={totalHours}
             setActiveTopics={setActiveTopics}
             setActiveThemes={setActiveThemes}
             toggleWorkshop={toggleWorkshop}
             addWorkshops={addWorkshops}
+            selectBundle={selectBundle}
+            clearSelections={clearSelections}
             updateSelection={updateSelection}
             setProjectStatus={setStatusWithFeedback}
             notify={notify}
@@ -382,7 +395,6 @@ function AppInner() {
             setAssetFolder={setClientAssetFolder}
             uploadedAssets={clientUploadedAssets}
             setUploadedAssets={setClientUploadedAssets}
-            systemRefreshToken={systemRefreshToken}
             systemSettingsToken={systemSettingsToken}
             onGuidedLayerChange={setClientGuidedLayerActive}
             onRequestCreated={(request) => {
@@ -401,8 +413,11 @@ function AppInner() {
         <Suspense fallback={<ViewLoadingFallback />}>
           {role === "FunniFin" && (
             <AdminView
+              workshops={catalogWorkshops}
               projectStatus={projectStatus}
               quote={quote}
+              commercialConfig={commercialConfig}
+              setCommercialConfig={setCommercialConfig}
               rules={rules}
               selections={selections}
               setRules={setRules}
@@ -426,6 +441,7 @@ function AppInner() {
           )}
           {role === "Esperto" && (
             <ExpertView
+              workshops={catalogWorkshops}
               selections={selections}
               updateSelection={updateSelection}
               setProjectStatus={setStatusWithFeedback}

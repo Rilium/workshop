@@ -37,7 +37,6 @@ import { getDriveFolderPreview, type DriveFolderItem } from "../../googleDriveSe
 import { listWorkshopRequests, updateWorkshopRequest } from "../../requestService";
 import { sendWorkflowNotification } from "../../emailService";
 import { roleIdentities } from "../../data/mockData";
-import { workshops } from "../../data/catalog";
 import { statusLabel } from "../../data/workflow";
 import type { AdminProject, NotifyOptions, ProjectStatus, Selection, Workshop } from "../../types/domain";
 import { useAuth } from "../../AuthContext";
@@ -53,6 +52,7 @@ import { RoleHero } from "../../components/layout/RoleHero";
 import { ExpertCandidateModal } from "./components/ExpertCandidateModal";
 
 export function ExpertView({
+  workshops,
   selections,
   updateSelection,
   setProjectStatus,
@@ -67,6 +67,7 @@ export function ExpertView({
   notificationFocusToken,
   project,
 }: {
+  workshops: Workshop[];
   selections: Selection[];
   updateSelection: (id: string, patch: Partial<Selection>) => void;
   setProjectStatus: (status: ProjectStatus, title: string, body: string) => void;
