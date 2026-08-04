@@ -2096,8 +2096,7 @@
   gap: var(--sp-3);
 }
 
-.assignment-panel,
-.contact-card {
+.assignment-panel {
   display: grid;
   gap: var(--sp-4);
   margin-top: var(--sp-4);
@@ -2107,95 +2106,15 @@
   background: var(--brand-light);
 }
 
-.contact-card > div:first-child {
-  display: grid;
-  gap: var(--sp-1);
-}
-
-.assignment-panel > span,
-.contact-card > div:first-child span {
+.assignment-panel > span {
   color: var(--neutral-600);
   line-height: 1.4;
-}
-
-.contact-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--sp-4);
-  align-items: start;
-}
-
-.contact-grid label:last-child {
-  grid-column: 1 / -1;
-}
-
-.contact-grid label {
-  min-width: 0;
-  gap: var(--sp-2);
-}
-
-.contact-grid input {
-  min-height: 44px;
-  border-color: var(--brand-mid);
 }
 
 .approval-card {
   margin-top: var(--sp-3);
   padding: var(--sp-4);
   border-color: var(--brand-mid);
-}
-
-.request-success-card {
-  display: grid;
-  grid-template-columns: 74px minmax(0, 1fr) minmax(240px, 0.7fr);
-  gap: var(--sp-4);
-  align-items: center;
-  margin-top: var(--sp-4);
-  padding: var(--sp-5);
-  border: 1px solid var(--brand);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, var(--brand-light), var(--white));
-  box-shadow: var(--brand-shadow-card);
-}
-
-.success-check {
-  width: 74px;
-  height: 74px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--brand);
-  color: var(--white);
-}
-
-.request-success-card > div {
-  min-width: 0;
-  display: grid;
-  gap: var(--sp-2);
-}
-
-.request-success-card strong {
-  color: var(--brand-dark);
-  font-size: var(--text-xl);
-}
-
-.request-success-card p,
-.submitted-email-box span {
-  color: var(--neutral-600);
-  line-height: 1.4;
-}
-
-.submitted-email-box {
-  padding: var(--sp-3);
-  border: 1px solid var(--brand-mid);
-  border-radius: var(--radius-lg);
-  background: var(--white);
-}
-
-.submitted-email-box strong {
-  overflow: hidden;
-  font-size: var(--text-md);
-  text-overflow: ellipsis;
 }
 
 .detail-grid {
@@ -3651,25 +3570,6 @@
 .catalog-editor em {
   color: var(--neutral-600);
   font-style: normal;
-}
-
-.catalog-status {
-  width: fit-content;
-  border-radius: var(--radius-pill);
-  padding: 5px 9px;
-  font-size: var(--text-xs);
-  font-weight: var(--fw-xbold);
-  text-transform: uppercase;
-}
-
-.catalog-status.active {
-  background: var(--brand-light);
-  color: var(--brand-dark);
-}
-
-.catalog-status.hidden {
-  background: var(--color-surface-pink);
-  color: var(--accent-pink);
 }
 
 .catalog-editor-actions {

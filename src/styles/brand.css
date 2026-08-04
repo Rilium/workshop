@@ -9,28 +9,6 @@
   align-items: start;
 }
 
-.date-list {
-  display: grid;
-  gap: 12px;
-}
-
-.date-choice-grid {
-  display: grid;
-  gap: var(--sp-3);
-}
-
-.date-action-card {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
-  gap: var(--sp-3);
-  align-items: start;
-  padding: var(--sp-4);
-  border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-lg);
-  background: var(--white);
-  box-shadow: var(--brand-shadow-card);
-}
-
 .remove-icon-btn {
   width: 40px;
   min-width: 40px;
@@ -57,136 +35,13 @@
   min-height: 32px;
 }
 
-.date-action-card.proposed {
-  border-color: var(--color-warning-border);
-  background: linear-gradient(180deg, var(--white), var(--color-warning-bg));
-}
-
-.date-action-card.proposed .date-status {
-  background: var(--color-warning-bg);
-  color: var(--color-warning-text);
-  border: 1px solid var(--color-warning-border);
-}
-
-.date-action-card.done {
-  border-color: var(--brand);
-  background: linear-gradient(180deg, var(--white), var(--brand-light));
-  box-shadow: 0 12px 28px rgba(28, 175, 185, 0.12);
-}
-
-.date-status {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--brand-light);
-  color: var(--brand);
-}
-
-.date-action-card.done .date-status {
-  background: var(--brand);
-  color: var(--white);
-}
-
-.date-action-card div {
-  display: grid;
-  gap: 4px;
-}
-
-.date-action-card > div:not(.date-row-actions) {
-  min-width: 0;
-}
-
-.date-action-card strong {
-  color: var(--neutral-900);
-  line-height: 1.25;
-}
-
-.date-action-card span {
-  color: var(--neutral-600);
-}
-
-.date-row-actions {
-  display: inline-grid;
-  grid-template-columns: minmax(120px, max-content) 40px;
-  gap: var(--sp-2);
-  align-items: center;
-  justify-content: end;
-}
-
-.date-row-actions .app-btn:not(.app-btn-dangerIcon) {
-  min-width: 112px;
-}
-
-.date-row-actions .app-btn-dangerIcon {
-  grid-column: 2;
-}
-
 .date-card,
-.upload-box,
 .candidate-card,
 .opportunity-card,
 .integration-card,
 .assignment-card,
-.approval-card,
-.contact-card {
+.approval-card {
   padding: 16px;
-}
-
-.upload-box {
-  display: grid;
-  place-items: center;
-  text-align: center;
-  gap: 12px;
-  background: var(--gradient-upload-stripes);
-}
-
-.asset-upload-trigger {
-  cursor: pointer;
-}
-
-.asset-upload-trigger input {
-  display: none;
-}
-
-.asset-folder-link {
-  max-width: 100%;
-  color: var(--brand-dark);
-  font-weight: var(--fw-xbold);
-  overflow-wrap: anywhere;
-}
-
-.asset-file-list {
-  width: min(100%, 620px);
-  display: grid;
-  gap: var(--sp-2);
-  text-align: left;
-}
-
-.asset-file-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-3);
-  border: 1px solid var(--brand-mid);
-  border-radius: var(--radius-lg);
-  background: var(--white);
-}
-
-.asset-file-row span {
-  min-width: 0;
-  color: var(--neutral-900);
-  font-weight: var(--fw-bold);
-  overflow-wrap: anywhere;
-}
-
-.asset-file-row em,
-.upload-box small {
-  color: var(--neutral-600);
-  font-style: normal;
-  font-size: var(--text-sm);
 }
 
 .brand-workbench {
