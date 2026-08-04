@@ -154,7 +154,7 @@ function handleGet(event) {
   return jsonResponse({
     ok: true,
     service: "FunniFin Workshop Planner",
-    actions: ["freeBusy", "expertAvailability", "calendarLookup", "driveFolder", "brandPresentations", "publicCatalog", "listWorkshopRequests", "listRequestEvents", "listNotifications", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "listAuthUsers", "listAccessRequests", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "deleteWorkshopRequest", "createNotification", "updateNotification", "deleteNotification", "markNotificationsRead", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "updateWorkspaceSettings", "testIntegrationSettings", "updateIntegrationProperties", "configureMailOAuth", "beginMailOAuth", "disconnectMailOAuth", "sendIntegrationTestEmail", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "createExpertCalendar", "connectExpertCalendar", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification", "requestLoginCode", "verifyLoginCode", "reviewAccessRequest", "updateAuthUser", "changeAdminEmail"],
+    actions: ["freeBusy", "expertAvailability", "calendarLookup", "driveFolder", "brandPresentations", "publicCatalog", "listWorkshopRequests", "listRequestEvents", "listNotifications", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "listAuthUsers", "listAccessRequests", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "deleteWorkshopRequest", "deleteAllWorkshopRequests", "createNotification", "updateNotification", "deleteNotification", "deleteAllNotifications", "markNotificationsRead", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "updateWorkspaceSettings", "testIntegrationSettings", "updateIntegrationProperties", "configureMailOAuth", "beginMailOAuth", "disconnectMailOAuth", "sendIntegrationTestEmail", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "createExpertCalendar", "connectExpertCalendar", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification", "requestLoginCode", "verifyLoginCode", "reviewAccessRequest", "updateAuthUser", "changeAdminEmail"],
   });
 }
 
@@ -179,6 +179,10 @@ function handlePost(event) {
     requireFunniFinSession(body.payload || {});
     return jsonResponse(deleteWorkshopRequest(body.payload || {}));
   }
+  if (body.action === "deleteAllWorkshopRequests") {
+    requireFunniFinSession(body.payload || {});
+    return jsonResponse(deleteAllWorkshopRequests());
+  }
   if (body.action === "createNotification") {
     const auth = requireSession(body.payload || {}, ["FunniFin", "Esperto", "Brand"]);
     return jsonResponse(createNotification(Object.assign({}, body.payload || {}, {
@@ -192,6 +196,10 @@ function handlePost(event) {
   if (body.action === "deleteNotification") {
     requireSession(body.payload || {}, ["FunniFin", "Esperto", "Brand"]);
     return jsonResponse(deleteNotification(body.payload || {}));
+  }
+  if (body.action === "deleteAllNotifications") {
+    requireFunniFinSession(body.payload || {});
+    return jsonResponse(deleteAllNotifications());
   }
   if (body.action === "markNotificationsRead") {
     const auth = requireSession(body.payload || {}, ["FunniFin", "Esperto", "Brand"]);
@@ -1466,6 +1474,64 @@ function deleteWorkshopRequest(payload) {
   });
 }
 
+function clearSheetBody(sheet, columnCount) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return 0;
+  const count = lastRow - 1;
+  sheet.getRange(2, 1, count, columnCount).clearContent();
+  return count;
+}
+
+function removeRowsMatchingRequestIds(sheet, headers, requestIds, toRecord) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return 0;
+  const rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  const keptRows = [];
+  let deleted = 0;
+  rows.forEach(function(row) {
+    const record = toRecord(row);
+    if (record && requestIds[String(record.requestId || "")]) deleted += 1;
+    else keptRows.push(row);
+  });
+  sheet.getRange(2, 1, rows.length, headers.length).clearContent();
+  if (keptRows.length) sheet.getRange(2, 1, keptRows.length, headers.length).setValues(keptRows);
+  return deleted;
+}
+
+function deleteAllWorkshopRequests() {
+  return withSheetLock(function() {
+    const requestsSheet = getRequestsSheet();
+    const requestRows = requestsSheet.getDataRange().getValues();
+    const requests = requestRows.length <= 1 ? [] : requestRows.slice(1).map(rowToRequest).filter(Boolean);
+    const requestIds = {};
+    requests.forEach(function(request) { requestIds[String(request.id || "")] = true; });
+
+    const deletedRequests = clearSheetBody(requestsSheet, REQUEST_HEADERS.length);
+    const deletedClientUsers = clearSheetBody(getClientUsersSheet(), CLIENT_USER_HEADERS.length);
+    const deletedEvents = removeRowsMatchingRequestIds(
+      getRequestEventsSheet(),
+      REQUEST_EVENT_HEADERS,
+      requestIds,
+      function(row) { return { requestId: String(row[1] || "") }; },
+    );
+    const deletedNotifications = removeRowsMatchingRequestIds(
+      getNotificationsSheet(),
+      NOTIFICATION_HEADERS,
+      requestIds,
+      rowToNotification,
+    );
+
+    return {
+      ok: true,
+      source: "google-sheet",
+      deletedRequests,
+      deletedClientUsers,
+      deletedEvents,
+      deletedNotifications,
+    };
+  });
+}
+
 function listCatalogConfig() {
   const sheet = getCatalogTopicsSheet();
   const rows = sheet.getDataRange().getValues();
@@ -1715,6 +1781,17 @@ function deleteNotification(payload) {
     deleted: rowIndex > 0,
     id,
   };
+}
+
+function deleteAllNotifications() {
+  return withSheetLock(function() {
+    const deleted = clearSheetBody(getNotificationsSheet(), NOTIFICATION_HEADERS.length);
+    return {
+      ok: true,
+      source: "google-sheet",
+      deleted,
+    };
+  });
 }
 
 function markNotificationsRead(payload) {

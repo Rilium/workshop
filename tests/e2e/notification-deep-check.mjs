@@ -319,7 +319,25 @@ async function run() {
       await page.close();
     }
 
-    console.log("PASS deep notifications: role switch, user filtering, archive tab, action routing, read tracking");
+    {
+      const { page, errors } = await openWithSession(browser, users.funnifin, "FunniFin", notifications, { width: 390, height: 844 });
+      await page.locator(".nc-bell").click();
+      await page.getByRole("button", { name: "Svuota tutto" }).click();
+      const confirmation = page.getByRole("alertdialog", { name: "Svuotare tutte le notifiche?" });
+      await confirmation.waitFor({ timeout: 5000 });
+      assert((await confirmation.getByText("L’operazione è irreversibile.").count()) === 1, "Manca avviso irreversibilità notifiche");
+      await confirmation.getByRole("button", { name: "Annulla" }).click();
+      await confirmation.waitFor({ state: "detached", timeout: 5000 });
+      assert((await page.getByRole("button", { name: "Svuota tutto" }).count()) === 1, "Annulla ha svuotato le notifiche");
+      await page.getByRole("button", { name: "Svuota tutto" }).click();
+      await page.getByRole("alertdialog", { name: "Svuotare tutte le notifiche?" }).getByRole("button", { name: "Svuota notifiche" }).click();
+      await page.waitForFunction(() => JSON.parse(window.localStorage.getItem("funnifin_notifications_v1") || "[]").length === 0, null, { timeout: 5000 });
+      await page.getByText("Nessuna notifica").waitFor({ timeout: 5000 });
+      assert(errors.length === 0, `Clear notifications console errors: ${errors.join(" | ")}`);
+      await page.close();
+    }
+
+    console.log("PASS deep notifications: role switch, user filtering, archive tab, action routing, read tracking, clear-all confirmation");
   } finally {
     if (browser) await browser.close();
     server.kill("SIGTERM");

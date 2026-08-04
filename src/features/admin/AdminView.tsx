@@ -38,7 +38,7 @@ import { createExpertCalendarEvent, createWorkshopCalendarEvent, getWorkshopAvai
 import type { AssetDraftFolder, UploadedAsset } from "../../driveAssetService";
 import { clearBackendCaches, createSheetBackup, deleteExpert, getGoogleHealth, listCatalogConfig, listCatalogWorkshops, listExperts, listPricingRules, listWorkspaceSettings, runDailyMaintenance, runHealthMonitor, runRetentionCleanup, seedAdminConfig, updateCatalogTopic, updateCatalogWorkshop, updateExpert, updatePricingRule, updateWorkspaceSetting, updateWorkspaceSettings, type CatalogWorkshopConfig, type GoogleHealth, type WorkspaceSetting } from "../../googleAdminService";
 import { getDriveFolderPreview, type DriveFolderResponse } from "../../googleDriveService";
-import { deleteWorkshopRequest, listWorkshopRequests, updateWorkshopRequest, type RequestWorkshopRecord, type WorkshopRequestRecord } from "../../requestService";
+import { deleteAllWorkshopRequests, deleteWorkshopRequest, listWorkshopRequests, updateWorkshopRequest, type RequestWorkshopRecord, type WorkshopRequestRecord } from "../../requestService";
 import { changeAdminEmail, listAuthUsers, listAccessRequests, requestLoginCode, reviewAccessRequest } from "../../authService";
 import type { AuthRole, AuthUser, AccessRequest } from "../../types/auth";
 import { SECRET_SETTINGS } from "../../secretSettings";
@@ -197,6 +197,8 @@ export function AdminView({
   mailProjectId,
   notificationFocusProjectId,
   notificationFocusToken,
+  onNotificationsChanged,
+  onRequestsCleared,
 }: {
   workshops: Workshop[];
   projectStatus: ProjectStatus;
@@ -222,6 +224,8 @@ export function AdminView({
   mailProjectId?: string;
   notificationFocusProjectId?: string;
   notificationFocusToken?: number;
+  onNotificationsChanged?: () => void;
+  onRequestsCleared?: () => void;
 }) {
   const adminContentRef = useRef<HTMLDivElement | null>(null);
   const lastMailIntentRef = useRef("");
@@ -292,6 +296,8 @@ export function AdminView({
   const [adminActionModal, setAdminActionModal] = useState<AdminActionModalState | null>(null);
   const [requestDeleteConfirm, setRequestDeleteConfirm] = useState<AdminProject | null>(null);
   const [deletingRequestId, setDeletingRequestId] = useState("");
+  const [clearRequestsConfirm, setClearRequestsConfirm] = useState(false);
+  const [clearingRequests, setClearingRequests] = useState(false);
   const [calendarEvents, setCalendarEvents] = useState<Record<string, CalendarEventRecord>>({});
   const [driveFolderPreview, setDriveFolderPreview] = useState<DriveFolderResponse | null>(null);
   const [driveFolderStatus, setDriveFolderStatus] = useState<{ loading: boolean; error: string }>({ loading: false, error: "" });
@@ -1292,6 +1298,30 @@ export function AdminView({
       notify("Richiesta non eliminata", getFriendlyErrorMessage(error, "Eliminazione non riuscita."));
     } finally {
       setDeletingRequestId("");
+    }
+  };
+  const confirmClearRequests = async () => {
+    setClearingRequests(true);
+    try {
+      const result = await deleteAllWorkshopRequests();
+      setAdminProjects([]);
+      setSelectedProjectId("");
+      setDateApprovals({});
+      setWorkshopExperts({});
+      setCalendarEvents({});
+      setRequestSyncState({ loading: false, error: "", source: "sheet" });
+      setClearRequestsConfirm(false);
+      onRequestsCleared?.();
+      onNotificationsChanged?.();
+      notify(
+        "Richieste svuotate",
+        `${result.deletedRequests} richieste, ${result.deletedEvents} modifiche e ${result.deletedNotifications} notifiche collegate eliminate.`,
+        { persist: false },
+      );
+    } catch (error) {
+      notify("Richieste non eliminate", getFriendlyErrorMessage(error, "Svuotamento non riuscito."), { persist: false });
+    } finally {
+      setClearingRequests(false);
     }
   };
   const assignExpertTo = (workshopId: string, expertName = expertDraft) => {
@@ -2435,6 +2465,7 @@ export function AdminView({
   const quoteOnlyRules = rules.filter((rule) => rule.specialQuote);
   const maxAutomaticDiscount = automaticPricingRules.reduce((max, rule) => Math.max(max, rule.discountPercent), 0);
   const showRequestSkeleton = requestSyncState.loading;
+  const remoteRequestCount = adminProjects.filter((project) => project.source !== "local").length;
   return (
     <section className="admin-console">
       <div className="role-header-grid">
@@ -2456,9 +2487,19 @@ export function AdminView({
             icon={<BriefcaseBusiness size={20} />}
             meta={activeAdminSection?.meta}
             actions={
-              <ToolIconButton active={requestSyncState.source === "sheet"} onClick={refreshAdminWorkspacePanel} loading={requestSyncState.loading} label="Ricarica richieste cliente">
-                <RefreshCw size={18} />
-              </ToolIconButton>
+              <div className="section-title-actions">
+                <ToolIconButton
+                  className="danger"
+                  onClick={() => setClearRequestsConfirm(true)}
+                  disabled={remoteRequestCount === 0 || requestSyncState.loading || clearingRequests}
+                  label={remoteRequestCount > 0 ? `Svuota ${remoteRequestCount} richieste cliente` : "Nessuna richiesta da svuotare"}
+                >
+                  <Trash2 size={18} />
+                </ToolIconButton>
+                <ToolIconButton active={requestSyncState.source === "sheet"} onClick={refreshAdminWorkspacePanel} loading={requestSyncState.loading} label="Ricarica richieste cliente">
+                  <RefreshCw size={18} />
+                </ToolIconButton>
+              </div>
             }
           />
         <div className="admin-workbench-v2">
@@ -4059,6 +4100,52 @@ export function AdminView({
                   Cambia email
                 </AppButton>
               )}
+            </footer>
+          </section>
+        </ModalBackdrop>
+      )}
+
+      {clearRequestsConfirm && (
+        <ModalBackdrop labelledBy="request-clear-modal-title" className="request-delete-modal-backdrop">
+          <section className="custom-modal admin-action-modal request-delete-modal" role="alertdialog" aria-modal="true" aria-describedby="request-clear-modal-description">
+            <header className="modal-header">
+              <div>
+                <span className="eyebrow">Coda clienti</span>
+                <strong id="request-clear-modal-title">Svuotare tutte le richieste?</strong>
+                <p id="request-clear-modal-description">La coda operativa e i dati collegati verranno eliminati dal registro Google.</p>
+              </div>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setClearRequestsConfirm(false)}
+                aria-label="Chiudi modal"
+                disabled={clearingRequests}
+              >
+                <X size={18} />
+              </button>
+            </header>
+            <div className="modal-body">
+              <div className="modal-stack">
+                <div className="request-delete-summary">
+                  <Info label="Richieste" value={`${remoteRequestCount} da eliminare`} />
+                  <Info label="Dati collegati" value="Storico, utenti cliente e notifiche" />
+                </div>
+                <p className="modal-warning">Non viene inviata nessuna email. L’operazione è irreversibile.</p>
+              </div>
+            </div>
+            <footer className="modal-footer">
+              <AppButton type="button" variant="ghost" onClick={() => setClearRequestsConfirm(false)} disabled={clearingRequests}>
+                Annulla
+              </AppButton>
+              <AppButton
+                type="button"
+                variant="primary"
+                className="request-delete-confirm-btn"
+                onClick={() => void confirmClearRequests()}
+                loading={clearingRequests}
+              >
+                Svuota richieste
+              </AppButton>
             </footer>
           </section>
         </ModalBackdrop>

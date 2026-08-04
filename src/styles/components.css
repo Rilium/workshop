@@ -768,6 +768,16 @@ button .fa-icon,
   color: var(--brand-dark);
 }
 
+.tool-icon-btn.danger {
+  color: var(--accent-pink);
+}
+
+.tool-icon-btn.danger:hover {
+  border-color: color-mix(in srgb, var(--accent-pink) 42%, var(--neutral-200));
+  background: var(--color-error-bg);
+  color: var(--accent-pink);
+}
+
 .topic-icon .fa-icon,
 .section-title-icon .fa-icon,
 .panel-title .fa-icon,
@@ -1841,6 +1851,8 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
   padding: var(--sp-2) var(--sp-5) var(--sp-4);
   background: var(--white);
 }
@@ -1854,6 +1866,70 @@ button:disabled {
 .nc-btn-danger:hover {
   background: var(--color-error-bg);
   border-color: var(--accent-pink);
+}
+
+.nc-confirm-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-5);
+  background: color-mix(in srgb, var(--neutral-900) 44%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.nc-confirm-card {
+  width: min(100%, 370px);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-xl);
+  background: var(--white);
+  box-shadow: 0 24px 64px rgba(13, 39, 45, 0.25);
+}
+
+.nc-confirm-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-error-bg);
+  color: var(--accent-pink);
+}
+
+.nc-confirm-card h3 {
+  margin: 2px 0 var(--sp-2);
+  font-size: var(--text-lg);
+  color: var(--neutral-900);
+}
+
+.nc-confirm-card p:not(.nc-head-eyebrow) {
+  margin: 0;
+  color: var(--neutral-600);
+  line-height: 1.45;
+}
+
+.nc-confirm-error {
+  margin-top: var(--sp-2) !important;
+  color: var(--accent-pink) !important;
+  font-weight: var(--fw-bold);
+}
+
+.nc-confirm-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.nc-confirm-actions button:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 /* ── Section title row ── */

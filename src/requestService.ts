@@ -276,3 +276,17 @@ export async function deleteWorkshopRequest(requestId: string): Promise<{ delete
     payload: withSessionPayload({ requestId }),
   });
 }
+
+export type DeleteAllWorkshopRequestsResult = {
+  deletedRequests: number;
+  deletedClientUsers: number;
+  deletedEvents: number;
+  deletedNotifications: number;
+};
+
+export async function deleteAllWorkshopRequests(): Promise<DeleteAllWorkshopRequestsResult> {
+  return postAppsScript<DeleteAllWorkshopRequestsResult>({
+    action: "deleteAllWorkshopRequests",
+    payload: withSessionPayload({}),
+  });
+}

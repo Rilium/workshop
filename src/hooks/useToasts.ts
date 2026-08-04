@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { allowLocalFallbacks } from "../authTransport";
 import {
   createNotification,
+  deleteAllNotifications as deleteAllRemoteNotifications,
   deleteNotification as deleteRemoteNotification,
   hasNotificationBackend,
   listNotifications,
@@ -327,6 +328,37 @@ export function useToasts(role: Role, currentUserId?: string, currentUserEmail?:
     if (remoteReady.current) void deleteRemoteNotification(id).catch(() => undefined);
   };
 
+  const refreshNotifications = useCallback(async () => {
+    if (!isNotificationRole(role) || !currentUserId || !hasNotificationBackend()) {
+      const localNotifications = allowLocalFallbacks() ? readStoredNotifications() : [];
+      remoteReady.current = false;
+      setNotifications(localNotifications);
+      return localNotifications;
+    }
+    try {
+      const remoteNotifications = await listNotifications();
+      remoteReady.current = true;
+      setNotifications(remoteNotifications);
+      return remoteNotifications;
+    } catch (error) {
+      remoteReady.current = false;
+      if (allowLocalFallbacks()) setNotifications(readStoredNotifications());
+      throw error;
+    }
+  }, [currentUserId, role]);
+
+  const clearAllNotifications = async () => {
+    const currentCount = notifications.length;
+    if (remoteReady.current && hasNotificationBackend()) {
+      const deleted = await deleteAllRemoteNotifications();
+      setNotifications([]);
+      return deleted;
+    }
+    setNotifications([]);
+    if (allowLocalFallbacks()) writeStoredNotifications([]);
+    return currentCount;
+  };
+
   return {
     toasts,
     notifications,
@@ -339,5 +371,7 @@ export function useToasts(role: Role, currentUserId?: string, currentUserEmail?:
     markAllNotificationsRead,
     clearClosedNotifications,
     deleteClosedNotification,
+    clearAllNotifications,
+    refreshNotifications,
   };
 }

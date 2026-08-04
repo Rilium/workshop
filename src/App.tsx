@@ -112,6 +112,8 @@ function AppInner() {
     markAllNotificationsRead,
     clearClosedNotifications,
     deleteClosedNotification,
+    clearAllNotifications,
+    refreshNotifications,
   } = useToasts(role, currentUser?.id, currentUser?.email);
   const { selections, toggleWorkshop, addWorkshops, selectBundle, updateSelection, clearSelections } = useWorkshopSelection(
     catalogWorkshops,
@@ -344,6 +346,15 @@ function AppInner() {
                   const r = role as AppNotificationRole;
                   clearClosedNotifications(r);
                 }}
+                onClearAll={role === "FunniFin" ? async () => {
+                  const deleted = await clearAllNotifications();
+                  notify(
+                    "Notifiche svuotate",
+                    deleted === 1 ? "1 notifica eliminata." : `${deleted} notifiche eliminate.`,
+                    { persist: false },
+                  );
+                  return deleted;
+                } : undefined}
               />
             }
           />
@@ -438,6 +449,11 @@ function AppInner() {
               mailProjectId={mailIntent.projectId}
               notificationFocusProjectId={notificationFocus.projectId}
               notificationFocusToken={notificationFocus.token}
+              onNotificationsChanged={() => void refreshNotifications()}
+              onRequestsCleared={() => {
+                setCurrentRequest(null);
+                setRequestRefreshToken((value) => value + 1);
+              }}
             />
           )}
           {role === "Esperto" && (

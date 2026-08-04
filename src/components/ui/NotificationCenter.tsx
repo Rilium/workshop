@@ -113,6 +113,7 @@ export function NotificationCenter({
   onMarkAllRead,
   onAction,
   onClearClosed,
+  onClearAll,
 }: {
   role: Role;
   currentUserId?: string;
@@ -126,10 +127,14 @@ export function NotificationCenter({
   onMarkAllRead: (role: AppNotificationRole, userId?: string, email?: string) => void;
   onAction: (notification: AppNotification) => void;
   onClearClosed?: () => void;
+  onClearAll?: () => Promise<number | void>;
 }) {
   const [open, setOpen]             = useState(false);
   const [activeTab, setActiveTab]   = useState<NotificationTab>("task");
   const [activeFilter, setFilter]   = useState<NotificationFilter>("all");
+  const [clearAllConfirm, setClearAllConfirm] = useState(false);
+  const [clearAllBusy, setClearAllBusy] = useState(false);
+  const [clearAllError, setClearAllError] = useState("");
 
   const notificationRole = isNotificationRole(role) ? role : null;
 
@@ -172,7 +177,27 @@ export function NotificationCenter({
     onMarkVisibleRead(notificationRole, currentUserId, currentUserEmail);
   };
 
-  const closePanel = () => setOpen(false);
+  const closePanel = () => {
+    if (clearAllBusy) return;
+    setClearAllConfirm(false);
+    setClearAllError("");
+    setOpen(false);
+  };
+
+  const confirmClearAll = async () => {
+    if (!onClearAll) return;
+    setClearAllBusy(true);
+    setClearAllError("");
+    try {
+      await onClearAll();
+      setClearAllConfirm(false);
+      setActiveTab("recent");
+    } catch (error) {
+      setClearAllError(error instanceof Error ? error.message : "Impossibile svuotare le notifiche.");
+    } finally {
+      setClearAllBusy(false);
+    }
+  };
 
   const handleAction = (n: AppNotification) => {
     onMarkRead(n.id, notificationRole, currentUserId);
@@ -361,13 +386,54 @@ export function NotificationCenter({
         </div>
 
         {/* Footer */}
-        {activeTab === "closed" && counts.closed > 0 && onClearClosed && (
+        {((activeTab === "closed" && counts.closed > 0 && onClearClosed) || (onClearAll && roleNotifications.length > 0)) && (
           <footer className="nc-footer">
-            <button type="button" className="nc-btn-danger" onClick={onClearClosed}>
-              <Trash2 size={14} />
-              Svuota archivio
-            </button>
+            {activeTab === "closed" && counts.closed > 0 && onClearClosed && (
+              <button type="button" className="nc-btn-ghost" onClick={onClearClosed}>
+                <Trash2 size={14} />
+                Svuota archivio
+              </button>
+            )}
+            {onClearAll && roleNotifications.length > 0 && (
+              <button type="button" className="nc-btn-danger" onClick={() => setClearAllConfirm(true)}>
+                <Trash2 size={14} />
+                Svuota tutto
+              </button>
+            )}
           </footer>
+        )}
+
+        {clearAllConfirm && (
+          <div className="nc-confirm-layer">
+            <section className="nc-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="nc-clear-title" aria-describedby="nc-clear-description">
+              <span className="nc-confirm-icon"><AlertTriangle size={20} /></span>
+              <div>
+                <p className="nc-head-eyebrow">Amministrazione</p>
+                <h3 id="nc-clear-title">Svuotare tutte le notifiche?</h3>
+                <p id="nc-clear-description">
+                  Verranno eliminate tutte le notifiche, incluse le {roleNotifications.length} visibili qui e quelle destinate agli altri utenti. L’operazione è irreversibile.
+                </p>
+                {clearAllError && <p className="nc-confirm-error" role="alert">{clearAllError}</p>}
+              </div>
+              <div className="nc-confirm-actions">
+                <button
+                  type="button"
+                  className="nc-btn-ghost"
+                  onClick={() => {
+                    setClearAllConfirm(false);
+                    setClearAllError("");
+                  }}
+                  disabled={clearAllBusy}
+                >
+                  Annulla
+                </button>
+                <button type="button" className="nc-btn-danger" onClick={() => void confirmClearAll()} disabled={clearAllBusy}>
+                  <Trash2 size={14} />
+                  {clearAllBusy ? "Svuoto…" : "Svuota notifiche"}
+                </button>
+              </div>
+            </section>
+          </div>
         )}
       </aside>
     </div>

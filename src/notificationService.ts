@@ -66,6 +66,11 @@ export async function deleteNotification(id: string): Promise<void> {
   await postAppsScript("deleteNotification", { id });
 }
 
+export async function deleteAllNotifications(): Promise<number> {
+  const result = await postAppsScript<{ deleted?: number }>("deleteAllNotifications", {});
+  return Number(result.deleted || 0);
+}
+
 export async function markNotificationsRead(ids: string[], readerRole: AppNotificationRole): Promise<void> {
   await postAppsScript("markNotificationsRead", { ids, readerRole });
 }
