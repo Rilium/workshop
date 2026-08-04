@@ -47,17 +47,34 @@ export function BottomActionBar({
   onSummaryClick?: () => void;
   summaryAriaLabel?: string;
 }) {
+  const [primaryHintVisible, setPrimaryHintVisible] = React.useState(false);
+  const primaryHintId = React.useId();
   const hasBack = Boolean(backLabel && onBack);
   const hasSecondary = Boolean(secondaryLabel && onSecondary);
+  const showPrimaryHint = Boolean(primaryDisabled && primaryHint);
   const buttonsClassName = [
     "bottom-action-buttons",
     hasBack ? "bottom-action-buttons--with-back" : "",
     hasSecondary ? "bottom-action-buttons--with-secondary" : "",
   ].filter(Boolean).join(" ");
 
+  React.useEffect(() => {
+    if (!primaryHintVisible) return;
+    const timeoutId = window.setTimeout(() => setPrimaryHintVisible(false), 2800);
+    return () => window.clearTimeout(timeoutId);
+  }, [primaryHintVisible]);
+
+  const handlePrimaryClick = () => {
+    if (primaryDisabled) {
+      if (primaryHint) setPrimaryHintVisible(true);
+      return;
+    }
+    onPrimary();
+  };
+
   return (
     <aside
-      className={`bottom-action-bar ${primaryDisabled && primaryHint ? "bottom-action-bar--with-hint" : ""} ${className ?? ""}`}
+      className={`bottom-action-bar ${showPrimaryHint ? "bottom-action-bar--with-hint" : ""} ${className ?? ""}`}
       aria-label="Azione principale"
     >
       {leftContent ?? (
@@ -88,7 +105,15 @@ export function BottomActionBar({
           </AppButton>
         )}
         <div className="bottom-primary-group">
-          <AppButton variant="primary" onClick={onPrimary} disabled={primaryDisabled} loading={primaryLoading}>
+          <AppButton
+            variant="primary"
+            className="bottom-primary-action"
+            onClick={handlePrimaryClick}
+            disabled={primaryLoading}
+            loading={primaryLoading}
+            aria-disabled={primaryDisabled || undefined}
+            aria-describedby={showPrimaryHint ? primaryHintId : undefined}
+          >
             {primaryLabel}
           </AppButton>
           {onSummaryClick && (
@@ -102,8 +127,14 @@ export function BottomActionBar({
               Vedi percorso
             </button>
           )}
-          {primaryDisabled && primaryHint && (
-            <small className="bottom-bar-hint">{primaryHint}</small>
+          {showPrimaryHint && (
+            <small
+              id={primaryHintId}
+              className={`bottom-bar-hint ${primaryHintVisible ? "is-visible" : ""}`}
+              role="tooltip"
+            >
+              {primaryHint}
+            </small>
           )}
         </div>
       </div>

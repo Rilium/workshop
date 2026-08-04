@@ -6,6 +6,7 @@ import {
   requestLoginCode,
   AUTH_SESSION_UPDATED_EVENT,
   setSessionEffectiveRole,
+  validateStoredSession,
   verifyLoginCode,
 } from "./authService";
 import type { AuthSession, AuthUser } from "./types/auth";
@@ -45,20 +46,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Ripristina sessione al mount
+  // Ripristina e rivalida la sessione al mount: lo snapshot locale non decide i permessi.
   useEffect(() => {
-    const stored = getStoredSession();
-    if (stored) {
-      const user = getUserFromSession(stored);
-      if (user) {
-        setSession(stored);
+    let cancelled = false;
+    const restoreSession = async () => {
+      const stored = getStoredSession();
+      if (!stored) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
+      try {
+        const validated = await validateStoredSession(stored);
+        if (cancelled) return;
+        const user = getUserFromSession(validated);
+        if (!user) throw new Error("Utente non trovato.");
+        setSession(validated);
         setCurrentUser(user);
         window.setTimeout(() => {
-          window.dispatchEvent(new CustomEvent(AUTH_ENTRY_CONFETTI_EVENT, { detail: { token: stored.token } }));
+          window.dispatchEvent(new CustomEvent(AUTH_ENTRY_CONFETTI_EVENT, { detail: { token: validated.token } }));
         }, 0);
+      } catch {
+        if (cancelled) return;
+        serviceLogout();
+        setSession(null);
+        setCurrentUser(null);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+    void restoreSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

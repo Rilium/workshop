@@ -11,16 +11,7 @@
     <meta name="robots" content="index, follow" />
     <meta name="theme-color" content="#f6faf8" />
     <meta name="color-scheme" content="light" />
-    <script>
-      try {
-        if (localStorage.getItem("funnifin_theme_preference_v2") === "dark") {
-          document.documentElement.setAttribute("data-theme", "dark");
-          document.querySelector('meta[name="theme-color"]').setAttribute("content", "#141c1c");
-        }
-      } catch (_) {
-        document.documentElement.setAttribute("data-theme", "light");
-      }
-    </script>
+    <script src="/theme-init.js"></script>
     <meta name="application-name" content="FunniFin Workshop Planner" />
     <meta name="apple-mobile-web-app-title" content="FunniFin" />
     <link rel="canonical" href="https://funnifin-workshop-planner.vercel.app/" />
@@ -50,45 +41,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      rel="preload"
-      as="style"
-      href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Nunito:wght@500;700;800;900&display=swap"
-    />
-    <link
       href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Nunito:wght@500;700;800;900&display=swap"
       rel="stylesheet"
-      media="print"
-      onload="this.media='all'"
     />
     <noscript>
       <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet" />
     </noscript>
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "FunniFin Workshop Planner",
-        "applicationCategory": "BusinessApplication",
-        "operatingSystem": "Web",
-        "url": "https://funnifin-workshop-planner.vercel.app/",
-        "image": "https://funnifin-workshop-planner.vercel.app/icon-512.png",
-        "inLanguage": "it-IT",
-        "description": "Planner per configurare workshop aziendali di educazione finanziaria con temi, date, materiali e preventivo.",
-        "publisher": {
-          "@type": "Organization",
-          "name": "FunniFin",
-          "logo": {
-            "@type": "ImageObject",
-            "url": "https://funnifin-workshop-planner.vercel.app/icon-512.png"
-          }
-        },
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "EUR"
-        }
-      }
-    </script>
   </head>
   <body>
     <div id="root"></div>

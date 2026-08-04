@@ -1,8 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useDarkMode } from "./hooks/useDarkMode";
 import { DarkModeToggle } from "./components/ui/DarkModeToggle";
-import { defaultCommercialConfig, initialRules } from "./data/pricing";
-import { fallbackCatalogBundles, fallbackCatalogTopics as initialTopics, fallbackCatalogWorkshops as initialWorkshops } from "./data/clientCatalog";
+import { defaultCommercialConfig } from "./data/pricing";
 import type { AppNotificationRole, CatalogBundle, CommercialConfig, PricingRule, ProjectStatus, Role, Selection, Topic, Workshop } from "./types/domain";
 import { getPublicCatalog } from "./publicCatalogService";
 import { useQuote } from "./hooks/useQuote";
@@ -20,6 +19,8 @@ import { CustomModal, CustomRequestModal } from "./features/client/components/Cu
 import { DatePickerModal } from "./features/client/components/DatePickerModal";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { Skeleton, SkeletonCard } from "./components/ui/Skeleton";
+import { EmptyWorkflowState } from "./components/ui/EmptyWorkflowState";
+import { loadClientDraft } from "./features/client/clientDraft";
 
 const AdminView = lazy(() => import("./features/admin/AdminView").then((module) => ({ default: module.AdminView })));
 const ExpertView = lazy(() => import("./features/expert/ExpertView").then((module) => ({ default: module.ExpertView })));
@@ -32,6 +33,8 @@ const ROLE_HASH: Record<Role, string> = {
   Esperto: "#esperto-candidature",
   Brand: "#brand",
 };
+
+type CatalogStatus = "loading" | "ready" | "error";
 
 function getCleanRoleUrl(role: Role) {
   const url = new URL(window.location.href);
@@ -70,6 +73,7 @@ function ViewLoadingFallback() {
 function AppInner() {
   const { currentUser, effectiveRole, session, loading, switchEffectiveRole, logout } = useAuth();
   const { isDark, toggle: toggleDark } = useDarkMode();
+  const [initialClientDraft] = useState(loadClientDraft);
 
   // Il ruolo visualizzato: per utenti autenticati viene dall'effectiveRole;
   // per la vista Cliente pubblica usiamo "Cliente".
@@ -80,20 +84,22 @@ function AppInner() {
   const [showLogin, setShowLogin] = useState(false);
   const [systemRefreshToken, setSystemRefreshToken] = useState(0);
   const [systemSettingsToken, setSystemSettingsToken] = useState(0);
-  const [activeTopics, setActiveTopics] = useState<string[]>([]);
-  const [activeThemes, setActiveThemes] = useState<string[]>([]);
+  const [activeTopics, setActiveTopics] = useState<string[]>(() => initialClientDraft?.activeTopics ?? []);
+  const [activeThemes, setActiveThemes] = useState<string[]>(() => initialClientDraft?.activeThemes ?? []);
   const [brandFilter, setBrandFilter] = useState("Revisioni");
   const [projectStatus, setProjectStatus] = useState<ProjectStatus>("draft_cliente");
   const [customModalWorkshop, setCustomModalWorkshop] = useState<Workshop | null>(null);
   const [customRequestWorkshop, setCustomRequestWorkshop] = useState<Workshop | null>(null);
   const [dateModalSelection, setDateModalSelection] = useState<Selection | null>(null);
-  const [catalogTopics, setCatalogTopics] = useState<Topic[]>(initialTopics);
-  const [catalogWorkshops, setCatalogWorkshops] = useState<Workshop[]>(initialWorkshops);
-  const [rules, setRules] = useState<PricingRule[]>(initialRules);
-  const [catalogBundles, setCatalogBundles] = useState<CatalogBundle[]>(fallbackCatalogBundles);
+  const [catalogTopics, setCatalogTopics] = useState<Topic[]>([]);
+  const [catalogWorkshops, setCatalogWorkshops] = useState<Workshop[]>([]);
+  const [rules, setRules] = useState<PricingRule[]>([]);
+  const [catalogBundles, setCatalogBundles] = useState<CatalogBundle[]>([]);
   const [commercialConfig, setCommercialConfig] = useState<CommercialConfig>(defaultCommercialConfig);
-  const [clientAssetFolder, setClientAssetFolder] = useState<AssetDraftFolder | null>(null);
-  const [clientUploadedAssets, setClientUploadedAssets] = useState<UploadedAsset[]>([]);
+  const [catalogStatus, setCatalogStatus] = useState<CatalogStatus>("loading");
+  const [catalogError, setCatalogError] = useState("");
+  const [clientAssetFolder, setClientAssetFolder] = useState<AssetDraftFolder | null>(() => initialClientDraft?.assetFolder ?? null);
+  const [clientUploadedAssets, setClientUploadedAssets] = useState<UploadedAsset[]>(() => initialClientDraft?.uploadedAssets ?? []);
   const [currentRequest, setCurrentRequest] = useState<WorkshopRequestRecord | null>(null);
   const [requestRefreshToken, setRequestRefreshToken] = useState(0);
   const [clientGuidedLayerActive, setClientGuidedLayerActive] = useState(false);
@@ -119,6 +125,7 @@ function AppInner() {
     catalogWorkshops,
     notify,
     commercialConfig.recordingDefault,
+    initialClientDraft?.selections ?? [],
   );
   const quote = useQuote(selections, catalogWorkshops, rules, commercialConfig, catalogBundles);
   const lastConfettiTokenRef = useRef<string | null>(null);
@@ -164,20 +171,31 @@ function AppInner() {
 
   useEffect(() => {
     let cancelled = false;
+    setCatalogStatus("loading");
+    setCatalogError("");
     getPublicCatalog()
       .then((catalog) => {
         if (cancelled) return;
-        if (catalog.topics.length) setCatalogTopics(catalog.topics);
-        if (catalog.workshops.length) setCatalogWorkshops(catalog.workshops);
-        if (catalog.rules.length) setRules(catalog.rules);
-        if (catalog.bundles.length) setCatalogBundles(catalog.bundles);
+        setCatalogTopics(catalog.topics);
+        setCatalogWorkshops(catalog.workshops);
+        setRules(catalog.rules);
+        setCatalogBundles(catalog.bundles);
         setCommercialConfig(catalog.commercialConfig);
+        setCatalogStatus("ready");
         if (catalog.source === "local-fallback") {
           notify("Catalogo locale attivo", "Apps Script non disponibile: stai usando il seed locale di sviluppo.");
         }
       })
       .catch((error) => {
+        if (cancelled) return;
         const message = error instanceof Error ? error.message : "Catalogo Sheet non disponibile.";
+        setCatalogTopics([]);
+        setCatalogWorkshops([]);
+        setRules([]);
+        setCatalogBundles([]);
+        setCommercialConfig(defaultCommercialConfig);
+        setCatalogError(message);
+        setCatalogStatus("error");
         notify("Catalogo Sheet non disponibile", message);
       });
     return () => {
@@ -378,7 +396,16 @@ function AppInner() {
         </div>
       )}
       <main className="main-content">
-        {role === "Cliente" && (
+        {catalogStatus === "loading" && <ViewLoadingFallback />}
+        {catalogStatus === "error" && (
+          <EmptyWorkflowState
+            title="Catalogo temporaneamente non disponibile"
+            body={`${catalogError} Per evitare preventivi basati su dati non aggiornati, il percorso resta bloccato finché il catalogo ufficiale non torna disponibile.`}
+            cta="Riprova"
+            onClick={() => setSystemRefreshToken((value) => value + 1)}
+          />
+        )}
+        {catalogStatus === "ready" && role === "Cliente" && (
           <ClientView
             topics={catalogTopics}
             workshops={catalogWorkshops}
@@ -408,6 +435,7 @@ function AppInner() {
             setUploadedAssets={setClientUploadedAssets}
             systemSettingsToken={systemSettingsToken}
             onGuidedLayerChange={setClientGuidedLayerActive}
+            initialFlowState={initialClientDraft?.flow}
             onRequestCreated={(request) => {
               setCurrentRequest(request);
               setRequestRefreshToken((value) => value + 1);
@@ -423,7 +451,7 @@ function AppInner() {
           />
         )}
         <Suspense fallback={<ViewLoadingFallback />}>
-          {role === "FunniFin" && (
+          {catalogStatus === "ready" && role === "FunniFin" && (
             <AdminView
               workshops={catalogWorkshops}
               projectStatus={projectStatus}
@@ -456,7 +484,7 @@ function AppInner() {
               }}
             />
           )}
-          {role === "Esperto" && (
+          {catalogStatus === "ready" && role === "Esperto" && (
             <ExpertView
               workshops={catalogWorkshops}
               selections={selections}
@@ -479,7 +507,7 @@ function AppInner() {
               }}
             />
           )}
-          {role === "Brand" && (
+          {catalogStatus === "ready" && role === "Brand" && (
             <BrandView
               brandFilter={brandFilter}
               setBrandFilter={setBrandFilter}

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import "../../styles/admin.css";
 import {
   AlertCircle,
   BadgeCheck,

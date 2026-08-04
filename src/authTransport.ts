@@ -44,9 +44,3 @@ export function withSessionPayload<T extends object>(payload: T): T & { sessionT
   const sessionToken = getStoredSessionToken();
   return sessionToken ? { ...payload, sessionToken } : payload;
 }
-
-export function appendSessionParams(url: URL) {
-  const session = getStoredAuthSession();
-  if (session?.token) url.searchParams.set("sessionToken", session.token);
-  if (session?.user?.actualRole) url.searchParams.set("sessionRole", session.user.actualRole);
-}

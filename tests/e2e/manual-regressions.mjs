@@ -34,6 +34,11 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+async function cartWorkshopCount(page) {
+  const label = await page.locator(".cart-compact-head strong").textContent();
+  return Number.parseInt(label || "0", 10);
+}
+
 async function run() {
   const server = spawn("npm", ["run", "dev", "--", "--host", "127.0.0.1", "--port", String(PORT)], {
     env: {
@@ -67,7 +72,13 @@ async function run() {
     await page.getByRole("button", { name: /Esplora catalogo/i }).click();
     await page.getByRole("heading", { name: "Scegli workshop", exact: true }).waitFor({ timeout: 5000 });
     await page.getByRole("button", { name: "Aggiungi Le assicurazioni essenziali: quali servono davvero al percorso", exact: true }).click();
-    await page.getByRole("button", { name: /Scegli le date/i }).click();
+    const personalizeAction = page.getByRole("button", { name: /Personalizza percorso/i });
+    if (await personalizeAction.count()) {
+      await personalizeAction.click();
+      await page.getByRole("button", { name: "Procedi", exact: true }).click();
+    } else {
+      await page.getByRole("button", { name: "Procedi", exact: true }).click();
+    }
     await page.getByRole("heading", { name: "Quando vuoi definire le date?", exact: true }).waitFor({ timeout: 5000 });
     await page.getByRole("button", { name: /Le conosco già/ }).click();
 
@@ -100,10 +111,10 @@ async function run() {
     const expectedUniqueWorkshopCount = new Set([...firstBundleTitles, ...secondBundleTitles]).size;
     await bundlePage.getByPlaceholder("Cerca nel catalogo").fill(firstBundleTitles[0]);
     await bundlePage.getByRole("button", { name: `Aggiungi ${firstBundleTitles[0]} al percorso`, exact: true }).click();
-    assert(await bundlePage.locator(".cart-line").count() === 1, "Standalone workshop should be added once");
+    assert(await cartWorkshopCount(bundlePage) === 1, "Standalone workshop should be added once");
     await bundlePage.getByLabel("Cancella ricerca").click();
     await bundlePage.locator(".bundle-card").filter({ hasText: firstBundleTitle || "" }).getByRole("button", { name: "Aggiungi il pacchetto" }).click();
-    assert(await bundlePage.locator(".cart-line").count() === new Set(firstBundleTitles).size, "Bundle should absorb an existing member without duplicating it");
+    assert(await cartWorkshopCount(bundlePage) === new Set(firstBundleTitles).size, "Bundle should absorb an existing member without duplicating it");
     await bundlePage.getByText("Pacchetto aggiunto senza doppioni", { exact: true }).waitFor();
     await bundlePage.getByPlaceholder("Cerca nel catalogo").fill(firstBundleTitles[0]);
     assert(await bundlePage.getByText("Incluso nel pacchetto", { exact: true }).count() === 1, "Included workshop should be marked as part of the bundle");
@@ -112,21 +123,18 @@ async function run() {
     await bundlePage.locator(".bundle-card").filter({ hasText: secondBundleTitle || "" }).getByRole("button", { name: "Aggiungi il pacchetto" }).click();
     await bundlePage.waitForTimeout(200);
     assert(await bundlePage.locator(".bundle-card.selected").count() === 2, "Both selected bundles should remain active");
-    assert(await bundlePage.locator(".cart-bundle-list > div").count() === 2, "Cart should summarize both selected bundles");
     assert(
-      await bundlePage.locator(".cart-line").count() === expectedUniqueWorkshopCount,
+      await cartWorkshopCount(bundlePage) === expectedUniqueWorkshopCount,
       "Shared workshops should appear only once when multiple bundles are selected",
-    );
-    const cartLinesHeight = await bundlePage.locator(".cart-lines").evaluate((element) => element.clientHeight);
-    const firstCartLineHeight = await bundlePage.locator(".cart-line").first().evaluate((element) => element.getBoundingClientRect().height);
-    assert(
-      cartLinesHeight >= firstCartLineHeight,
-      `Desktop cart must show at least one complete workshop row: viewport ${cartLinesHeight}px, row ${firstCartLineHeight}px`,
     );
     const sharedWorkshopTitle = firstBundleTitles.find((title) => secondBundleTitles.includes(title));
     assert(Boolean(sharedWorkshopTitle), "Fixture should contain a workshop shared by the first two bundles");
-    await bundlePage.getByLabel(`Rimuovi ${sharedWorkshopTitle}`).last().click();
-    assert(await bundlePage.locator(".cart-bundle-list > div").count() === 0, "Removing a shared member should invalidate both bundles");
+    await bundlePage.getByRole("button", { name: "Vedi riepilogo completo", exact: true }).click();
+    assert(await bundlePage.locator(".cart-bundle-list > div").count() === 2, "Cart should summarize both selected bundles");
+    assert(await bundlePage.locator(".path-workshop-row").count() === expectedUniqueWorkshopCount, "Il riepilogo completo deve mostrare ogni workshop una sola volta");
+    await bundlePage.locator(".path-workshop-row").filter({ hasText: sharedWorkshopTitle }).getByLabel(`Rimuovi ${sharedWorkshopTitle}`).click();
+    await bundlePage.getByRole("button", { name: "Chiudi riepilogo", exact: true }).click();
+    assert(await bundlePage.locator(".bundle-card.selected").count() === 0, "Removing a shared member should invalidate both bundles");
     await bundlePage.getByText(/2 pacchetti collegati non sono più completi/).waitFor();
     await bundlePage.close();
 

@@ -10,7 +10,19 @@ export function useQuote(
   commercialConfig: CommercialConfig = defaultCommercialConfig,
   bundles: CatalogBundle[] = [],
 ): Quote {
-  return useMemo(() => {
+  return useMemo(
+    () => calculateQuote(selections, workshops, rules, commercialConfig, bundles),
+    [bundles, commercialConfig, rules, selections, workshops],
+  );
+}
+
+export function calculateQuote(
+  selections: Selection[],
+  workshops: Workshop[],
+  rules: PricingRule[],
+  commercialConfig: CommercialConfig = defaultCommercialConfig,
+  bundles: CatalogBundle[] = [],
+): Quote {
     const selectedWorkshops = selections
       .map((selection) => ({ selection, workshop: workshops.find((workshop) => workshop.id === selection.workshopId)! }))
       .filter(({ workshop }) => Boolean(workshop));
@@ -65,7 +77,7 @@ export function useQuote(
       const base = price.base + price.liveExtra;
       return total + (selection.promo ? Math.round(base * 0.05) : 0);
     }, 0);
-    return {
+  return {
       gross,
       customTotal,
       rule,
@@ -82,6 +94,5 @@ export function useQuote(
       bundleTitles: activeBundles.map((bundle) => bundle.title),
       bundleSummaries,
       sharedBundleWorkshopCount,
-    };
-  }, [bundles, commercialConfig, rules, selections, workshops]);
+  };
 }

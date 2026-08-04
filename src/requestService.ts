@@ -1,7 +1,9 @@
 import { SECRET_SETTINGS } from "./secretSettings";
 import { fetchAppsScript } from "./appsScriptTransport";
-import { appendSessionParams, withSessionPayload } from "./authTransport";
+import { withSessionPayload } from "./authTransport";
 import type { Duration, SurveyProfile } from "./types/domain";
+import { getOrCreateClientSubmissionIdentity } from "./features/client/clientSubmissionIdentity";
+import { fetchAppsScriptRead } from "./appsScriptRead";
 
 export type RequestProjectStatus =
   | "draft_cliente"
@@ -27,6 +29,9 @@ export type RequestWorkshopRecord = {
   price: number;
   custom: boolean;
   recordingIncluded?: boolean;
+  promo?: boolean;
+  bundleId?: string;
+  bundleIds?: string[];
   customNote?: string;
   status: string;
   approval?: "approved" | "rejected" | "change_requested" | "pending";
@@ -35,6 +40,7 @@ export type RequestWorkshopRecord = {
 
 export type WorkshopRequestRecord = {
   id: string;
+  clientMutationId?: string;
   company: string;
   manager: string;
   email: string;
@@ -71,6 +77,7 @@ export type WorkshopRequestRecord = {
     folderName?: string;
     folderUrl?: string;
     fileCount?: number;
+    draftToken?: string;
     finalDeckUrl?: string;
     finalDeckTitle?: string;
     brandDeckId?: string;
@@ -120,6 +127,9 @@ function normalizeWorkshopRecord(record: Partial<RequestWorkshopRecord> & { id?:
     price: Number(record.price || 0),
     custom: Boolean(record.custom),
     recordingIncluded: record.recordingIncluded !== false,
+    promo: Boolean(record.promo),
+    bundleId: record.bundleId ? String(record.bundleId) : undefined,
+    bundleIds: asStringArray(record.bundleIds),
     customNote: String(record.customNote || ""),
     status: String(record.status || "selezionato"),
     approval:
@@ -143,6 +153,7 @@ function normalizeWorkshopRequest(request: Partial<WorkshopRequestRecord> = {}):
 
   return {
     id: String(request.id || "request"),
+    clientMutationId: String(request.clientMutationId || "") || undefined,
     company: String(request.company || contact.company || "Cliente"),
     manager: String(request.manager || [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim() || contact.email || "Referente"),
     email: String(request.email || contact.email || ""),
@@ -209,26 +220,13 @@ async function postAppsScript<T>(body: unknown): Promise<T> {
   return result;
 }
 
-function slug(value: string) {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40) || "cliente";
-}
-
-function timestampId() {
-  const now = new Date();
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-}
-
 export async function createWorkshopRequest(payload: CreateWorkshopRequestPayload): Promise<WorkshopRequestRecord> {
-  const id = `${slug(payload.contact.company)}-${timestampId()}`;
-  const clientMutationId = crypto.randomUUID();
-  const payloadWithId = { ...payload, id, clientMutationId };
+  const identity = getOrCreateClientSubmissionIdentity(payload.contact.company);
+  const payloadWithId = {
+    ...payload,
+    id: identity.requestId,
+    clientMutationId: identity.clientMutationId,
+  };
   const body = {
     action: "createWorkshopRequest",
     payload: payloadWithId,
@@ -242,12 +240,8 @@ export async function listWorkshopRequests(): Promise<WorkshopRequestRecord[]> {
   const scriptUrl = getScriptUrl();
   if (!scriptUrl) return [];
 
-  const url = new URL(scriptUrl);
-  url.searchParams.set("action", "listWorkshopRequests");
-  appendSessionParams(url);
-
   try {
-    const response = await fetchAppsScript(url.toString());
+    const response = await fetchAppsScriptRead(scriptUrl, "listWorkshopRequests");
     if (!response.ok) throw new Error("Lettura richieste non riuscita");
     const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; requests?: WorkshopRequestRecord[] } | null;
     if (!result) throw new Error("Apps Script ha risposto con un formato non valido");

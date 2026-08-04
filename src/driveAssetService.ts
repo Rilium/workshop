@@ -1,5 +1,5 @@
 import { SECRET_SETTINGS } from "./secretSettings";
-import { appendSessionParams, withSessionPayload } from "./authTransport";
+import { withSessionPayload } from "./authTransport";
 import { fetchAppsScript } from "./appsScriptTransport";
 
 export type AssetDraftFolder = {
@@ -36,7 +36,7 @@ function fileToBase64(file: File) {
   });
 }
 
-async function postAppsScript(scriptUrl: string, body: unknown) {
+async function postAppsScript<T>(scriptUrl: string, body: unknown): Promise<T> {
   const response = await fetchAppsScript(scriptUrl, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -46,19 +46,17 @@ async function postAppsScript(scriptUrl: string, body: unknown) {
   const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
   if (!result) throw new Error("Apps Script ha risposto con un formato non valido");
   if (result.ok === false) throw new Error(result.error || "Upload file su Drive non riuscito");
+  return result as T;
 }
 
 export async function createAssetDraftFolder(clientName: string): Promise<AssetDraftFolder> {
   const scriptUrl = getScriptUrl();
   if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
-  const url = new URL(scriptUrl);
-  url.searchParams.set("action", "createAssetDraftFolder");
-  appendSessionParams(url);
-  url.searchParams.set("clientName", clientName);
-  const response = await fetchAppsScript(url.toString());
-  if (!response.ok) throw new Error("Creazione cartella asset non riuscita");
-  return (await response.json()) as AssetDraftFolder;
+  return postAppsScript<AssetDraftFolder>(scriptUrl, {
+    action: "createAssetDraftFolder",
+    payload: withSessionPayload({ clientName }),
+  });
 }
 
 export async function uploadAssetFiles(folderId: string, files: File[], draftToken?: string): Promise<UploadedAsset[]> {
@@ -89,10 +87,13 @@ export async function deleteAssetDraftFolder(folderId?: string, draftToken?: str
   const scriptUrl = getScriptUrl();
   if (!scriptUrl || !folderId) return;
 
-  const url = new URL(scriptUrl);
-  url.searchParams.set("action", "deleteAssetDraftFolder");
-  appendSessionParams(url);
-  url.searchParams.set("folderId", folderId);
-  if (draftToken) url.searchParams.set("draftToken", draftToken);
-  await fetchAppsScript(url.toString(), { keepalive: true }).catch(() => {});
+  await fetchAppsScript(scriptUrl, {
+    method: "POST",
+    keepalive: true,
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({
+      action: "deleteAssetDraftFolder",
+      payload: withSessionPayload({ folderId, draftToken: draftToken || "" }),
+    }),
+  }).catch(() => {});
 }

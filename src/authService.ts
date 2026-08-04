@@ -5,8 +5,9 @@
 import type { AuthRole, AuthSession, AuthUser, AccessRequest } from "./types/auth";
 import type { Role } from "./types/domain";
 import { SECRET_SETTINGS } from "./secretSettings";
-import { AUTH_SESSION_KEY, appendSessionParams, withSessionPayload } from "./authTransport";
+import { AUTH_SESSION_KEY, allowLocalFallbacks, withSessionPayload } from "./authTransport";
 import { fetchAppsScript } from "./appsScriptTransport";
+import { fetchAppsScriptRead } from "./appsScriptRead";
 
 export type RequestLoginCodeOptions = {
   sendMail?: boolean;
@@ -86,15 +87,8 @@ function friendlyAuthError(error: unknown, fallback: string) {
 }
 
 async function getAppsScript<T>(action: string, params?: Record<string, string>): Promise<T> {
-  const url = new URL(requireScriptUrl());
-  url.searchParams.set("action", action);
-  appendSessionParams(url);
-  Object.entries(params ?? {}).forEach(([key, value]) => {
-    url.searchParams.set(key, value);
-  });
-
   try {
-    const response = await fetchAppsScript(url.toString());
+    const response = await fetchAppsScriptRead(requireScriptUrl(), action, params);
     if (!response.ok) throw new Error(`Lettura ${action} non riuscita`);
     const result = (await response.json().catch(() => null)) as ScriptResponse<T> | null;
     if (!result) throw new Error("Apps Script ha risposto con un formato non valido");
@@ -155,6 +149,22 @@ export async function verifyLoginCode(email: string, code: string): Promise<Auth
   if (!result.session) throw new Error("Codice non valido.");
   storeSession(result.session);
   return result.session;
+}
+
+export async function validateStoredSession(session: AuthSession): Promise<AuthSession> {
+  if (!getScriptUrl()) {
+    if (allowLocalFallbacks()) return session;
+    throw new Error("Backend autenticazione non configurato.");
+  }
+  const result = await postAppsScript<AuthSessionPayload>("validateSession", { sessionToken: session.token });
+  const validated: AuthSession = {
+    ...session,
+    ...result.session,
+    user: result.user,
+    effectiveRole: session.effectiveRole === "Cliente" ? "Cliente" : result.user.actualRole,
+  };
+  storeSession(validated);
+  return validated;
 }
 
 export async function reviewAccessRequest(

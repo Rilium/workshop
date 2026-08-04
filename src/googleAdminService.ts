@@ -1,6 +1,7 @@
 import { SECRET_SETTINGS } from "./secretSettings";
-import { appendSessionParams, withSessionPayload } from "./authTransport";
+import { withSessionPayload } from "./authTransport";
 import { fetchAppsScript } from "./appsScriptTransport";
+import { fetchAppsScriptRead } from "./appsScriptRead";
 
 export type CatalogTopicConfig = {
   id: string;
@@ -141,15 +142,8 @@ async function getAppsScript<T>(action: string, params?: Record<string, string>)
   const scriptUrl = getScriptUrl();
   if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
-  const url = new URL(scriptUrl);
-  url.searchParams.set("action", action);
-  appendSessionParams(url);
-  Object.entries(params ?? {}).forEach(([key, value]) => {
-    url.searchParams.set(key, value);
-  });
-
   try {
-    const response = await fetchAppsScript(url.toString());
+    const response = await fetchAppsScriptRead(scriptUrl, action, params);
     if (!response.ok) throw new Error(`Lettura ${action} non riuscita`);
     const result = (await response.json().catch(() => null)) as (T & { ok?: boolean; error?: string }) | null;
     if (!result) throw new Error("Apps Script ha risposto con un formato non valido");

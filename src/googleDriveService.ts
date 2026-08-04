@@ -1,6 +1,5 @@
 import { SECRET_SETTINGS } from "./secretSettings";
-import { appendSessionParams } from "./authTransport";
-import { fetchAppsScript } from "./appsScriptTransport";
+import { fetchAppsScriptRead } from "./appsScriptRead";
 
 export type BrandPresentationStatus = "in_review" | "changes_requested" | "approved" | "archived";
 
@@ -83,16 +82,11 @@ export async function getBrandPresentations(): Promise<BrandPresentationResponse
     env[SECRET_SETTINGS.google.env.slidesTemplateFolderId] ||
     env[SECRET_SETTINGS.google.env.driveRootFolderId];
 
-  const url = new URL(scriptUrl);
-  url.searchParams.set("action", "brandPresentations");
-  appendSessionParams(url);
-  if (folderId) url.searchParams.set("folderId", folderId);
-
   const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 20000);
 
   try {
-    const response = await fetchAppsScript(url.toString(), { signal: controller.signal });
+    const response = await fetchAppsScriptRead(scriptUrl, "brandPresentations", folderId ? { folderId } : {}, { signal: controller.signal });
     if (!response.ok) throw new Error("Drive presentations request failed");
     return (await response.json()) as BrandPresentationResponse;
   } catch (error) {
@@ -110,16 +104,11 @@ export async function getDriveFolderPreview(folderId = getConfiguredFolderId()):
   if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
   if (!folderId) throw new Error("Cartella Drive non configurata");
 
-  const url = new URL(scriptUrl);
-  url.searchParams.set("action", "driveFolder");
-  appendSessionParams(url);
-  url.searchParams.set("folderId", folderId);
-
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 8000);
 
   try {
-    const response = await fetchAppsScript(url.toString(), { signal: controller.signal });
+    const response = await fetchAppsScriptRead(scriptUrl, "driveFolder", { folderId }, { signal: controller.signal });
     if (!response.ok) throw new Error("Drive folder request failed");
     return (await response.json()) as DriveFolderResponse;
   } catch (error) {

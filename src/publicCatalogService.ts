@@ -122,6 +122,75 @@ function toWorkshop(config: CatalogWorkshopConfig): Workshop {
   };
 }
 
+function toOfficialWorkshop(config: CatalogWorkshopConfig): Workshop {
+  const durations = asDurationOptions(config.durationOptions ?? []);
+  const formats = asFormatOptions(config.formatOptions ?? []);
+  const price1h = Number(config.price1h);
+  const price2h = Number(config.price2h);
+  if (!config.id || !config.title || !config.topicId || durations.length === 0 || formats.length === 0) {
+    throw new Error(`Workshop ufficiale incompleto: ${config.id || "ID mancante"}`);
+  }
+  if (!Number.isFinite(price1h) || !Number.isFinite(price2h) || price1h < 0 || price2h < 0) {
+    throw new Error(`Prezzo ufficiale non valido per ${config.id}`);
+  }
+  return {
+    id: config.id,
+    topicId: config.topicId,
+    topicIds: config.topicIds?.length ? config.topicIds : [config.topicId],
+    themeId: config.themeId || "",
+    title: config.title,
+    short: config.short || "",
+    long: config.long || config.short || "",
+    durationOptions: durations,
+    formatOptions: formats,
+    level: config.level === "intermedio" || config.level === "avanzato" ? config.level : "base",
+    target: config.target || "tutti",
+    participants: config.participants || "illimitati",
+    price1h,
+    price2h,
+    packageAvailable: config.packageAvailable !== false,
+    customAvailable: config.customAvailable !== false,
+    customExtra: Number.isFinite(Number(config.customExtra)) ? Number(config.customExtra) : 0,
+    masterSlide: config.masterSlide || "",
+    experts: Array.isArray(config.experts) ? config.experts : [],
+    state: config.state === "nascosto" || config.state === "da aggiornare" ? config.state : "attivo",
+    durationLabel: config.durationLabel,
+    adminNotes: config.adminNotes,
+    productionStatus: config.productionStatus === "draft" ? "draft" : "published",
+  };
+}
+
+function officialCommercialConfig(value: Partial<CommercialConfig> | undefined): CommercialConfig {
+  if (!value || !value.bundlePrices || !value.outcomeSizes) {
+    throw new Error("Configurazione commerciale ufficiale incompleta");
+  }
+  const numericValues = [
+    value.workshopBasePrice,
+    value.inPersonExtra,
+    value.customExtra,
+    value.recordingOptOutDiscount,
+    value.bundlePrices[3],
+    value.bundlePrices[6],
+    value.bundlePrices[10],
+  ];
+  if (numericValues.some((item) => !Number.isFinite(Number(item)))) {
+    throw new Error("Configurazione prezzi ufficiale non valida");
+  }
+  return {
+    workshopBasePrice: Number(value.workshopBasePrice),
+    inPersonExtra: Number(value.inPersonExtra),
+    customExtra: Number(value.customExtra),
+    recordingOptOutDiscount: Number(value.recordingOptOutDiscount),
+    recordingDefault: value.recordingDefault !== false,
+    bundlePrices: {
+      3: Number(value.bundlePrices[3]),
+      6: Number(value.bundlePrices[6]),
+      10: Number(value.bundlePrices[10]),
+    },
+    outcomeSizes: value.outcomeSizes,
+  };
+}
+
 function toRule(config: PricingRuleConfig): PricingRule {
   return {
     id: config.id,
@@ -170,27 +239,20 @@ export async function getPublicCatalog(): Promise<PublicCatalog> {
     const result = (await response.json().catch(() => null)) as PublicCatalogResponse | null;
     if (!result) throw new Error("Apps Script ha risposto con un formato non valido");
     if (result.ok === false) throw new Error(result.error || "Catalogo pubblico non disponibile");
-    const workshops = (result.workshops ?? []).filter((workshop) => workshop.active !== false && workshop.state !== "nascosto").map(toWorkshop);
+    if (!Array.isArray(result.topics) || !Array.isArray(result.workshops) || !Array.isArray(result.rules) || !Array.isArray(result.bundles)) {
+      throw new Error("Catalogo ufficiale incompleto");
+    }
+    const workshops = result.workshops.filter((workshop) => workshop.active !== false && workshop.state !== "nascosto").map(toOfficialWorkshop);
+    if (result.topics.length === 0 || workshops.length === 0) throw new Error("Catalogo ufficiale vuoto");
     return {
-      topics: (result.topics ?? []).filter((topic) => topic.active !== false).map(enrichTopic),
+      topics: result.topics.filter((topic) => topic.active !== false).map(enrichTopic),
       workshops,
-      rules: (result.rules ?? []).map(toRule),
+      rules: result.rules.map(toRule),
       bundles: resolveBundleWorkshopIds(
-        (result.bundles ?? fallbackCatalogBundles).filter((bundle) => bundle.active !== false),
+        result.bundles.filter((bundle) => bundle.active !== false),
         workshops,
       ),
-      commercialConfig: {
-        ...defaultCommercialConfig,
-        ...(result.commercialConfig ?? {}),
-        bundlePrices: {
-          ...defaultCommercialConfig.bundlePrices,
-          ...(result.commercialConfig?.bundlePrices ?? {}),
-        },
-        outcomeSizes: {
-          ...defaultCommercialConfig.outcomeSizes,
-          ...(result.commercialConfig?.outcomeSizes ?? {}),
-        },
-      },
+      commercialConfig: officialCommercialConfig(result.commercialConfig),
       source: "google-sheet",
       updatedAt: result.updatedAt,
     };

@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CatalogBundle, Format, Selection, Workshop } from "../types/domain";
 
 export function useWorkshopSelection(
   workshops: Workshop[],
   notify: (title: string, body: string) => void,
   recordingDefault = true,
+  initialSelections: Selection[] = [],
 ) {
-  const [selections, setSelections] = useState<Selection[]>([]);
+  const [selections, setSelections] = useState<Selection[]>(() => initialSelections);
   const debugNotify = (title: string, body: string) => {
     if (import.meta.env.DEV) notify(title, body);
   };
@@ -151,6 +152,12 @@ export function useWorkshopSelection(
     setSelections([]);
     notify("Carrello svuotato", "Tutti i workshop sono stati rimossi dal percorso.");
   };
+
+  useEffect(() => {
+    if (workshops.length === 0) return;
+    const validWorkshopIds = new Set(workshops.map((workshop) => workshop.id));
+    setSelections((current) => current.filter((selection) => validWorkshopIds.has(selection.workshopId)));
+  }, [workshops]);
 
   return { selections, setSelections, toggleWorkshop, addWorkshops, selectBundle, updateSelection, clearSelections };
 }

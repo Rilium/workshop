@@ -168,6 +168,17 @@ function doPost(event) {
 
 function handlePost(event) {
   const body = parsePostBody(event);
+  if (body.action === "read") {
+    const payload = body.payload || {};
+    const params = Object.assign({}, payload.params || {}, {
+      action: payload.readAction || "",
+      sessionToken: payload.sessionToken || "",
+    });
+    return handleGet({ parameter: params });
+  }
+  if (body.action === "reportClientError") {
+    return jsonResponse(reportClientError(body.payload || {}));
+  }
   if (body.action === "createWorkshopRequest") {
     return jsonResponse(createWorkshopRequest(body.payload || {}));
   }
@@ -326,6 +337,10 @@ function handlePost(event) {
   if (body.action === "verifyLoginCode") {
     return jsonResponse(verifyLoginCode(body.payload || {}));
   }
+  if (body.action === "validateSession") {
+    const auth = requireSession(body.payload || {}, ["FunniFin", "Esperto", "Brand"]);
+    return jsonResponse({ ok: true, session: auth.session, user: auth.user });
+  }
   if (body.action === "reviewAccessRequest") {
     requireFunniFinSession(body.payload || {});
     return jsonResponse(reviewAccessRequest(body.payload || {}));
@@ -344,6 +359,12 @@ function handlePost(event) {
   }
   if (body.action === "uploadAssetFile") {
     return jsonResponse(uploadAssetFile(body.payload || {}));
+  }
+  if (body.action === "createAssetDraftFolder") {
+    return jsonResponse(createAssetDraftFolder(body.payload || {}));
+  }
+  if (body.action === "deleteAssetDraftFolder") {
+    return jsonResponse(deleteAssetDraftFolder(body.payload || {}));
   }
   throw new Error("Unknown action");
 }
@@ -980,29 +1001,96 @@ function sendConfiguredEmail(options) {
 }
 
 function sendWorkshopRequestEmail(body) {
-  try {
-    const context = requestMailTemplateContext(body.payload || {});
-    const subject = mailTemplateValue("request.client_received", "subject", body.subject, context);
-    const htmlBody = mailTemplateValue("request.client_received", "html", body.html, context);
-    const textBody = mailTemplateValue("request.client_received", "text", body.text || stripHtml(htmlBody || ""), context);
-    sendConfiguredEmail({
-      to: body.to,
-      cc: body.cc || getRuntimeInternalRecipient(),
-      subject,
-      body: textBody,
-      htmlBody,
-      name: body.fromName || getSettingValue("mail.fromName", "FunniFin Workshop Planner"),
+  return withSheetLock(function() {
+    const requestId = assertShortText(body.requestId, "ID richiesta", 140);
+    const clientMutationId = assertShortText(body.clientMutationId, "ID mutazione", 80);
+    if (!requestId || !clientMutationId) throw new Error("Identita richiesta mancante.");
+    const request = findWorkshopRequestById(requestId);
+    if (!request || request.clientMutationId !== clientMutationId) {
+      throw new Error("Richiesta non valida per l'invio email.");
+    }
+    if (hasRequestEventType(requestId, "request_email_sent")) {
+      return { sent: true, replayed: true };
+    }
+
+    rateLimitPublicAction("sendWorkshopRequestEmail", requestId, 3, 60 * 60);
+    const safePayload = Object.assign({}, body.payload || {}, {
+      contact: request.contact,
+      workshops: request.workshops,
+      quote: request.quote,
     });
-    return { sent: true };
-  } catch (error) {
-    recordMailFailure("mail", "email_failed", "Email richiesta cliente non inviata", {
-      to: body.to || "",
-      subject: body.subject || "",
-      company: body.payload && body.payload.contact ? body.payload.contact.company : "",
-      error: String(error.message || error),
-    });
-    throw error;
-  }
+    try {
+      const context = requestMailTemplateContext(safePayload);
+      const authoritativeSubject = `Richiesta workshop FunniFin - ${request.company}`;
+      const authoritativeHtml = buildWorkshopRequestEmailHtml(request);
+      const authoritativeText = buildWorkshopRequestEmailText(request);
+      const subject = mailTemplateValue("request.client_received", "subject", authoritativeSubject, context);
+      const htmlBody = mailTemplateValue("request.client_received", "html", authoritativeHtml, context);
+      const textBody = mailTemplateValue("request.client_received", "text", authoritativeText, context);
+      sendConfiguredEmail({
+        to: request.contact.email,
+        cc: getRuntimeInternalRecipient(),
+        subject,
+        body: textBody,
+        htmlBody,
+        name: getSettingValue("mail.fromName", "FunniFin Workshop Planner"),
+      });
+      appendRequestEvent(requestId, "request_email_sent", "Recap richiesta cliente inviato", {
+        clientMutationId,
+        to: request.contact.email,
+      });
+      return { sent: true, replayed: false };
+    } catch (error) {
+      recordMailFailure(requestId, "email_failed", "Email richiesta cliente non inviata", {
+        to: request.contact.email,
+        subject: body.subject || "",
+        company: request.company,
+        error: String(error.message || error),
+      });
+      throw error;
+    }
+  });
+}
+
+function buildWorkshopRequestEmailText(request) {
+  const workshops = (request.workshops || []).map(function(workshop) {
+    return [
+      "- " + (workshop.title || "Workshop"),
+      workshop.duration || "",
+      workshop.format || "",
+      [workshop.date || "data da concordare", workshop.time || ""].join(" ").trim(),
+      formatMailMoney(workshop.price || 0),
+    ].filter(Boolean).join(" · ");
+  }).join("\n");
+  return [
+    "Richiesta workshop ricevuta",
+    "",
+    `Ciao ${request.contact.firstName || request.contact.company || ""},`,
+    "abbiamo salvato la tua richiesta. Il team FunniFin verifichera date, esperti e fattibilita.",
+    "",
+    workshops,
+    "",
+    `Totale indicativo: ${formatMailMoney(request.quote && request.quote.total)}`,
+    `Riferimento: ${request.id}`,
+  ].join("\n");
+}
+
+function buildWorkshopRequestEmailHtml(request) {
+  const rows = (request.workshops || []).map(function(workshop) {
+    const details = [workshop.duration || "", workshop.format || "", workshop.date || "data da concordare", workshop.time || ""].filter(Boolean).join(" · ");
+    return "<tr><td style=\"padding:12px 0;border-top:1px solid #dde0e3;\"><strong style=\"display:block;color:#171d1d;\">" + escapeHtml(workshop.title || "Workshop") + "</strong><span style=\"color:#687273;font-size:13px;\">" + escapeHtml(details) + "</span></td><td align=\"right\" style=\"padding:12px 0;border-top:1px solid #dde0e3;font-weight:800;white-space:nowrap;\">" + escapeHtml(formatMailMoney(workshop.price || 0)) + "</td></tr>";
+  }).join("");
+  return emailBaseTemplate(
+    "<tr><td style=\"padding:32px;\">" +
+      "<span style=\"color:#08747a;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;\">Richiesta ricevuta</span>" +
+      "<h1 style=\"margin:8px 0 12px;color:#171d1d;font-size:26px;\">Il tuo percorso FunniFin e stato salvato</h1>" +
+      "<p style=\"margin:0 0 22px;color:#687273;line-height:1.6;\">Ciao " + escapeHtml(request.contact.firstName || request.contact.company || "") + ", il team verifichera date, esperti e fattibilita operativa.</p>" +
+      "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">" + rows + "</table>" +
+      "<p style=\"margin:22px 0 4px;color:#687273;\">Totale indicativo</p>" +
+      "<strong style=\"display:block;color:#004f54;font-size:24px;\">" + escapeHtml(formatMailMoney(request.quote && request.quote.total)) + "</strong>" +
+      "<small style=\"display:block;margin-top:16px;color:#8c9096;\">Riferimento: " + escapeHtml(request.id) + "</small>" +
+    "</td></tr>"
+  );
 }
 
 function sendWorkflowNotification(payload) {
@@ -1235,10 +1323,99 @@ function buildWorkflowEmailText(payload) {
   ].filter(Boolean).join("\n");
 }
 
+function calculateWorkshopRequestPricing(payload) {
+  const catalog = getPublicCatalog({});
+  const commercial = catalog.commercialConfig || {};
+  const catalogById = new Map((catalog.workshops || []).map((workshop) => [String(workshop.id), workshop]));
+  const basePrice = Number(commercial.workshopBasePrice || 0);
+  const inPersonExtra = Number(commercial.inPersonExtra || 0);
+  const customExtraConfig = Number(commercial.customExtra || 0);
+  const recordingDiscountConfig = Number(commercial.recordingOptOutDiscount || 0);
+
+  const pricedRows = (payload.workshops || []).map((input) => {
+    const catalogWorkshop = catalogById.get(String(input.workshopId || ""));
+    if (!catalogWorkshop) throw new Error("Workshop non disponibile nel catalogo ufficiale.");
+    const duration = String(input.duration || "");
+    const format = String(input.format || "");
+    if ((catalogWorkshop.durationOptions || []).indexOf(duration) === -1) throw new Error(`Durata non disponibile per ${catalogWorkshop.title}.`);
+    if ((catalogWorkshop.formatOptions || []).indexOf(format) === -1) throw new Error(`Formato non disponibile per ${catalogWorkshop.title}.`);
+    if (input.custom && catalogWorkshop.customAvailable === false) throw new Error(`Personalizzazione non disponibile per ${catalogWorkshop.title}.`);
+
+    const bundleIds = Array.from(new Set(
+      (Array.isArray(input.bundleIds) ? input.bundleIds : input.bundleId ? [input.bundleId] : [])
+        .map(String)
+        .filter(Boolean),
+    ));
+    const liveExtra = format === "live" ? inPersonExtra : 0;
+    const customExtra = input.custom ? customExtraConfig : 0;
+    const recordingDiscount = input.recordingIncluded === false ? recordingDiscountConfig : 0;
+    return Object.assign({}, input, {
+      workshopId: String(catalogWorkshop.id),
+      title: String(catalogWorkshop.title),
+      price: Math.max(0, basePrice + liveExtra + customExtra - recordingDiscount),
+      custom: Boolean(input.custom),
+      recordingIncluded: input.recordingIncluded !== false,
+      promo: Boolean(input.promo),
+      bundleId: bundleIds[0] || "",
+      bundleIds,
+      _base: basePrice,
+      _liveExtra: liveExtra,
+      _customExtra: customExtra,
+      _recordingDiscount: recordingDiscount,
+    });
+  });
+
+  const requestedBundleIds = Array.from(new Set(pricedRows.flatMap((row) => row.bundleIds || [])));
+  const activeBundles = (catalog.bundles || []).filter((bundle) =>
+    bundle.active !== false &&
+    requestedBundleIds.indexOf(String(bundle.id)) !== -1 &&
+    (bundle.workshopIds || []).every((workshopId) => pricedRows.some((row) =>
+      row.workshopId === String(workshopId) && (row.bundleIds || []).indexOf(String(bundle.id)) !== -1,
+    )),
+  );
+  const bundleSummaries = activeBundles.map((bundle) => {
+    const bundleBase = pricedRows
+      .filter((row) => (row.bundleIds || []).indexOf(String(bundle.id)) !== -1)
+      .reduce((total, row) => total + row._base, 0);
+    const configuredPrice = commercial.bundlePrices && commercial.bundlePrices[bundle.size];
+    const bundlePrice = Number(configuredPrice == null ? bundleBase : configuredPrice);
+    return { id: String(bundle.id), title: String(bundle.title || bundle.id), discount: Math.max(0, bundleBase - bundlePrice) };
+  });
+  const gross = pricedRows.reduce((total, row) => total + row._base + row._liveExtra, 0);
+  const customTotal = pricedRows.reduce((total, row) => total + row._customExtra, 0);
+  const recordingDiscount = pricedRows.reduce((total, row) => total + row._recordingDiscount, 0);
+  const promoDiscount = pricedRows.reduce((total, row) => total + (row.promo ? Math.round((row._base + row._liveExtra) * 0.05) : 0), 0);
+  const quantityDiscount = bundleSummaries.reduce((total, bundle) => total + bundle.discount, 0);
+  const total = Math.max(0, gross - quantityDiscount - promoDiscount + customTotal - recordingDiscount);
+  const workshops = pricedRows.map((row) => {
+    const result = Object.assign({}, row);
+    delete result._base;
+    delete result._liveExtra;
+    delete result._customExtra;
+    delete result._recordingDiscount;
+    return result;
+  });
+
+  return {
+    workshops,
+    quote: {
+      gross,
+      discount: quantityDiscount,
+      promoDiscount,
+      customTotal,
+      total,
+      saved: quantityDiscount + promoDiscount + recordingDiscount,
+      packageName: activeBundles.length === 1 ? String(activeBundles[0].title) : activeBundles.length > 1 ? `${activeBundles.length} pacchetti selezionati` : "Workshop à-la-carte",
+      recordingDiscount,
+      bundleIds: activeBundles.map((bundle) => String(bundle.id)),
+      bundleSummaries,
+    },
+  };
+}
+
 function createWorkshopRequest(payload) {
   return withSheetLock(function() {
   validateWorkshopRequestPayload(payload);
-  rateLimitPublicAction("createWorkshopRequest", `${payload.contact.email}:${payload.contact.company}`, 5, 60 * 60);
   if (!payload.contact || !payload.contact.email || !payload.contact.company) {
     throw new Error("Missing request contact");
   }
@@ -1247,9 +1424,19 @@ function createWorkshopRequest(payload) {
   const requestId = payload.id || buildRequestId(payload.contact.company, now);
   const sheet = getRequestsSheet();
   const rows = sheet.getDataRange().getValues();
-  const existingRowIndex = rows.findIndex((row, index) => index > 0 && row[0] === requestId);
+  const clientMutationId = String(payload.clientMutationId || "");
+  const existingRowIndex = rows.findIndex((row, index) => {
+    if (index === 0) return false;
+    if (String(row[0] || "") === requestId) return true;
+    if (!clientMutationId) return false;
+    const existing = rowToRequest(row);
+    return existing && existing.clientMutationId === clientMutationId;
+  });
   if (existingRowIndex > 0) {
     const existing = rowToRequest(rows[existingRowIndex]);
+    if (!existing || existing.clientMutationId !== clientMutationId) {
+      throw new Error("Identita richiesta gia utilizzata.");
+    }
     appendRequestEvent(requestId, "request_create_replayed", `Richiesta cliente gia presente per ${existing.company}`, {
       clientMutationId: payload.clientMutationId || "",
     });
@@ -1260,9 +1447,15 @@ function createWorkshopRequest(payload) {
       replayed: true,
     };
   }
+  rateLimitPublicAction("createWorkshopRequest_global", "all", 200, 60 * 60);
+  rateLimitPublicAction("createWorkshopRequest", `${payload.contact.email}:${payload.contact.company}`, 5, 60 * 60);
+  const authoritative = calculateWorkshopRequestPricing(payload);
+  payload = Object.assign({}, payload, authoritative);
+  const assetDraft = validateAssetDraftMaterials(payload.materials, requestId, payload.contact.company);
 
   const request = normalizeWorkshopRequest({
     id: requestId,
+    clientMutationId,
     contact: payload.contact,
     company: payload.contact.company,
     manager: [payload.contact.firstName, payload.contact.lastName].filter(Boolean).join(" ").trim() || payload.contact.email,
@@ -1275,7 +1468,7 @@ function createWorkshopRequest(payload) {
     contact: payload.contact,
     workshops: payload.workshops || [],
     quote: payload.quote || {},
-    materials: payload.materials || {},
+    materials: assetDraft.record,
     privacy: payload.privacy || {},
     surveyProfile: payload.surveyProfile || null,
     datesDeferred: Boolean(payload.datesDeferred),
@@ -1284,6 +1477,16 @@ function createWorkshopRequest(payload) {
   });
 
   sheet.appendRow(requestToRow(request));
+  if (assetDraft.folder) {
+    try {
+      finalizeAssetDraftFolder(assetDraft, requestId);
+    } catch (error) {
+      appendRequestEvent(request.id, "asset_folder_finalize_failed", "Richiesta salvata; rinomina cartella materiali non riuscita.", {
+        folderId: assetDraft.record.folderId,
+        message: String(error && error.message ? error.message : error),
+      });
+    }
+  }
   syncClientUserFromRequest(request);
   appendRequestEvent(request.id, "request_created", `Richiesta cliente creata per ${request.company}`, request);
   createNotification({
@@ -1321,6 +1524,23 @@ function listWorkshopRequests(params) {
     source: "google-sheet",
     requests: status ? requests.filter((request) => request.status === status) : requests,
   };
+}
+
+function findWorkshopRequestById(requestId) {
+  const target = String(requestId || "");
+  if (!target) return null;
+  const rows = getRequestsSheet().getDataRange().getValues();
+  for (let index = 1; index < rows.length; index += 1) {
+    if (String(rows[index][0] || "") === target) return rowToRequest(rows[index]);
+  }
+  return null;
+}
+
+function hasRequestEventType(requestId, type) {
+  const targetId = String(requestId || "");
+  const targetType = String(type || "");
+  const rows = getRequestEventsSheet().getDataRange().getValues();
+  return rows.slice(1).some((row) => String(row[1] || "") === targetId && String(row[2] || "") === targetType);
 }
 
 function getPublicCatalog(params) {
@@ -2471,6 +2691,7 @@ function runRetentionCleanup(payload) {
   const sessionTtlDays = Number((payload && payload.sessionTtlDays) || getSettingValue("retention.sessionsDays", "30"));
   const codeTtlDays = Number((payload && payload.codeTtlDays) || getSettingValue("retention.codesDays", "30"));
   const backupDays = Number((payload && payload.backupDays) || getSettingValue("backup.retentionDays", "30"));
+  const assetDraftDays = Number((payload && payload.assetDraftDays) || getSettingValue("retention.assetDraftDays", "2"));
   const deleted = {
     sessions: deleteRowsByPredicate(getAuthSessionsSheet(), (row) => {
       const expiresAt = String(row[5] || "");
@@ -2478,6 +2699,7 @@ function runRetentionCleanup(payload) {
     }),
     codes: expireOldAccessCodes(codeTtlDays),
     backups: trashOldBackups(backupDays),
+    assetDraftFolders: trashExpiredAssetDraftFolders(assetDraftDays),
   };
   appendRequestEvent("system", "retention_cleanup", "Retention cleanup eseguito.", deleted);
   return { ok: true, source: "google-sheet", deleted, cleanedAt: formatTimestamp(new Date()) };
@@ -2526,6 +2748,30 @@ function trashOldBackups(days) {
       file.setTrashed(true);
       trashed += 1;
     }
+  }
+  return trashed;
+}
+
+function trashExpiredAssetDraftFolders(days) {
+  const rootId = getRuntimeDriveRootFolderId() || getRuntimeSlidesRootFolderId();
+  if (!rootId) return 0;
+  const referencedFolderIds = new Set();
+  const requestRows = getRequestsSheet().getDataRange().getValues();
+  requestRows.slice(1).map(rowToRequest).filter(Boolean).forEach((request) => {
+    const folderId = request.materials && request.materials.folderId ? String(request.materials.folderId) : "";
+    if (folderId) referencedFolderIds.add(folderId);
+  });
+  const folders = DriveApp.getFolderById(rootId).getFolders();
+  const cutoff = Date.now() - Math.max(1, Number(days || 2)) * 86400000;
+  let trashed = 0;
+  while (folders.hasNext()) {
+    const folder = folders.next();
+    if (folder.getName().indexOf("DRAFT - ") !== 0) continue;
+    if (referencedFolderIds.has(folder.getId())) continue;
+    if (folder.getDateCreated().getTime() >= cutoff) continue;
+    folder.setTrashed(true);
+    deleteAssetDraftToken(folder.getId());
+    trashed += 1;
   }
   return trashed;
 }
@@ -2838,6 +3084,26 @@ function rateLimitPublicAction(action, identity, limit, ttlSeconds) {
   cache.put(key, String(current + 1), ttlSeconds);
 }
 
+function reportClientError(payload) {
+  const fingerprint = assertShortText(payload.fingerprint || "client-error", "Fingerprint errore", 220);
+  rateLimitPublicAction("reportClientError_global", "all", 200, 60 * 60);
+  rateLimitPublicAction("reportClientError", fingerprint, 10, 60 * 60);
+  const safePayload = {
+    fingerprint,
+    name: assertShortText(payload.name, "Nome errore", 80),
+    message: assertShortText(payload.message, "Messaggio errore", 500),
+    stack: assertShortText(payload.stack, "Stack errore", 3000),
+    componentStack: assertShortText(payload.componentStack, "Component stack", 2000),
+    boundary: assertShortText(payload.boundary, "Boundary", 120),
+    source: assertShortText(payload.source, "Sorgente errore", 80),
+    location: assertShortText(payload.location, "Posizione errore", 500),
+    userAgent: assertShortText(payload.userAgent, "User agent", 300),
+    occurredAt: assertShortText(payload.occurredAt, "Data errore", 80),
+  };
+  appendRequestEvent("client", "client_error", safePayload.message || safePayload.name || "Errore client", safePayload);
+  return { ok: true, recorded: true };
+}
+
 function assertValidEmail(email) {
   const value = String(email || "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new Error("Email non valida.");
@@ -2858,6 +3124,8 @@ function validateWorkshopRequestPayload(payload) {
   assertShortText(payload.contact.firstName, "Nome", 80);
   assertShortText(payload.contact.lastName, "Cognome", 80);
   assertShortText(payload.contact.phone, "Telefono", 40);
+  if (!assertShortText(payload.id, "ID richiesta", 140)) throw new Error("ID richiesta obbligatorio.");
+  if (!assertShortText(payload.clientMutationId, "ID mutazione", 80)) throw new Error("ID mutazione obbligatorio.");
   const workshops = Array.isArray(payload.workshops) ? payload.workshops : [];
   if (!workshops.length) throw new Error("Seleziona almeno un workshop.");
   if (workshops.length > 12) throw new Error("Troppi workshop nella richiesta.");
@@ -4202,6 +4470,9 @@ function normalizeWorkshopRequest(request) {
     price: Number(workshop.price || 0),
     custom: Boolean(workshop.custom),
     recordingIncluded: workshop.recordingIncluded !== false,
+    promo: Boolean(workshop.promo),
+    bundleId: workshop.bundleId || "",
+    bundleIds: Array.isArray(workshop.bundleIds) ? workshop.bundleIds.map(String).filter(Boolean) : [],
     customNote: workshop.customNote || "",
     status: workshop.status || "selezionato",
     approval: workshop.approval || "pending",
@@ -4211,6 +4482,7 @@ function normalizeWorkshopRequest(request) {
   const quote = request.quote || {};
   return {
     id: request.id || buildRequestId(contact.company || request.company || "cliente", new Date()),
+    clientMutationId: request.clientMutationId || "",
     company: request.company || contact.company || "Cliente",
     manager: request.manager || [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim() || contact.email || "Referente",
     email: request.email || contact.email || "",
@@ -4497,6 +4769,7 @@ function ensurePresentationStructure(payload) {
 }
 
 function createAssetDraftFolder(params) {
+  rateLimitPublicAction("createAssetDraftFolder_global", "all", 100, 60 * 60);
   rateLimitPublicAction("createAssetDraftFolder", String(params.clientName || "cliente"), 6, 60 * 60);
   const parentId = params.parentId || getRuntimeDriveRootFolderId() || getRuntimeSlidesRootFolderId();
   if (!parentId) {
@@ -4506,14 +4779,16 @@ function createAssetDraftFolder(params) {
   const parent = DriveApp.getFolderById(parentId);
   const clientName = sanitizeDriveName(assertShortText(params.clientName || "cliente", "Nome cliente", 120));
   const dateStamp = Utilities.formatDate(new Date(), SETTINGS.timezone, "dd-MM-yyyy");
-  const folderName = `${clientName} ${dateStamp}`;
+  const folderName = `DRAFT - ${clientName} ${dateStamp} ${Utilities.getUuid().slice(0, 8)}`;
   const folder = parent.createFolder(folderName);
   const draftToken = Utilities.getUuid();
-  CacheService.getScriptCache().put(assetDraftCacheKey(folder.getId()), JSON.stringify({
+  const draftRecord = JSON.stringify({
     token: draftToken,
     createdAt: new Date().toISOString(),
     clientName,
-  }), 6 * 60 * 60);
+  });
+  CacheService.getScriptCache().put(assetDraftCacheKey(folder.getId()), draftRecord, 6 * 60 * 60);
+  PropertiesService.getScriptProperties().setProperty(assetDraftCacheKey(folder.getId()), draftRecord);
 
   return {
     source: "google-drive",
@@ -4554,6 +4829,7 @@ function deleteAssetDraftFolder(params) {
 
   const folder = DriveApp.getFolderById(params.folderId);
   folder.setTrashed(true);
+  deleteAssetDraftToken(params.folderId);
   return {
     source: "google-drive",
     deleted: true,
@@ -4570,7 +4846,7 @@ function requireAssetDraftAccess(payload) {
   if (auth) return true;
   const folderId = String(payload.folderId || "");
   const draftToken = String(payload.draftToken || payload.token || "");
-  const raw = CacheService.getScriptCache().get(assetDraftCacheKey(folderId));
+  const raw = CacheService.getScriptCache().get(assetDraftCacheKey(folderId)) || PropertiesService.getScriptProperties().getProperty(assetDraftCacheKey(folderId));
   if (!raw || !draftToken) throw new Error("Token upload non valido o scaduto.");
   try {
     const draft = JSON.parse(raw);
@@ -4579,6 +4855,42 @@ function requireAssetDraftAccess(payload) {
     // fall through
   }
   throw new Error("Token upload non valido o scaduto.");
+}
+
+function deleteAssetDraftToken(folderId) {
+  const key = assetDraftCacheKey(folderId);
+  CacheService.getScriptCache().remove(key);
+  PropertiesService.getScriptProperties().deleteProperty(key);
+}
+
+function validateAssetDraftMaterials(materials, requestId, company) {
+  if (!materials || !materials.folderId) return { record: {}, folder: null, draftToken: "", finalName: "" };
+  const folderId = assertShortText(materials.folderId, "ID cartella materiali", 180);
+  const draftToken = assertShortText(materials.draftToken, "Token cartella materiali", 180);
+  requireAssetDraftAccess({ folderId, draftToken });
+  const folder = DriveApp.getFolderById(folderId);
+  const finalName = `REQ ${sanitizeDriveName(requestId)} - ${sanitizeDriveName(company || "Cliente")}`;
+  return {
+    folder,
+    draftToken,
+    finalName,
+    record: {
+      folderId: folder.getId(),
+      folderName: finalName,
+      folderUrl: folder.getUrl(),
+      fileCount: countFolderFiles(folder),
+    },
+  };
+}
+
+function finalizeAssetDraftFolder(assetDraft, requestId) {
+  if (!assetDraft || !assetDraft.folder) return;
+  assetDraft.folder.setName(assetDraft.finalName);
+  deleteAssetDraftToken(assetDraft.folder.getId());
+  appendRequestEvent(requestId, "asset_folder_finalized", "Cartella materiali associata definitivamente alla richiesta.", {
+    folderId: assetDraft.folder.getId(),
+    folderName: assetDraft.finalName,
+  });
 }
 
 function tryRequireSession(source, allowedRoles) {

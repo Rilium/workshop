@@ -14,6 +14,8 @@ type EmailWorkshop = {
 };
 
 export type WorkshopRequestEmailPayload = {
+  requestId: string;
+  clientMutationId: string;
   contact: {
     firstName: string;
     lastName: string;
@@ -348,13 +350,8 @@ export async function sendWorkshopRequestEmail(payload: WorkshopRequestEmailPayl
   if (scriptUrl) {
     const body = {
       action: SECRET_SETTINGS.google.email.actions.sendWorkshopRequest,
-      to: payload.contact.email,
-      cc: payload.mail?.cc || SECRET_SETTINGS.google.email.internalRecipient || undefined,
-      fromName: payload.mail?.fromName || SECRET_SETTINGS.google.email.fromName,
-      subject,
-      html,
-      text,
-      payload,
+      requestId: payload.requestId,
+      clientMutationId: payload.clientMutationId,
     };
     const result = await postAppsScriptJson<{ sent?: boolean; error?: string }>(scriptUrl, body);
     if (!result.sent) throw new Error(result.error || "Apps Script non ha confermato l'invio email.");

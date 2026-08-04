@@ -1058,6 +1058,26 @@ button:disabled {
   opacity: 0.46;
 }
 
+.fatal-error-shell {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-5);
+  background: var(--neutral-050);
+}
+
+.fatal-error-card {
+  width: min(560px, 100%);
+  display: grid;
+  gap: var(--sp-4);
+  text-align: left;
+}
+
+.fatal-error-card h1,
+.fatal-error-card p {
+  margin: 0;
+}
+
 .expandable-card-text {
   min-width: 0;
 }
@@ -1118,7 +1138,7 @@ button:disabled {
   position: fixed;
   right: 24px;
   bottom: calc(96px + env(safe-area-inset-bottom));
-  z-index: calc(var(--z-modal) + 1);
+  z-index: calc(var(--z-modal) - 1);
   width: min(360px, calc(100vw - 48px));
   height: auto;
   min-height: 0;

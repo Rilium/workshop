@@ -100,6 +100,7 @@ async function run() {
       ...process.env,
       VITE_APPS_SCRIPT_DEPLOYMENT_URL: "",
       VITE_ALLOW_LOCAL_FALLBACKS: "true",
+      VITE_STRICT_GOOGLE_BACKEND: "false",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -121,7 +122,12 @@ async function run() {
     }, localSession("funnifin", { token: "mobile-layout" }));
 
     await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(800);
+    try {
+      await page.locator(".bottom-action-bar").waitFor({ timeout: 8000 });
+    } catch (error) {
+      console.error("Mobile initial page state:", (await page.locator("body").innerText()).slice(0, 2_000));
+      throw error;
+    }
 
     const adminHome = await mobileMetrics(page, "admin-home");
     assertNoHorizontalOverflow(adminHome);
@@ -147,6 +153,15 @@ async function run() {
     assertWithinViewport(catalog, "bottom");
     assert(catalog.bottom.height <= 130, `client-catalog: compact bottom sheet too tall ${catalog.bottom.height}`);
 
+    const disabledProceed = page.getByRole("button", { name: "Procedi", exact: true });
+    assert((await disabledProceed.getAttribute("aria-disabled")) === "true", "client-catalog: empty path primary action should be aria-disabled");
+    await disabledProceed.click({ force: true });
+    await page.locator(".bottom-bar-hint.is-visible").waitFor({ timeout: 1500 });
+    assert(
+      (await page.locator(".bottom-bar-hint.is-visible").textContent())?.includes("Aggiungi almeno un workshop"),
+      "client-catalog: pressing the disabled primary action should show the mobile hint tooltip",
+    );
+
     await page.getByRole("button", { name: "Aggiungi Come leggere una busta paga al percorso", exact: true }).click();
     await page.waitForTimeout(500);
     const workshops = await mobileMetrics(page, "client-workshops");
@@ -169,7 +184,7 @@ async function run() {
     assertWithinViewport(personalize, "activeTab");
     assert(personalize.activeTab.text.includes("Personalizza"), `client-personalize: active tab not visible ${JSON.stringify(personalize.activeTab)}`);
 
-    await page.getByRole("button", { name: /Scegli le date/i }).click();
+    await page.getByRole("button", { name: "Procedi", exact: true }).click();
     await page.waitForTimeout(700);
     const dates = await mobileMetrics(page, "client-dates");
     assertNoHorizontalOverflow(dates);

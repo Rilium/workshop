@@ -14,7 +14,7 @@ export function EmptyWorkflowState({
 }) {
   return (
     <div className="empty-state workflow-empty">
-      <strong>{title}</strong>
+      <strong role="heading" aria-level={2}>{title}</strong>
       <span>{body}</span>
       <AppButton variant="secondary" onClick={onClick}>
         {cta}
