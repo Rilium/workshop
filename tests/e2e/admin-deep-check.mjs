@@ -119,6 +119,7 @@ async function backendAudit(env, session) {
   const settingsResult = await get(env, "listWorkspaceSettings", session);
   const authUserResult = await get(env, "listAuthUsers", session);
   const accessRequestResult = await get(env, "listAccessRequests", session);
+  const workshopRequestResult = await get(env, "listWorkshopRequests", session);
   const topics = topicResult.topics || [];
   const workshops = workshopResult.workshops || [];
   const rules = pricingResult.rules || [];
@@ -126,6 +127,7 @@ async function backendAudit(env, session) {
   const settings = settingsResult.settings || [];
   const authUsers = authUserResult.users || [];
   const accessRequests = accessRequestResult.requests || [];
+  const workshopRequests = workshopRequestResult.requests || [];
   const topicIds = new Set(topics.map((topic) => topic.id));
   const workshopIds = new Set(workshops.map((workshop) => workshop.id));
   const settingMap = new Map(settings.map((setting) => [setting.key, setting]));
@@ -155,7 +157,7 @@ async function backendAudit(env, session) {
   assert(Number(settingMap.get("pricing.recordingOptOutDiscount")?.value) === 100, "riduzione registrazione errata");
   assert(authUsers.length > 0, "nessun utente autorizzato restituito dallo Sheet");
 
-  return { topics, workshops, rules, experts, settings, bundles, settingMap, authUsers, accessRequests };
+  return { topics, workshops, rules, experts, settings, bundles, settingMap, authUsers, accessRequests, workshopRequests };
 }
 
 async function mutationLifecycle(env, session, baseline) {
@@ -318,6 +320,22 @@ async function uiAudit(env, session, baseline) {
       "Utenti e inviti",
     ];
     for (const title of sectionTitles) assert((await page.locator(".admin-section-nav button").filter({ hasText: title }).count()) === 1, `sezione mancante: ${title}`);
+
+    await clickAdminSection(page, "Richieste cliente");
+    if (baseline.workshopRequests.length > 0) {
+      const clearRequestsButton = page.locator('button[aria-label^="Svuota "][aria-label$=" richieste cliente"]');
+      await clearRequestsButton.waitFor({ timeout: 30_000 });
+      assert((await clearRequestsButton.count()) === 1, "comando svuota richieste mancante");
+      await clearRequestsButton.click();
+      await page.getByRole("heading", { name: "Svuotare tutte le richieste?", exact: true }).waitFor();
+      assert((await page.getByText("L’operazione è irreversibile.", { exact: false }).count()) === 1, "avviso irreversibilità richieste mancante");
+      await page.getByRole("button", { name: "Annulla", exact: true }).click();
+      await page.getByRole("heading", { name: "Svuotare tutte le richieste?", exact: true }).waitFor({ state: "detached" });
+    } else {
+      const emptyClearButton = page.getByLabel("Nessuna richiesta da svuotare");
+      assert((await emptyClearButton.count()) === 1 && (await emptyClearButton.isDisabled()), "stato vuoto svuota richieste non protetto");
+    }
+    report.functional.push("richieste: comando bulk protetto da conferma");
 
     await clickAdminSection(page, "Catalogo vendibile");
     trace("UI: catalogo aperto");
