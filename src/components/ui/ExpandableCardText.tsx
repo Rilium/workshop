@@ -31,11 +31,9 @@ export function ExpandableCardText({
       const collapsedHeight = Number.isFinite(lineHeight) ? lineHeight * lines : element.clientHeight;
       const overflows = element.scrollHeight > collapsedHeight + 2;
 
-      setCanExpand(overflows);
-      if (!overflows && expandedRef.current) {
-        expandedRef.current = false;
-        setExpanded(false);
-      }
+      // Keep an explicit user expansion stable while fonts/layout settle.
+      // A transient ResizeObserver measurement must not close the copy again.
+      setCanExpand(overflows || expandedRef.current);
     };
 
     const scheduleMeasure = () => {
@@ -64,9 +62,12 @@ export function ExpandableCardText({
           className="expandable-card-text-toggle"
           aria-expanded={expanded}
           aria-label={expanded ? "Mostra meno testo" : "Mostra tutto il testo"}
-          onClick={() => setExpanded((current) => !current)}
+          onClick={(event) => {
+            event.stopPropagation();
+            setExpanded((current) => !current);
+          }}
         >
-          {expanded ? "meno" : "..."}
+          {expanded ? "Mostra di meno" : "Mostra di più"}
         </button>
       )}
     </div>

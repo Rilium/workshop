@@ -1080,6 +1080,7 @@ button:disabled {
 
 .expandable-card-text {
   min-width: 0;
+  overflow-anchor: none;
 }
 
 .expandable-card-text > p {
