@@ -1,5 +1,6 @@
 import { SECRET_SETTINGS } from "./secretSettings";
 import { appendSessionParams, withSessionPayload } from "./authTransport";
+import { fetchAppsScript } from "./appsScriptTransport";
 
 export type AssetDraftFolder = {
   source: "google-drive";
@@ -36,7 +37,7 @@ function fileToBase64(file: File) {
 }
 
 async function postAppsScript(scriptUrl: string, body: unknown) {
-  const response = await fetch(scriptUrl, {
+  const response = await fetchAppsScript(scriptUrl, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify(body),
@@ -55,7 +56,7 @@ export async function createAssetDraftFolder(clientName: string): Promise<AssetD
   url.searchParams.set("action", "createAssetDraftFolder");
   appendSessionParams(url);
   url.searchParams.set("clientName", clientName);
-  const response = await fetch(url.toString());
+  const response = await fetchAppsScript(url.toString());
   if (!response.ok) throw new Error("Creazione cartella asset non riuscita");
   return (await response.json()) as AssetDraftFolder;
 }
@@ -93,5 +94,5 @@ export async function deleteAssetDraftFolder(folderId?: string, draftToken?: str
   appendSessionParams(url);
   url.searchParams.set("folderId", folderId);
   if (draftToken) url.searchParams.set("draftToken", draftToken);
-  await fetch(url.toString(), { keepalive: true }).catch(() => {});
+  await fetchAppsScript(url.toString(), { keepalive: true }).catch(() => {});
 }

@@ -401,6 +401,7 @@ function AppInner() {
               setCurrentRequest(request);
               setRequestRefreshToken((value) => value + 1);
               notify("Nuova richiesta cliente", `${request.company}: ${request.workshops.length} workshop da prendere in carico.`, {
+                toast: false,
                 audience: ["FunniFin"],
                 priority: "task",
                 category: "task",

@@ -63,7 +63,11 @@ export function EcommerceCart({
   };
 
   return (
-    <aside ref={cartRef} className="ecommerce-cart" aria-label="Carrello workshop">
+    <aside
+      ref={cartRef}
+      className={`ecommerce-cart ${quote.bundleSummaries?.length ? "has-bundle" : ""}`}
+      aria-label="Carrello workshop"
+    >
       <div className="cart-head">
         <div className="cart-head-copy">
           <div className="cart-title-row">
@@ -104,11 +108,22 @@ export function EcommerceCart({
       </div>
 
       <>
-        {quote.bundleTitle && (
+        {Boolean(quote.bundleSummaries?.length) && (
           <div className="cart-bundle-summary">
-            <span>Pacchetto selezionato</span>
-            <strong>{quote.bundleTitle}</strong>
-            <small>Composizione ufficiale · prezzo dedicato applicato</small>
+            <span>{quote.bundleSummaries?.length === 1 ? "Pacchetto selezionato" : "Pacchetti selezionati"}</span>
+            <div className="cart-bundle-list">
+              {quote.bundleSummaries?.map((bundle) => (
+                <div key={bundle.id}>
+                  <strong>{bundle.title}</strong>
+                  <small>-{money(bundle.discount)}</small>
+                </div>
+              ))}
+            </div>
+            {Boolean(quote.sharedBundleWorkshopCount) && (
+              <small className="cart-bundle-note">
+                {quote.sharedBundleWorkshopCount} {quote.sharedBundleWorkshopCount === 1 ? "workshop condiviso" : "workshop condivisi"}: una sola riga nel carrello, sconti inclusi.
+              </small>
+            )}
           </div>
         )}
         <div className="cart-lines">
@@ -143,7 +158,9 @@ export function EcommerceCart({
 
         <div className="cart-totals">
             <Line label="Subtotale workshop" value={money(quote.gross)} />
-            {quote.quantityDiscount > 0 && <Line label={quote.rule.name} value={`-${money(quote.quantityDiscount)}`} good />}
+            {quote.bundleSummaries?.map((bundle) => (
+              <Line key={bundle.id} label={bundle.title} value={`-${money(bundle.discount)}`} good />
+            ))}
             {quote.promoDiscount > 0 && <Line label="Date promo" value={`-${money(quote.promoDiscount)}`} good />}
             {quote.customTotal > 0 && <Line label="Su misura" value={`+${money(quote.customTotal)}`} />}
             {quote.recordingDiscount > 0 && <Line label="Senza registrazione" value={`-${money(quote.recordingDiscount)}`} good />}

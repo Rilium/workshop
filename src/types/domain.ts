@@ -104,6 +104,7 @@ export type Workshop = {
 export type Selection = {
   workshopId: string;
   bundleId?: string;
+  bundleIds?: string[];
   duration: Duration;
   format: Format;
   custom: boolean;
@@ -182,6 +183,10 @@ export type Quote = {
   recordingDiscount: number;
   bundleId?: string;
   bundleTitle?: string;
+  bundleIds?: string[];
+  bundleTitles?: string[];
+  bundleSummaries?: Array<{ id: string; title: string; discount: number }>;
+  sharedBundleWorkshopCount?: number;
 };
 
 export type Toast = {

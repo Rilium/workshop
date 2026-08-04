@@ -62,8 +62,10 @@ export function WorkshopCard({
 }) {
   const selectedPrice = selection ? getWorkshopSelectionPrice(workshop, selection, commercialConfig).total : workshop.price1h;
   const topic = topics.find((item) => (workshop.topicIds?.length ? workshop.topicIds : [workshop.topicId]).includes(item.id));
-  const selectedBundle = selection?.bundleId ? bundleMemberships.find((bundle) => bundle.id === selection.bundleId) : undefined;
-  const includedViaBundle = Boolean(selection?.bundleId);
+  const selectedBundleIds = selection?.bundleIds ?? (selection?.bundleId ? [selection.bundleId] : []);
+  const selectedBundles = bundleMemberships.filter((bundle) => selectedBundleIds.includes(bundle.id));
+  const selectedBundle = selectedBundles[0];
+  const includedViaBundle = selectedBundles.length > 0;
   return (
     <article className={`workshop-card ${selection ? "selected" : ""}`} data-workshop-id={workshop.id}>
       <div className="workshop-card-top">
@@ -75,12 +77,12 @@ export function WorkshopCard({
         </div>
       </div>
       <ExpandableCardText text={workshop.short} />
-      {selectedBundle ? (
+      {selectedBundles.length > 0 ? (
         <button type="button" className="workshop-bundle-state" onClick={() => onOpenBundle?.(selectedBundle)}>
           <Check size={15} />
           <span>
-            <small>Incluso nel pacchetto</small>
-            <strong>{selectedBundle.title}</strong>
+            <small>{selectedBundles.length === 1 ? "Incluso nel pacchetto" : `Incluso in ${selectedBundles.length} pacchetti`}</small>
+            <strong>{selectedBundles.map((bundle) => bundle.title).join(" · ")}</strong>
           </span>
         </button>
       ) : bundleMemberships.length > 0 && (
@@ -181,13 +183,13 @@ export function WorkshopCard({
           <span className="bundle-included-price">
             <Check size={16} />
             <span>
-              <strong>Compreso nel pacchetto</strong>
+              <strong>{selectedBundles.length === 1 ? "Compreso nel pacchetto" : "Compreso nei pacchetti"}</strong>
               <small>Eventuali extra aggiornano il preventivo</small>
             </span>
           </span>
           {selectedBundle && (
             <AppButton variant="outline" onClick={() => onOpenBundle?.(selectedBundle)}>
-              Vedi pacchetto
+              {selectedBundles.length === 1 ? "Vedi pacchetto" : "Vedi pacchetti"}
             </AppButton>
           )}
         </div>

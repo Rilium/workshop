@@ -10,7 +10,6 @@ const SETTINGS = {
     .map((item) => item.trim())
     .filter(Boolean),
   internalRecipient: PropertiesService.getScriptProperties().getProperty("INTERNAL_RECIPIENT") || "",
-  mailSenderAlias: PropertiesService.getScriptProperties().getProperty("MAIL_SENDER_ALIAS") || "",
   mailFromName: PropertiesService.getScriptProperties().getProperty("MAIL_FROM_NAME") || "FunniFin Workshop Planner",
   mailReplyTo: PropertiesService.getScriptProperties().getProperty("MAIL_REPLY_TO") || "",
 };
@@ -41,18 +40,23 @@ function authorizeFunniFinSetup() {
     CalendarApp.getCalendarById(runtimeCalendarId);
   }
   MailApp.getRemainingDailyQuota();
-  const gmailAliases = GmailApp.getAliases();
 
   return {
     ok: true,
     spreadsheetId: spreadsheet.getId(),
     spreadsheetUrl: spreadsheet.getUrl(),
     mailQuota: MailApp.getRemainingDailyQuota(),
-    gmailAliases: gmailAliases,
   };
 }
 
 function doGet(event) {
+  if (event && event.parameter && event.parameter.state && (event.parameter.code || event.parameter.error)) {
+    try {
+      return handleMailOAuthCallback(event.parameter);
+    } catch (error) {
+      return mailOAuthCallbackPage(false, "", String(error && error.message ? error.message : error));
+    }
+  }
   try {
     return handleGet(event);
   } catch (error) {
@@ -150,7 +154,7 @@ function handleGet(event) {
   return jsonResponse({
     ok: true,
     service: "FunniFin Workshop Planner",
-    actions: ["freeBusy", "expertAvailability", "calendarLookup", "driveFolder", "brandPresentations", "publicCatalog", "listWorkshopRequests", "listRequestEvents", "listNotifications", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "listAuthUsers", "listAccessRequests", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "deleteWorkshopRequest", "createNotification", "updateNotification", "deleteNotification", "markNotificationsRead", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "updateWorkspaceSettings", "testIntegrationSettings", "updateIntegrationProperties", "sendIntegrationTestEmail", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "createExpertCalendar", "connectExpertCalendar", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification", "requestLoginCode", "verifyLoginCode", "reviewAccessRequest", "updateAuthUser", "changeAdminEmail"],
+    actions: ["freeBusy", "expertAvailability", "calendarLookup", "driveFolder", "brandPresentations", "publicCatalog", "listWorkshopRequests", "listRequestEvents", "listNotifications", "listCatalogConfig", "listCatalogWorkshops", "listPricingRules", "listExperts", "listWorkspaceSettings", "listAuthUsers", "listAccessRequests", "googleHealth", "listAdminConfig", "createWorkshopRequest", "updateWorkshopRequest", "deleteWorkshopRequest", "createNotification", "updateNotification", "deleteNotification", "markNotificationsRead", "updateCatalogTopic", "updateCatalogWorkshop", "updatePricingRule", "updateExpert", "deleteExpert", "updateWorkspaceSetting", "updateWorkspaceSettings", "testIntegrationSettings", "updateIntegrationProperties", "configureMailOAuth", "beginMailOAuth", "disconnectMailOAuth", "sendIntegrationTestEmail", "seedAdminConfig", "createAssetDraftFolder", "deleteAssetDraftFolder", "uploadAssetFile", "createCalendarEvent", "createExpertCalendar", "connectExpertCalendar", "ensurePresentationStructure", "sendWorkshopRequestEmail", "sendWorkflowNotification", "requestLoginCode", "verifyLoginCode", "reviewAccessRequest", "updateAuthUser", "changeAdminEmail"],
   });
 }
 
@@ -236,6 +240,18 @@ function handlePost(event) {
   if (body.action === "updateIntegrationProperties") {
     requireFunniFinSession(body.payload || {});
     return jsonResponse(updateIntegrationProperties(body.payload || {}));
+  }
+  if (body.action === "configureMailOAuth") {
+    requireFunniFinSession(body.payload || {});
+    return jsonResponse(configureMailOAuth(body.payload || {}));
+  }
+  if (body.action === "beginMailOAuth") {
+    const auth = requireFunniFinSession(body.payload || {});
+    return jsonResponse(beginMailOAuth(body.payload || {}, auth));
+  }
+  if (body.action === "disconnectMailOAuth") {
+    const auth = requireFunniFinSession(body.payload || {});
+    return jsonResponse(disconnectMailOAuth(auth));
   }
   if (body.action === "clearBackendCaches") {
     requireFunniFinSession(body.payload || {});
@@ -681,30 +697,269 @@ function updateCalendarEvent(eventId, event, calendarId, payload) {
   }
 }
 
-function getGmailAuthorizationState() {
-  const info = ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL, ["https://mail.google.com/"]);
-  const required = info.getAuthorizationStatus() === ScriptApp.AuthorizationStatus.REQUIRED;
+function getMailOAuthRedirectUri() {
+  const configured = PropertiesService.getScriptProperties().getProperty("MAIL_OAUTH_REDIRECT_URI") || "";
+  return configured || String(ScriptApp.getService().getUrl() || "");
+}
+
+function getFallbackMailSenderEmail() {
+  const properties = PropertiesService.getScriptProperties();
+  return properties.getProperty("MAIL_DEFAULT_SENDER_EMAIL") || properties.getProperty("INITIAL_FUNNIFIN_EMAIL") || "Account Apps Script attuale";
+}
+
+function getMailOAuthStatus() {
+  const properties = PropertiesService.getScriptProperties();
+  const clientId = properties.getProperty("MAIL_OAUTH_CLIENT_ID") || "";
+  const clientSecret = properties.getProperty("MAIL_OAUTH_CLIENT_SECRET") || "";
+  const refreshToken = properties.getProperty("MAIL_OAUTH_REFRESH_TOKEN") || "";
+  const connectedEmail = properties.getProperty("MAIL_OAUTH_EMAIL") || "";
+  const connected = Boolean(refreshToken && connectedEmail);
   return {
-    required,
-    url: required ? String(info.getAuthorizationUrl() || "") : "",
-    aliases: required ? [] : GmailApp.getAliases().map(function(alias) { return String(alias || "").trim().toLowerCase(); }).filter(Boolean),
+    configured: Boolean(clientId && clientSecret),
+    connected,
+    connectedEmail: connected ? connectedEmail : "",
+    fallbackEmail: getFallbackMailSenderEmail(),
+    senderEmail: connected ? connectedEmail : getFallbackMailSenderEmail(),
+    connectedAt: connected ? properties.getProperty("MAIL_OAUTH_CONNECTED_AT") || "" : "",
+    redirectUri: getMailOAuthRedirectUri(),
+    provider: connected ? "Google Gmail API OAuth" : "Google MailApp (account installazione)",
   };
 }
 
-function getConfiguredMailAliases() {
-  const authorization = getGmailAuthorizationState();
-  if (authorization.required) throw new Error("Autorizzazione Gmail richiesta. Completa il consenso Google dalla configurazione email.");
-  return authorization.aliases;
+function configureMailOAuth(payload) {
+  const clientId = String(payload.clientId || "").trim();
+  const clientSecret = String(payload.clientSecret || "").trim();
+  if (!/^[a-zA-Z0-9._-]+\.apps\.googleusercontent\.com$/.test(clientId)) {
+    throw new Error("OAuth Client ID non valido. Usa una credenziale Google di tipo Applicazione web.");
+  }
+  if (clientSecret.length < 8) throw new Error("OAuth Client Secret non valido.");
+  PropertiesService.getScriptProperties().setProperties({
+    MAIL_OAUTH_CLIENT_ID: clientId,
+    MAIL_OAUTH_CLIENT_SECRET: clientSecret,
+  }, false);
+  CacheService.getScriptCache().remove("funnifin_google_health_v1");
+  return { ok: true, source: "script-properties", mailOAuth: getMailOAuthStatus() };
 }
 
-function resolveMailSenderAlias(requestedAlias) {
-  const requested = String(requestedAlias || "").trim().toLowerCase();
-  if (!requested) return "";
-  const aliases = getConfiguredMailAliases();
-  if (aliases.indexOf(requested) === -1) {
-    throw new Error("Il sender scelto non e un alias autorizzato dell'account Gmail che esegue Apps Script.");
+function normalizeMailOAuthReturnOrigin(value) {
+  const origin = String(value || "").trim();
+  if (/^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(origin)) return origin;
+  if (/^http:\/\/(localhost|127\.0\.0\.1)(?::\d+)?$/i.test(origin)) return origin;
+  return "";
+}
+
+function beginMailOAuth(payload, auth) {
+  const properties = PropertiesService.getScriptProperties();
+  const clientId = properties.getProperty("MAIL_OAUTH_CLIENT_ID") || "";
+  const clientSecret = properties.getProperty("MAIL_OAUTH_CLIENT_SECRET") || "";
+  const redirectUri = getMailOAuthRedirectUri();
+  if (!clientId || !clientSecret) throw new Error("Configura prima le credenziali OAuth del prodotto.");
+  if (!redirectUri) throw new Error("URL callback OAuth non disponibile.");
+
+  const state = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
+  const stateKey = "MAIL_OAUTH_STATE_" + state;
+  properties.setProperty(stateKey, JSON.stringify({
+    createdAt: Date.now(),
+    returnOrigin: normalizeMailOAuthReturnOrigin(payload.returnOrigin),
+    initiatedBy: auth && auth.user ? String(auth.user.email || auth.user.id || "") : "",
+  }));
+
+  const query = {
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: "openid email https://www.googleapis.com/auth/gmail.send",
+    access_type: "offline",
+    prompt: "select_account consent",
+    include_granted_scopes: "true",
+    state,
+  };
+  const authorizationUrl = "https://accounts.google.com/o/oauth2/v2/auth?" + Object.keys(query).map(function(key) {
+    return encodeURIComponent(key) + "=" + encodeURIComponent(query[key]);
+  }).join("&");
+  return { ok: true, source: "google-oauth", authorizationUrl, redirectUri };
+}
+
+function handleMailOAuthCallback(params) {
+  const properties = PropertiesService.getScriptProperties();
+  const state = String(params.state || "");
+  const stateKey = "MAIL_OAUTH_STATE_" + state;
+  const rawState = state ? properties.getProperty(stateKey) : "";
+  if (!rawState) throw new Error("Richiesta di collegamento scaduta o gia utilizzata.");
+  properties.deleteProperty(stateKey);
+
+  const stateData = JSON.parse(rawState);
+  if (!stateData.createdAt || Date.now() - Number(stateData.createdAt) > 10 * 60 * 1000) {
+    throw new Error("Richiesta di collegamento scaduta. Riparti dal back office.");
   }
-  return requested;
+  if (params.error) throw new Error("Google non ha autorizzato il mittente: " + String(params.error));
+
+  const token = exchangeMailOAuthCode(String(params.code || ""));
+  if (!token.refresh_token) throw new Error("Google non ha restituito il permesso permanente. Riprova scegliendo nuovamente l'account.");
+  const profile = fetchGoogleOAuthProfile(token.access_token);
+  const email = assertValidEmail(profile.email);
+  if (profile.email_verified === false) throw new Error("L'indirizzo Google selezionato non risulta verificato.");
+
+  properties.setProperties({
+    MAIL_OAUTH_REFRESH_TOKEN: String(token.refresh_token),
+    MAIL_OAUTH_EMAIL: email,
+    MAIL_OAUTH_CONNECTED_AT: formatTimestamp(new Date()),
+  }, false);
+  CacheService.getScriptCache().remove("funnifin_mail_oauth_access");
+  CacheService.getScriptCache().remove("funnifin_google_health_v1");
+  appendRequestEvent("settings", "mail_sender_connected", "Account mittente Google collegato", {
+    email,
+    initiatedBy: String(stateData.initiatedBy || ""),
+  });
+  return mailOAuthCallbackPage(true, normalizeMailOAuthReturnOrigin(stateData.returnOrigin), email);
+}
+
+function exchangeMailOAuthCode(code) {
+  if (!code) throw new Error("Codice OAuth Google mancante.");
+  const properties = PropertiesService.getScriptProperties();
+  const response = UrlFetchApp.fetch("https://oauth2.googleapis.com/token", {
+    method: "post",
+    payload: {
+      code,
+      client_id: properties.getProperty("MAIL_OAUTH_CLIENT_ID") || "",
+      client_secret: properties.getProperty("MAIL_OAUTH_CLIENT_SECRET") || "",
+      redirect_uri: getMailOAuthRedirectUri(),
+      grant_type: "authorization_code",
+    },
+    muteHttpExceptions: true,
+  });
+  const result = JSON.parse(response.getContentText() || "{}");
+  if (response.getResponseCode() < 200 || response.getResponseCode() >= 300 || !result.access_token) {
+    throw new Error("Scambio OAuth non riuscito: " + String(result.error_description || result.error || response.getResponseCode()));
+  }
+  return result;
+}
+
+function fetchGoogleOAuthProfile(accessToken) {
+  const response = UrlFetchApp.fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+    headers: { Authorization: "Bearer " + accessToken },
+    muteHttpExceptions: true,
+  });
+  const profile = JSON.parse(response.getContentText() || "{}");
+  if (response.getResponseCode() < 200 || response.getResponseCode() >= 300 || !profile.email) {
+    throw new Error("Google non ha restituito l'indirizzo dell'account collegato.");
+  }
+  return profile;
+}
+
+function getConnectedMailAccessToken() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get("funnifin_mail_oauth_access");
+  if (cached) return cached;
+  const properties = PropertiesService.getScriptProperties();
+  const refreshToken = properties.getProperty("MAIL_OAUTH_REFRESH_TOKEN") || "";
+  if (!refreshToken) throw new Error("Nessun account mittente Google collegato.");
+  const response = UrlFetchApp.fetch("https://oauth2.googleapis.com/token", {
+    method: "post",
+    payload: {
+      client_id: properties.getProperty("MAIL_OAUTH_CLIENT_ID") || "",
+      client_secret: properties.getProperty("MAIL_OAUTH_CLIENT_SECRET") || "",
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    },
+    muteHttpExceptions: true,
+  });
+  const result = JSON.parse(response.getContentText() || "{}");
+  if (response.getResponseCode() < 200 || response.getResponseCode() >= 300 || !result.access_token) {
+    throw new Error("Connessione mittente scaduta. Ricollega l'account dal back office.");
+  }
+  cache.put("funnifin_mail_oauth_access", String(result.access_token), Math.max(60, Math.min(3300, Number(result.expires_in || 3600) - 120)));
+  return String(result.access_token);
+}
+
+function verifyConnectedMailAccount() {
+  const status = getMailOAuthStatus();
+  if (!status.connected) return status;
+  const profile = fetchGoogleOAuthProfile(getConnectedMailAccessToken());
+  const email = assertValidEmail(profile.email);
+  if (email !== status.connectedEmail) throw new Error("Il token Google non corrisponde al mittente salvato.");
+  return status;
+}
+
+function disconnectMailOAuth(auth) {
+  const properties = PropertiesService.getScriptProperties();
+  const previousEmail = properties.getProperty("MAIL_OAUTH_EMAIL") || "";
+  ["MAIL_OAUTH_REFRESH_TOKEN", "MAIL_OAUTH_EMAIL", "MAIL_OAUTH_CONNECTED_AT"].forEach(function(key) {
+    properties.deleteProperty(key);
+  });
+  CacheService.getScriptCache().remove("funnifin_mail_oauth_access");
+  CacheService.getScriptCache().remove("funnifin_google_health_v1");
+  appendRequestEvent("settings", "mail_sender_disconnected", "Account mittente Google scollegato", {
+    email: previousEmail,
+    initiatedBy: auth && auth.user ? String(auth.user.email || auth.user.id || "") : "",
+  });
+  return { ok: true, source: "google-oauth", disconnected: true, mailOAuth: getMailOAuthStatus() };
+}
+
+function mailOAuthCallbackPage(success, returnOrigin, detail) {
+  const title = success ? "Account mittente collegato" : "Collegamento non riuscito";
+  const body = success ? "Puoi chiudere questa scheda e tornare al back office." : String(detail || "Riprova dal back office.");
+  const eventData = JSON.stringify({ type: "funnifin-mail-oauth", success: Boolean(success), email: success ? detail : "", error: success ? "" : detail }).replace(/</g, "\\u003c");
+  const targetOrigin = JSON.stringify(returnOrigin || "*").replace(/</g, "\\u003c");
+  return HtmlService.createHtmlOutput("<!doctype html><html><head><base target='_top'><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>" + escapeHtml(title) + "</title><style>body{font-family:Arial,sans-serif;background:#f6f7fb;color:#172033;display:grid;place-items:center;min-height:100vh;margin:0}.card{background:#fff;border:1px solid #dfe3ec;border-radius:18px;padding:32px;max-width:520px;box-shadow:0 16px 50px rgba(24,32,51,.12)}h1{font-size:24px;margin:0 0 12px}p{line-height:1.5;margin:0 0 18px}button{border:0;border-radius:10px;background:#172033;color:#fff;padding:11px 16px;font-weight:700;cursor:pointer}</style></head><body><main class='card'><h1>" + escapeHtml(title) + "</h1><p>" + escapeHtml(body) + "</p><button onclick='window.close()'>Chiudi e torna al BO</button></main><script>if(window.opener){window.opener.postMessage(" + eventData + "," + targetOrigin + ");}if(" + (success ? "true" : "false") + "){setTimeout(function(){window.close();},1200);}</script></body></html>");
+}
+
+function cleanMailHeader(value) {
+  return String(value || "").replace(/[\r\n]+/g, " ").trim();
+}
+
+function encodeMailHeader(value) {
+  return "=?UTF-8?B?" + Utilities.base64Encode(cleanMailHeader(value), Utilities.Charset.UTF_8) + "?=";
+}
+
+function foldMailBase64(value) {
+  return String(value || "").replace(/.{1,76}/g, "$&\r\n").replace(/\r\n$/, "");
+}
+
+function buildGmailApiRawMessage(message, senderEmail) {
+  const boundary = "funnifin_" + Utilities.getUuid().replace(/-/g, "");
+  const headers = [
+    "From: " + encodeMailHeader(message.name || getSettingValue("mail.fromName", SETTINGS.mailFromName)) + " <" + cleanMailHeader(senderEmail) + ">",
+    "To: " + cleanMailHeader(message.to),
+    "Subject: " + encodeMailHeader(message.subject),
+    "MIME-Version: 1.0",
+    "Content-Type: multipart/alternative; boundary=\"" + boundary + "\"",
+  ];
+  if (message.cc) headers.splice(2, 0, "Cc: " + cleanMailHeader(message.cc));
+  if (message.bcc) headers.splice(2, 0, "Bcc: " + cleanMailHeader(message.bcc));
+  if (message.replyTo) headers.splice(2, 0, "Reply-To: " + cleanMailHeader(message.replyTo));
+  const textBody = String(message.body || "");
+  const htmlBody = String(message.htmlBody || "").trim();
+  const parts = [
+    "--" + boundary,
+    "Content-Type: text/plain; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    foldMailBase64(Utilities.base64Encode(textBody, Utilities.Charset.UTF_8)),
+  ];
+  if (htmlBody) {
+    parts.push("--" + boundary, "Content-Type: text/html; charset=UTF-8", "Content-Transfer-Encoding: base64", "", foldMailBase64(Utilities.base64Encode(htmlBody, Utilities.Charset.UTF_8)));
+  }
+  parts.push("--" + boundary + "--", "");
+  const mime = headers.join("\r\n") + "\r\n\r\n" + parts.join("\r\n");
+  return Utilities.base64EncodeWebSafe(mime, Utilities.Charset.UTF_8).replace(/=+$/, "");
+}
+
+function sendViaConnectedGmail(message) {
+  const status = getMailOAuthStatus();
+  if (!status.connected) throw new Error("Nessun account mittente Google collegato.");
+  const response = UrlFetchApp.fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+    method: "post",
+    contentType: "application/json",
+    headers: { Authorization: "Bearer " + getConnectedMailAccessToken() },
+    payload: JSON.stringify({ raw: buildGmailApiRawMessage(message, status.connectedEmail) }),
+    muteHttpExceptions: true,
+  });
+  const result = JSON.parse(response.getContentText() || "{}");
+  if (response.getResponseCode() < 200 || response.getResponseCode() >= 300 || !result.id) {
+    throw new Error("Invio Gmail API non riuscito: " + String(result.error && result.error.message ? result.error.message : response.getResponseCode()));
+  }
+  return result;
 }
 
 function sendConfiguredEmail(options) {
@@ -712,20 +967,8 @@ function sendConfiguredEmail(options) {
   if (!message.name) message.name = getSettingValue("mail.fromName", SETTINGS.mailFromName);
   const replyTo = getSettingValue("mail.replyTo", SETTINGS.mailReplyTo);
   if (replyTo && !message.replyTo) message.replyTo = replyTo;
-  const senderAlias = resolveMailSenderAlias(message.senderAlias == null ? getSettingValue("mail.senderAlias", SETTINGS.mailSenderAlias) : message.senderAlias);
-  delete message.senderAlias;
-  if (!senderAlias) {
-    MailApp.sendEmail(message);
-    return;
-  }
-  const to = String(message.to || "");
-  const subject = String(message.subject || "");
-  const body = String(message.body || "");
-  delete message.to;
-  delete message.subject;
-  delete message.body;
-  message.from = senderAlias;
-  GmailApp.sendEmail(to, subject, body, message);
+  if (getMailOAuthStatus().connected) return sendViaConnectedGmail(message);
+  MailApp.sendEmail(message);
 }
 
 function sendWorkshopRequestEmail(body) {
@@ -1854,21 +2097,24 @@ function listWorkspaceSettings() {
   };
 }
 
-function updateWorkspaceSetting(payload) {
+function normalizeWorkspaceSetting(payload) {
   if (!payload.key) throw new Error("Missing setting key");
 
   const settingKey = String(payload.key);
   let settingValue = String(payload.value == null ? "" : payload.value);
-  if (settingKey === "mail.senderAlias") settingValue = resolveMailSenderAlias(settingValue);
   if (settingKey === "mail.replyTo" && settingValue.trim()) settingValue = assertValidEmail(settingValue);
 
-  const setting = {
+  return {
     key: settingKey,
     value: settingValue,
     group: String(payload.group || "general"),
     label: String(payload.label || payload.key),
     updatedAt: formatTimestamp(new Date()),
   };
+}
+
+function updateWorkspaceSetting(payload) {
+  const setting = normalizeWorkspaceSetting(payload);
   upsertSheetRow(getSettingsSheet(), SETTING_HEADERS, setting.key, settingToRow(setting));
   appendRequestEvent("settings", "setting_updated", `Setting aggiornata: ${setting.key}`, setting);
 
@@ -1883,14 +2129,37 @@ function updateWorkspaceSettings(payload) {
   const settings = Array.isArray(payload.settings) ? payload.settings : [];
   if (!settings.length) throw new Error("Missing workspace settings");
   if (settings.length > 50) throw new Error("Too many workspace settings");
-  const savedSettings = settings.map(function(setting) {
-    return updateWorkspaceSetting(setting).setting;
+  return withSheetLock(function() {
+    const sheet = getSettingsSheet();
+    const rows = sheet.getDataRange().getValues();
+    const rowByKey = {};
+    for (let index = 1; index < rows.length; index += 1) {
+      const key = String(rows[index][0] || "");
+      if (key) rowByKey[key] = index;
+    }
+
+    const savedSettings = settings.map(normalizeWorkspaceSetting);
+    savedSettings.forEach(function(setting) {
+      const nextRow = settingToRow(setting);
+      const existingIndex = rowByKey[setting.key];
+      if (existingIndex == null) {
+        rowByKey[setting.key] = rows.length;
+        rows.push(nextRow);
+      } else {
+        rows[existingIndex] = nextRow;
+      }
+    });
+
+    sheet.getRange(1, 1, rows.length, SETTING_HEADERS.length).setValues(rows);
+    appendRequestEvent("settings", "settings_batch_updated", `Setting aggiornate: ${savedSettings.length}`, {
+      keys: savedSettings.map(function(setting) { return setting.key; }),
+    });
+    return {
+      ok: true,
+      source: "google-sheet",
+      settings: savedSettings,
+    };
   });
-  return {
-    ok: true,
-    source: "google-sheet",
-    settings: savedSettings,
-  };
 }
 
 function testIntegrationSettings(payload) {
@@ -1932,24 +2201,23 @@ function testIntegrationSettings(payload) {
 
   const replyTo = String(payload.replyTo || "").trim().toLowerCase();
   if (replyTo) assertValidEmail(replyTo);
-  const aliases = getConfiguredMailAliases();
-  const senderAlias = resolveMailSenderAlias(payload.senderAlias || "");
-  const primarySender = Session.getEffectiveUser().getEmail() || "Account proprietario Apps Script";
+  const mailOAuth = verifyConnectedMailAccount();
   return {
     ok: true,
     source: "google-workspace",
     scope,
     mail: {
-      senderEmail: senderAlias || primarySender,
-      primarySenderEmail: primarySender,
-      senderAlias,
-      aliases,
-      authorizationRequired: false,
-      authorizationUrl: "",
+      senderEmail: mailOAuth.senderEmail,
+      fallbackEmail: mailOAuth.fallbackEmail,
+      connectedEmail: mailOAuth.connectedEmail,
+      connected: mailOAuth.connected,
+      configured: mailOAuth.configured,
+      connectedAt: mailOAuth.connectedAt,
+      redirectUri: mailOAuth.redirectUri,
       fromName: String(payload.fromName || getSettingValue("mail.fromName", SETTINGS.mailFromName)),
       replyTo,
       remainingDailyQuota: MailApp.getRemainingDailyQuota(),
-      provider: senderAlias ? "Google GmailApp alias" : "Google MailApp",
+      provider: mailOAuth.provider,
     },
   };
 }
@@ -1966,10 +2234,8 @@ function updateIntegrationProperties(payload) {
     values.DRIVE_ROOT_FOLDER_ID = String(payload.driveRootFolderId || "").trim();
     values.SLIDES_ROOT_FOLDER_ID = String(payload.slidesRootFolderId || "").trim();
   } else {
-    const senderAlias = resolveMailSenderAlias(payload.senderAlias || "");
     const replyTo = String(payload.replyTo || "").trim().toLowerCase();
     if (replyTo) assertValidEmail(replyTo);
-    values.MAIL_SENDER_ALIAS = senderAlias;
     values.MAIL_FROM_NAME = String(payload.fromName || "FunniFin Workshop Planner").trim();
     values.MAIL_REPLY_TO = replyTo;
   }
@@ -1982,7 +2248,7 @@ function sendIntegrationTestEmail(payload) {
   const to = assertValidEmail(payload.to);
   const replyTo = String(payload.replyTo || "").trim().toLowerCase();
   if (replyTo) assertValidEmail(replyTo);
-  const senderAlias = resolveMailSenderAlias(payload.senderAlias || "");
+  const mailOAuth = verifyConnectedMailAccount();
   const fromName = String(payload.fromName || getSettingValue("mail.fromName", SETTINGS.mailFromName)).trim();
   sendConfiguredEmail({
     to,
@@ -1991,14 +2257,13 @@ function sendIntegrationTestEmail(payload) {
     htmlBody: "<p>Questa email conferma che il <strong>mittente configurato</strong> nel Workshop Planner funziona correttamente.</p>",
     name: fromName,
     replyTo,
-    senderAlias,
   });
   return {
     ok: true,
     source: "google-workspace",
     sent: true,
     to,
-    senderEmail: senderAlias || Session.getEffectiveUser().getEmail() || "Account proprietario Apps Script",
+    senderEmail: mailOAuth.senderEmail,
   };
 }
 
@@ -2274,7 +2539,7 @@ function getGoogleHealth(params) {
   const calendarName = getRuntimeCalendarName();
   const driveRootFolderId = getRuntimeDriveRootFolderId();
   const slidesRootFolderId = getRuntimeSlidesRootFolderId();
-  const gmailAuthorization = getGmailAuthorizationState();
+  const mailOAuth = getMailOAuthStatus();
   const health = {
     ok: true,
     source: "google-workspace",
@@ -2305,20 +2570,21 @@ function getGoogleHealth(params) {
     },
     mail: {
       remainingDailyQuota: MailApp.getRemainingDailyQuota(),
-      senderEmail: getSettingValue("mail.senderAlias", SETTINGS.mailSenderAlias) || Session.getEffectiveUser().getEmail() || "Account proprietario Apps Script",
-      primarySenderEmail: Session.getEffectiveUser().getEmail() || "Account proprietario Apps Script",
-      senderAlias: getSettingValue("mail.senderAlias", SETTINGS.mailSenderAlias),
-      aliases: gmailAuthorization.aliases,
-      authorizationRequired: gmailAuthorization.required,
-      authorizationUrl: gmailAuthorization.url,
+      senderEmail: mailOAuth.senderEmail,
+      fallbackEmail: mailOAuth.fallbackEmail,
+      connectedEmail: mailOAuth.connectedEmail,
+      connected: mailOAuth.connected,
+      configured: mailOAuth.configured,
+      connectedAt: mailOAuth.connectedAt,
+      redirectUri: mailOAuth.redirectUri,
       fromName: getSettingValue("mail.fromName", SETTINGS.mailFromName),
       replyTo: getSettingValue("mail.replyTo", SETTINGS.mailReplyTo),
-      provider: getSettingValue("mail.senderAlias", SETTINGS.mailSenderAlias) ? "Google GmailApp alias" : "Google MailApp",
+      provider: mailOAuth.provider,
     },
     checkedAt: formatTimestamp(new Date()),
     cached: false,
   };
-  if (!gmailAuthorization.required) cache.put(cacheKey, JSON.stringify(health), 60);
+  cache.put(cacheKey, JSON.stringify(health), 60);
   return health;
 }
 
@@ -2820,19 +3086,23 @@ function normalizeSeedAuthUser(user) {
 }
 
 function listAuthUsers() {
-  seedAuthUsersIfNeeded();
   const sheet = getAuthUsersSheet();
-  const rows = sheet.getDataRange().getValues();
-  const usersById = new Map();
-  if (rows.length > 1) {
-    rows.slice(1).map(rowToAuthUser).filter(Boolean).forEach(function(user) {
-      usersById.set(user.id, user);
+  const lastRow = sheet.getLastRow();
+  const usersById = {};
+  const userIds = [];
+  if (lastRow > 1) {
+    const rows = sheet.getRange(2, 1, lastRow - 1, AUTH_USER_HEADERS.length).getDisplayValues();
+    rows.map(rowToAuthUser).filter(Boolean).forEach(function(user) {
+      const userId = String(user.id || "");
+      if (!userId) return;
+      if (!Object.prototype.hasOwnProperty.call(usersById, userId)) userIds.push(userId);
+      usersById[userId] = user;
     });
   }
   return {
     ok: true,
     source: "google-sheet",
-    users: Array.from(usersById.values()),
+    users: userIds.map(function(userId) { return usersById[userId]; }),
   };
 }
 
@@ -2856,8 +3126,9 @@ function dedupeAuthUsersSheet() {
 
 function listAccessRequests() {
   const sheet = getAccessRequestsSheet();
-  const rows = sheet.getDataRange().getValues();
-  const requests = rows.length <= 1 ? [] : rows.slice(1).map(rowToAccessRequest).filter(Boolean).sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""))).map(publicAccessRequest);
+  const lastRow = sheet.getLastRow();
+  const rows = lastRow <= 1 ? [] : sheet.getRange(2, 1, lastRow - 1, ACCESS_REQUEST_HEADERS.length).getDisplayValues();
+  const requests = rows.map(rowToAccessRequest).filter(Boolean).sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""))).map(publicAccessRequest);
   return {
     ok: true,
     source: "google-sheet",
@@ -3182,7 +3453,7 @@ function findAuthUserRowByEmail(email, sheet) {
 
 function saveAuthSession(session) {
   const sheet = getAuthSessionsSheet();
-  upsertSheetRow(sheet, AUTH_SESSION_HEADERS, session.token, authSessionToRow(session));
+  sheet.appendRow(authSessionToRow(session));
 }
 
 function authSessionToRow(session) {
@@ -3221,12 +3492,16 @@ function rowToAuthSession(row) {
 function findAuthSessionByToken(token) {
   const target = String(token || "");
   if (!target) return null;
-  const rows = getAuthSessionsSheet().getDataRange().getValues();
-  for (let index = 1; index < rows.length; index += 1) {
-    const session = rowToAuthSession(rows[index]);
-    if (session && session.token === target) return session;
-  }
-  return null;
+  const sheet = getAuthSessionsSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return null;
+  const match = sheet
+    .getRange(2, 1, lastRow - 1, 1)
+    .createTextFinder(target)
+    .matchEntireCell(true)
+    .findNext();
+  if (!match) return null;
+  return rowToAuthSession(sheet.getRange(match.getRow(), 1, 1, AUTH_SESSION_HEADERS.length).getDisplayValues()[0]);
 }
 
 function createSmokeTestSession(payload) {

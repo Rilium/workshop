@@ -1,5 +1,6 @@
 import { appendSessionParams, withSessionPayload } from "./authTransport";
 import { SECRET_SETTINGS } from "./secretSettings";
+import { fetchAppsScript } from "./appsScriptTransport";
 import type { AppNotification, AppNotificationRole } from "./types/domain";
 
 function getScriptUrl() {
@@ -18,7 +19,7 @@ async function getAppsScript<T>(action: string): Promise<T> {
   const url = new URL(scriptUrl);
   url.searchParams.set("action", action);
   appendSessionParams(url);
-  const response = await fetch(url.toString());
+  const response = await fetchAppsScript(url.toString());
   if (!response.ok) throw new Error(`Lettura ${action} non riuscita`);
   const result = (await response.json().catch(() => null)) as (T & { ok?: boolean; error?: string }) | null;
   if (!result) throw new Error("Apps Script ha risposto con un formato non valido");
@@ -29,7 +30,7 @@ async function getAppsScript<T>(action: string): Promise<T> {
 async function postAppsScript<T>(action: string, payload: unknown): Promise<T> {
   const scriptUrl = getScriptUrl();
   if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
-  const response = await fetch(scriptUrl, {
+  const response = await fetchAppsScript(scriptUrl, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify({

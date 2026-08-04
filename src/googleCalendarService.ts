@@ -2,6 +2,7 @@ import { SECRET_SETTINGS } from "./secretSettings";
 import { withSessionPayload } from "./authTransport";
 import { calendarDateLimitMessage, isCalendarDateAllowed } from "./utils/dateLimits";
 import type { Duration } from "./types/domain";
+import { fetchAppsScript } from "./appsScriptTransport";
 
 export type CalendarSlot = {
   time: string;
@@ -150,7 +151,7 @@ export async function getWorkshopAvailability(params: {
   if (params.expertIds?.length) url.searchParams.set("expertIds", params.expertIds.join(","));
 
   try {
-    const response = await fetch(url.toString());
+    const response = await fetchAppsScript(url.toString());
     if (!response.ok) throw new Error("Calendar FreeBusy request failed");
     const result = (await response.json().catch(() => null)) as (Partial<CalendarAvailability> & { ok?: boolean; error?: string }) | null;
     if (result?.ok === false) throw new Error(result.error || "Calendar FreeBusy request failed");
@@ -177,7 +178,7 @@ export async function getExpertFunniFinAvailability(params: {
   if (params.horizonDays) url.searchParams.set("horizonDays", String(params.horizonDays));
 
   try {
-    const response = await fetch(url.toString());
+    const response = await fetchAppsScript(url.toString());
     if (!response.ok) throw new Error("Expert Calendar request failed");
     const result = (await response.json().catch(() => null)) as (Partial<CalendarAvailability> & { ok?: boolean; error?: string }) | null;
     if (result?.ok === false) throw new Error(result.error || "Lettura Calendar esperto non riuscita");
@@ -195,7 +196,7 @@ export async function connectExpertCalendar(calendarId: string): Promise<ExpertC
   if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
   try {
-    const response = await fetch(scriptUrl, {
+    const response = await fetchAppsScript(scriptUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({
@@ -221,7 +222,7 @@ export async function createExpertCalendar(): Promise<ExpertCalendarConnection> 
   if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
   try {
-    const response = await fetch(scriptUrl, {
+    const response = await fetchAppsScript(scriptUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({
@@ -248,7 +249,7 @@ export async function createExpertCalendarEvent(payload: ExpertCalendarEventPayl
   if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
   try {
-    const response = await fetch(scriptUrl, {
+    const response = await fetchAppsScript(scriptUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({
@@ -275,7 +276,7 @@ export async function createWorkshopCalendarEvent(payload: CalendarEventPayload)
   if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
   try {
-    const response = await fetch(scriptUrl, {
+    const response = await fetchAppsScript(scriptUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({

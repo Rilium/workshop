@@ -1,4 +1,5 @@
 import { SECRET_SETTINGS } from "./secretSettings";
+import { fetchAppsScript } from "./appsScriptTransport";
 import { appendSessionParams, withSessionPayload } from "./authTransport";
 import type { Duration, SurveyProfile } from "./types/domain";
 
@@ -196,7 +197,7 @@ async function postAppsScript<T>(body: unknown): Promise<T> {
   const scriptUrl = getScriptUrl();
   if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
-  const response = await fetch(scriptUrl, {
+  const response = await fetchAppsScript(scriptUrl, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify(body),
@@ -246,7 +247,7 @@ export async function listWorkshopRequests(): Promise<WorkshopRequestRecord[]> {
   appendSessionParams(url);
 
   try {
-    const response = await fetch(url.toString());
+    const response = await fetchAppsScript(url.toString());
     if (!response.ok) throw new Error("Lettura richieste non riuscita");
     const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; requests?: WorkshopRequestRecord[] } | null;
     if (!result) throw new Error("Apps Script ha risposto con un formato non valido");

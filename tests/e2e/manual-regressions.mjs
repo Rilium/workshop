@@ -85,7 +85,52 @@ async function run() {
     assert(pageText.includes(todayKey()), `Confirmed date should include ${todayKey()}`);
     assert(!errors.some((error) => /same key|duplicate/i.test(error)), `Duplicate-key console error found: ${errors.join(" | ")}`);
 
-    console.log("PASS manual regressions: empty client start, calendar selects today, no duplicate toast keys");
+    const bundlePage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await bundlePage.addInitScript(() => {
+      Math.random = () => 0;
+    });
+    await bundlePage.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+    await bundlePage.waitForTimeout(1800);
+    await bundlePage.getByRole("button", { name: "Esplora catalogo", exact: true }).click();
+    const bundleCards = bundlePage.locator(".bundle-card");
+    const firstBundleTitle = await bundleCards.nth(0).locator(".bundle-card-copy > strong").textContent();
+    const secondBundleTitle = await bundleCards.nth(1).locator(".bundle-card-copy > strong").textContent();
+    const firstBundleTitles = await bundleCards.nth(0).locator(".bundle-member-disclosure li strong").allTextContents();
+    const secondBundleTitles = await bundleCards.nth(1).locator(".bundle-member-disclosure li strong").allTextContents();
+    const expectedUniqueWorkshopCount = new Set([...firstBundleTitles, ...secondBundleTitles]).size;
+    await bundlePage.getByPlaceholder("Cerca nel catalogo").fill(firstBundleTitles[0]);
+    await bundlePage.getByRole("button", { name: `Aggiungi ${firstBundleTitles[0]} al percorso`, exact: true }).click();
+    assert(await bundlePage.locator(".cart-line").count() === 1, "Standalone workshop should be added once");
+    await bundlePage.getByLabel("Cancella ricerca").click();
+    await bundlePage.locator(".bundle-card").filter({ hasText: firstBundleTitle || "" }).getByRole("button", { name: "Aggiungi il pacchetto" }).click();
+    assert(await bundlePage.locator(".cart-line").count() === new Set(firstBundleTitles).size, "Bundle should absorb an existing member without duplicating it");
+    await bundlePage.getByText("Pacchetto aggiunto senza doppioni", { exact: true }).waitFor();
+    await bundlePage.getByPlaceholder("Cerca nel catalogo").fill(firstBundleTitles[0]);
+    assert(await bundlePage.getByText("Incluso nel pacchetto", { exact: true }).count() === 1, "Included workshop should be marked as part of the bundle");
+    assert(await bundlePage.getByRole("button", { name: `Aggiungi ${firstBundleTitles[0]} al percorso`, exact: true }).count() === 0, "Included workshop must not expose a duplicate add action");
+    await bundlePage.getByLabel("Cancella ricerca").click();
+    await bundlePage.locator(".bundle-card").filter({ hasText: secondBundleTitle || "" }).getByRole("button", { name: "Aggiungi il pacchetto" }).click();
+    await bundlePage.waitForTimeout(200);
+    assert(await bundlePage.locator(".bundle-card.selected").count() === 2, "Both selected bundles should remain active");
+    assert(await bundlePage.locator(".cart-bundle-list > div").count() === 2, "Cart should summarize both selected bundles");
+    assert(
+      await bundlePage.locator(".cart-line").count() === expectedUniqueWorkshopCount,
+      "Shared workshops should appear only once when multiple bundles are selected",
+    );
+    const cartLinesHeight = await bundlePage.locator(".cart-lines").evaluate((element) => element.clientHeight);
+    const firstCartLineHeight = await bundlePage.locator(".cart-line").first().evaluate((element) => element.getBoundingClientRect().height);
+    assert(
+      cartLinesHeight >= firstCartLineHeight,
+      `Desktop cart must show at least one complete workshop row: viewport ${cartLinesHeight}px, row ${firstCartLineHeight}px`,
+    );
+    const sharedWorkshopTitle = firstBundleTitles.find((title) => secondBundleTitles.includes(title));
+    assert(Boolean(sharedWorkshopTitle), "Fixture should contain a workshop shared by the first two bundles");
+    await bundlePage.getByLabel(`Rimuovi ${sharedWorkshopTitle}`).last().click();
+    assert(await bundlePage.locator(".cart-bundle-list > div").count() === 0, "Removing a shared member should invalidate both bundles");
+    await bundlePage.getByText(/2 pacchetti collegati non sono più completi/).waitFor();
+    await bundlePage.close();
+
+    console.log("PASS manual regressions: empty start, calendar, multi-bundle cart, sidebar height, no duplicate toast keys");
   } finally {
     if (browser) await browser.close();
     server.kill("SIGTERM");

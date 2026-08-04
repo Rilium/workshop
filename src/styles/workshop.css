@@ -103,9 +103,9 @@
   align-self: stretch;
   width: 100%;
   display: grid;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
   min-height: 0;
-  padding: var(--sp-5) var(--sp-4);
+  padding: var(--sp-3);
   border-radius: var(--radius-lg);
   background: var(--brand-light);
   border: 1px solid var(--brand-mid);
@@ -1735,9 +1735,9 @@
 
 .cart-bundle-summary {
   display: grid;
-  gap: 2px;
-  margin: var(--sp-3);
-  padding: var(--sp-3);
+  gap: 1px;
+  margin: 0;
+  padding: 10px 12px;
   border: 1px solid var(--brand-border);
   border-radius: var(--radius-lg);
   background: var(--brand-light);
@@ -1752,6 +1752,37 @@
 
 .cart-bundle-summary strong {
   color: var(--brand-dark);
+}
+
+.cart-bundle-list {
+  display: grid;
+  gap: 2px;
+  margin-block: 3px;
+}
+
+.cart-bundle-list > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+
+.cart-bundle-list strong {
+  min-width: 0;
+  font-size: var(--text-xs);
+  line-height: 1.2;
+}
+
+.cart-bundle-list small {
+  display: none;
+}
+
+.cart-bundle-summary .cart-bundle-note {
+  display: block;
+  margin-top: 3px;
+  color: var(--brand-dark);
+  font-size: 0.68rem;
+  line-height: 1.25;
 }
 
 .recommendation-intro {

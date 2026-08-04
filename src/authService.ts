@@ -6,6 +6,7 @@ import type { AuthRole, AuthSession, AuthUser, AccessRequest } from "./types/aut
 import type { Role } from "./types/domain";
 import { SECRET_SETTINGS } from "./secretSettings";
 import { AUTH_SESSION_KEY, appendSessionParams, withSessionPayload } from "./authTransport";
+import { fetchAppsScript } from "./appsScriptTransport";
 
 export type RequestLoginCodeOptions = {
   sendMail?: boolean;
@@ -93,7 +94,7 @@ async function getAppsScript<T>(action: string, params?: Record<string, string>)
   });
 
   try {
-    const response = await fetch(url.toString());
+    const response = await fetchAppsScript(url.toString());
     if (!response.ok) throw new Error(`Lettura ${action} non riuscita`);
     const result = (await response.json().catch(() => null)) as ScriptResponse<T> | null;
     if (!result) throw new Error("Apps Script ha risposto con un formato non valido");
@@ -106,7 +107,7 @@ async function getAppsScript<T>(action: string, params?: Record<string, string>)
 
 async function postAppsScript<T>(action: string, payload: unknown): Promise<T> {
   try {
-    const response = await fetch(requireScriptUrl(), {
+    const response = await fetchAppsScript(requireScriptUrl(), {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({

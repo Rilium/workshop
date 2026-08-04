@@ -25,22 +25,40 @@ export function useQuote(
       (total, { selection, workshop }) => total + getWorkshopSelectionPrice(workshop, selection, commercialConfig).recordingDiscount,
       0,
     );
-    const requestedBundleId = selections.find((selection) => selection.bundleId)?.bundleId;
-    const activeBundle = bundles.find((bundle) => bundle.id === requestedBundleId && bundle.active);
-    const bundleComplete = Boolean(
-      activeBundle &&
-      activeBundle.workshopIds.every((workshopId) =>
-        selections.some((selection) => selection.workshopId === workshopId && selection.bundleId === activeBundle.id),
+    const requestedBundleIds = Array.from(new Set(selections.flatMap((selection) =>
+      selection.bundleIds ?? (selection.bundleId ? [selection.bundleId] : []),
+    )));
+    const activeBundles = bundles.filter((bundle) =>
+      bundle.active &&
+      requestedBundleIds.includes(bundle.id) &&
+      bundle.workshopIds.every((workshopId) =>
+        selections.some((selection) =>
+          selection.workshopId === workshopId &&
+          (selection.bundleIds ?? (selection.bundleId ? [selection.bundleId] : [])).includes(bundle.id),
+        ),
       ),
     );
-    const bundleBase = bundleComplete && activeBundle
-      ? selectedWorkshops
-          .filter(({ selection }) => selection.bundleId === activeBundle.id)
-          .reduce((total, { selection, workshop }) => total + getWorkshopSelectionPrice(workshop, selection, commercialConfig).base, 0)
-      : 0;
-    const quantityDiscount = bundleComplete && activeBundle ? Math.max(0, bundleBase - getBundlePrice(activeBundle, commercialConfig)) : 0;
-    const rule: PricingRule = bundleComplete && activeBundle
-      ? { id: activeBundle.id, name: activeBundle.title, min: activeBundle.size, max: activeBundle.size, discountPercent: bundleBase > 0 ? Math.round((quantityDiscount / bundleBase) * 100) : 0 }
+    const bundleSummaries = activeBundles.map((bundle) => {
+      const bundleBase = selectedWorkshops
+        .filter(({ selection }) =>
+          (selection.bundleIds ?? (selection.bundleId ? [selection.bundleId] : [])).includes(bundle.id),
+        )
+        .reduce((total, { selection, workshop }) => total + getWorkshopSelectionPrice(workshop, selection, commercialConfig).base, 0);
+      return { id: bundle.id, title: bundle.title, discount: Math.max(0, bundleBase - getBundlePrice(bundle, commercialConfig)) };
+    });
+    const sharedBundleWorkshopCount = selectedWorkshops.filter(({ selection }) => {
+      const membershipIds = selection.bundleIds ?? (selection.bundleId ? [selection.bundleId] : []);
+      return membershipIds.filter((bundleId) => activeBundles.some((bundle) => bundle.id === bundleId)).length > 1;
+    }).length;
+    const quantityDiscount = bundleSummaries.reduce((total, bundle) => total + bundle.discount, 0);
+    const rule: PricingRule = activeBundles.length > 0
+      ? {
+          id: activeBundles.map((bundle) => bundle.id).join("+"),
+          name: activeBundles.length === 1 ? activeBundles[0].title : `${activeBundles.length} pacchetti selezionati`,
+          min: activeBundles.reduce((total, bundle) => total + bundle.size, 0),
+          max: activeBundles.reduce((total, bundle) => total + bundle.size, 0),
+          discountPercent: gross > 0 ? Math.round((quantityDiscount / gross) * 100) : 0,
+        }
       : { id: "a-la-carte", name: "Workshop à-la-carte", min: 1, max: 99, discountPercent: 0 };
     const promoDiscount = selectedWorkshops.reduce((total, { selection, workshop }) => {
       const price = getWorkshopSelectionPrice(workshop, selection, commercialConfig);
@@ -58,8 +76,12 @@ export function useQuote(
       total: Math.max(0, gross - quantityDiscount - promoDiscount + customTotal - recordingDiscount),
       saved: quantityDiscount + promoDiscount + recordingDiscount,
       recordingDiscount,
-      bundleId: bundleComplete ? activeBundle?.id : undefined,
-      bundleTitle: bundleComplete ? activeBundle?.title : undefined,
+      bundleId: activeBundles[0]?.id,
+      bundleTitle: activeBundles.length === 1 ? activeBundles[0].title : activeBundles.length > 1 ? `${activeBundles.length} pacchetti selezionati` : undefined,
+      bundleIds: activeBundles.map((bundle) => bundle.id),
+      bundleTitles: activeBundles.map((bundle) => bundle.title),
+      bundleSummaries,
+      sharedBundleWorkshopCount,
     };
   }, [bundles, commercialConfig, rules, selections, workshops]);
 }

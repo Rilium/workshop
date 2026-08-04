@@ -1,5 +1,6 @@
 import { SECRET_SETTINGS } from "./secretSettings";
 import { appendSessionParams, withSessionPayload } from "./authTransport";
+import { fetchAppsScript } from "./appsScriptTransport";
 
 export type CatalogTopicConfig = {
   id: string;
@@ -100,12 +101,13 @@ export type GoogleHealth = {
   };
   mail: {
     remainingDailyQuota: number;
-    senderEmail?: string;
-    primarySenderEmail?: string;
-    senderAlias?: string;
-    aliases?: string[];
-    authorizationRequired?: boolean;
-    authorizationUrl?: string;
+    senderEmail: string;
+    fallbackEmail: string;
+    connectedEmail: string;
+    connected: boolean;
+    configured: boolean;
+    connectedAt: string;
+    redirectUri: string;
     fromName?: string;
     replyTo?: string;
     provider?: string;
@@ -119,7 +121,7 @@ export type IntegrationSettingsTest = {
   calendar?: { id: string; name: string };
   spreadsheet?: { id: string; url: string; name: string };
   drive?: { rootFolderId: string; rootFolderName: string; slidesRootFolderId: string; slidesRootFolderName: string };
-  mail?: { senderEmail: string; primarySenderEmail: string; senderAlias: string; aliases: string[]; authorizationRequired: boolean; authorizationUrl: string; fromName: string; replyTo: string; remainingDailyQuota: number; provider: string };
+  mail?: { senderEmail: string; fallbackEmail: string; connectedEmail: string; connected: boolean; configured: boolean; connectedAt: string; redirectUri: string; fromName: string; replyTo: string; remainingDailyQuota: number; provider: string };
 };
 
 function getScriptUrl() {
@@ -147,7 +149,7 @@ async function getAppsScript<T>(action: string, params?: Record<string, string>)
   });
 
   try {
-    const response = await fetch(url.toString());
+    const response = await fetchAppsScript(url.toString());
     if (!response.ok) throw new Error(`Lettura ${action} non riuscita`);
     const result = (await response.json().catch(() => null)) as (T & { ok?: boolean; error?: string }) | null;
     if (!result) throw new Error("Apps Script ha risposto con un formato non valido");
@@ -163,7 +165,7 @@ async function postAppsScript<T>(action: string, payload: unknown): Promise<T> {
   if (!scriptUrl) throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
 
   try {
-    const response = await fetch(scriptUrl, {
+    const response = await fetchAppsScript(scriptUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({
@@ -254,14 +256,12 @@ export async function testIntegrationSettings(payload: {
   slidesRootFolderId?: string;
   fromName?: string;
   replyTo?: string;
-  senderAlias?: string;
 }): Promise<IntegrationSettingsTest> {
   return postAppsScript<IntegrationSettingsTest>("testIntegrationSettings", payload);
 }
 
 export async function sendIntegrationTestEmail(payload: {
   to: string;
-  senderAlias?: string;
   fromName?: string;
   replyTo?: string;
 }): Promise<{ sent: boolean; to: string; senderEmail: string }> {
@@ -274,11 +274,35 @@ export async function updateIntegrationProperties(payload: {
   calendarName?: string;
   driveRootFolderId?: string;
   slidesRootFolderId?: string;
-  senderAlias?: string;
   fromName?: string;
   replyTo?: string;
 }): Promise<{ updated: string[] }> {
   return postAppsScript<{ updated: string[] }>("updateIntegrationProperties", payload);
+}
+
+export type MailOAuthStatus = {
+  configured: boolean;
+  connected: boolean;
+  connectedEmail: string;
+  fallbackEmail: string;
+  senderEmail: string;
+  connectedAt: string;
+  redirectUri: string;
+  provider: string;
+};
+
+export async function configureMailOAuth(payload: { clientId: string; clientSecret: string }): Promise<MailOAuthStatus> {
+  const result = await postAppsScript<{ mailOAuth: MailOAuthStatus }>("configureMailOAuth", payload);
+  return result.mailOAuth;
+}
+
+export async function beginMailOAuth(returnOrigin: string): Promise<{ authorizationUrl: string; redirectUri: string }> {
+  return postAppsScript("beginMailOAuth", { returnOrigin });
+}
+
+export async function disconnectMailOAuth(): Promise<MailOAuthStatus> {
+  const result = await postAppsScript<{ mailOAuth: MailOAuthStatus }>("disconnectMailOAuth", {});
+  return result.mailOAuth;
 }
 
 export async function clearBackendCaches(): Promise<{ cleared: boolean; clearedAt: string }> {

@@ -43,22 +43,58 @@ label.has-error textarea {
 }
 
 .bottom-action-bar.client-bottom-bar .bottom-action-copy {
-  gap: var(--sp-3);
+  width: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  justify-items: start;
+  gap: 5px;
+}
+
+.bottom-action-bar.client-bottom-bar .bottom-action-copy > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px var(--sp-2);
+}
+
+.bottom-action-bar.client-bottom-bar .bottom-action-copy > div:first-child > strong {
+  color: var(--neutral-600);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
+}
+
+.bottom-action-bar.client-bottom-bar .bottom-price-stack {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: baseline;
+  gap: 4px var(--sp-2);
+  padding-left: 0;
+  border-left: 0;
+  justify-items: start;
+}
+
+.bottom-action-bar.client-bottom-bar .bottom-action-buttons,
+.bottom-action-bar.client-bottom-bar .bottom-action-buttons .bottom-back-btn {
+  align-items: flex-start;
+  align-self: flex-start;
 }
 
 .bottom-action-bar.client-bottom-bar .bottom-action-copy em {
-  max-width: 210px;
-  margin-left: -4px;
+  max-width: min(460px, 48vw);
+  margin-left: 0;
   padding-left: 0;
   border-left: 0;
   color: var(--brand-dark);
   font-family: var(--font-display);
-  font-size: 1.22rem;
+  font-size: 0.92rem;
   font-weight: var(--fw-bold);
-  line-height: 0.98;
+  line-height: 1.05;
   opacity: 1;
-  transform: rotate(2deg);
-  transform-origin: left center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: none;
 }
 
 .date-planning-choice-grid {
@@ -1575,7 +1611,7 @@ label.has-error textarea {
   height: calc(90dvh - var(--cart-visible-top, 88px) - 24px);
   max-height: calc(90dvh - var(--cart-visible-top, 88px) - 24px);
   display: grid;
-  grid-template-rows: auto minmax(240px, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: var(--sp-4);
   align-content: stretch;
   overflow: hidden;
@@ -1584,6 +1620,10 @@ label.has-error textarea {
   border-radius: var(--radius-2xl);
   background: var(--white);
   box-shadow: var(--brand-shadow-hover);
+}
+
+.ecommerce-cart.has-bundle {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
 }
 
 @media (min-width: 981px) {

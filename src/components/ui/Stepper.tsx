@@ -47,7 +47,7 @@ export function Stepper({
               className={`ff-tab ${isDone ? "ff-tab--done" : isActive ? "ff-tab--active" : "ff-tab--future"} ${isGated ? "ff-tab--gated" : ""}`}
               onClick={() => onStep(step)}
               aria-current={isActive ? "step" : undefined}
-              aria-label={isGated ? `${step}: completa prima il percorso guidato` : undefined}
+              aria-label={isGated ? `${step}: completa prima il percorso guidato` : step}
             >
               <span className="ff-tab-indicator">
                 {isGated ? <Sparkles size={11} /> : isDone ? <Check size={11} /> : index + 1}

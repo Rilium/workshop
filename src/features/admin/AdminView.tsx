@@ -256,6 +256,8 @@ export function AdminView({
   const [expertsSyncedAt, setExpertsSyncedAt] = useState("");
   const [catalogRefreshedAt, setCatalogRefreshedAt] = useState("");
   const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogRemoteLoading, setCatalogRemoteLoading] = useState(true);
+  const [catalogRemoteError, setCatalogRemoteError] = useState("");
   const [catalogImporting, setCatalogImporting] = useState(false);
   const [bundlesSaving, setBundlesSaving] = useState(false);
   const [catalogWorkshopDraft, setCatalogWorkshopDraft] = useState<CatalogWorkshopConfig | null>(null);
@@ -306,6 +308,9 @@ export function AdminView({
   const [authUsers, setAuthUsers] = useState<AuthUser[]>([]);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
   const [authLoading, setAuthLoading] = useState(false);
+  const [authUsersLoaded, setAuthUsersLoaded] = useState(false);
+  const [authUsersError, setAuthUsersError] = useState("");
+  const [accessRequestsError, setAccessRequestsError] = useState("");
   const [authSectionTab, setAuthSectionTab] = useState<"utenti" | "richieste">("utenti");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<"create" | "edit">("create");
@@ -329,15 +334,22 @@ export function AdminView({
 
     const loadAuth = async () => {
       setAuthLoading(true);
+      setAuthUsersError("");
+      setAccessRequestsError("");
       try {
-        const [users, requests] = await Promise.all([listAuthUsers(), listAccessRequests()]);
+        const users = await listAuthUsers();
         if (!alive) return;
         setAuthUsers(users);
-        setAccessRequests(requests);
-      } catch {
+        setAuthUsersLoaded(true);
+      } catch (error) {
+        if (alive) setAuthUsersError(error instanceof Error ? error.message : "Caricamento utenti non riuscito.");
+      }
+      try {
+        const requests = await listAccessRequests();
         if (!alive) return;
-        setAuthUsers([]);
-        setAccessRequests([]);
+        setAccessRequests(requests);
+      } catch (error) {
+        if (alive) setAccessRequestsError(error instanceof Error ? error.message : "Caricamento richieste non riuscito.");
       } finally {
         if (alive) setAuthLoading(false);
       }
@@ -352,15 +364,29 @@ export function AdminView({
 
   const refreshAuthData = async () => {
     setAuthLoading(true);
+    setAuthUsersError("");
+    setAccessRequestsError("");
+    const errors: string[] = [];
     try {
-      const [users, requests] = await Promise.all([listAuthUsers(), listAccessRequests()]);
+      const users = await listAuthUsers();
       setAuthUsers(users);
+      setAuthUsersLoaded(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Aggiornamento utenti non riuscito.";
+      setAuthUsersError(message);
+      errors.push(message);
+    }
+    try {
+      const requests = await listAccessRequests();
       setAccessRequests(requests);
     } catch (error) {
-      notify("Auth", error instanceof Error ? error.message : "Aggiornamento utenti non riuscito.");
+      const message = error instanceof Error ? error.message : "Aggiornamento richieste non riuscito.";
+      setAccessRequestsError(message);
+      errors.push(message);
     } finally {
       setAuthLoading(false);
     }
+    if (errors.length) notify("Utenti e inviti", errors.join(" "));
   };
 
   const resetAuthModal = () => {
@@ -685,6 +711,8 @@ export function AdminView({
   }, []);
   useEffect(() => {
     let alive = true;
+    setCatalogRemoteLoading(true);
+    setCatalogRemoteError("");
     Promise.all([listCatalogConfig(), listCatalogWorkshops()])
       .then(([remoteTopics, remoteWorkshops]) => {
         if (!alive || (remoteTopics.length === 0 && remoteWorkshops.length === 0)) return;
@@ -709,7 +737,11 @@ export function AdminView({
       })
       .catch((error) => {
         if (!alive) return;
+        setCatalogRemoteError(error instanceof Error ? error.message : "Sheet catalogo non disponibile.");
         notify("Catalogo Google non letto", error instanceof Error ? error.message : "Sheet catalogo non disponibile.");
+      })
+      .finally(() => {
+        if (alive) setCatalogRemoteLoading(false);
       });
     return () => {
       alive = false;
@@ -1688,7 +1720,8 @@ export function AdminView({
     { id: "folder", title: "Materiali", body: "Logo, deck e review" },
     { id: "confirm", title: "Conferma", body: "Evento finale" },
   ] as const;
-  const catalogWorkshopsForAdmin = sheetCatalogWorkshops.length > 0 ? sheetCatalogWorkshops : workshops;
+  const importedCatalogWorkshops = useMemo(() => buildClientCatalogSeed([], []).catalogWorkshops, []);
+  const catalogWorkshopsForAdmin = sheetCatalogWorkshops.length > 0 ? sheetCatalogWorkshops : importedCatalogWorkshops;
   const catalogTopicRows = useMemo(
     () =>
       clientCatalogImport.topics.map((sourceTopic) => {
@@ -1715,6 +1748,7 @@ export function AdminView({
       return fallbackCatalogBundles;
     }
   }, [workspaceSettings]);
+  const editableCatalogBundles = sheetCatalogWorkshops.length > 0 ? catalogBundles : fallbackCatalogBundles;
   const catalogSourceLabel = sheetCatalogWorkshops.length > 0 ? "Google Sheet" : "Sheet vuoto";
   const googleHealthMode = googleHealthLoading
     ? "refresh"
@@ -1856,7 +1890,13 @@ export function AdminView({
     {
       id: "Utenti",
       title: "Utenti e inviti",
-      meta: `${authUsers.length} utenti`,
+      meta: authUsersLoaded
+        ? `${authUsers.length} utenti`
+        : authLoading
+          ? "Caricamento..."
+          : authUsersError
+            ? "Dati non disponibili"
+            : "Da caricare",
       body: "Account autorizzati, ruoli, inviti e richieste di accesso.",
       icon: <BadgeCheck size={18} />,
     },
@@ -2988,12 +3028,22 @@ export function AdminView({
                   </article>
                 ))}
               </div>
-              <BundleManager
-                bundles={catalogBundles}
-                workshops={catalogWorkshopsForAdmin}
-                saving={bundlesSaving}
-                onSave={saveCatalogBundles}
-              />
+              {catalogRemoteLoading ? (
+                <div className="catalog-bundle-loading" role="status" aria-label="Caricamento bundle dal catalogo Google">
+                  <SkeletonCard />
+                  <span>Allineo workshop e bundle dal Google Sheet...</span>
+                </div>
+              ) : (
+                <>
+                  {catalogRemoteError && <p className="admin-email-error">Catalogo live non disponibile: uso temporaneamente i dati importati.</p>}
+                  <BundleManager
+                    bundles={editableCatalogBundles}
+                    workshops={catalogWorkshopsForAdmin}
+                    saving={bundlesSaving}
+                    onSave={saveCatalogBundles}
+                  />
+                </>
+              )}
             </div>
           )}
 
@@ -3532,7 +3582,13 @@ export function AdminView({
             <div className="pricing-hero-card">
               <div>
                 <span className="eyebrow">Accessi autorizzati</span>
-                <strong>{authUsers.length} account attivi</strong>
+                <strong>
+                  {authUsersLoaded
+                    ? `${authUsers.filter((user) => !user.disabled).length} account attivi`
+                    : authLoading
+                      ? "Caricamento account..."
+                      : "Account non disponibili"}
+                </strong>
                 <em>Inviti e codici gestiti da FunniFin con Google Sheets.</em>
               </div>
               <div className="pricing-hero-metrics">
@@ -3560,6 +3616,20 @@ export function AdminView({
                 Richieste di accesso
               </button>
             </div>
+            {(authUsersError || accessRequestsError) && (
+              <div className="admin-auth-load-error" role="alert">
+                <AlertCircle size={20} aria-hidden="true" />
+                <div>
+                  <strong>Non riesco a caricare tutti i dati di accesso</strong>
+                  {authUsersError && <span>Utenti: {authUsersError}</span>}
+                  {accessRequestsError && <span>Richieste: {accessRequestsError}</span>}
+                </div>
+                <AppButton type="button" variant="secondary" onClick={() => void refreshAuthData()} disabled={authLoading}>
+                  <RefreshCw size={15} aria-hidden="true" />
+                  Riprova
+                </AppButton>
+              </div>
+            )}
             {authLoading && <p style={{ color: "var(--color-muted)", marginTop: "0.5rem" }}>Carico utenti da Google Sheets...</p>}
             {authSectionTab === "utenti" ? (
               <>
@@ -3653,6 +3723,11 @@ export function AdminView({
                       </td>
                     </tr>
                   ))}
+                  {authUsersLoaded && authUsers.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="admin-auth-empty">Nessun account autorizzato presente nello Sheet.</td>
+                    </tr>
+                  )}
                 </tbody>
                 </table>
               </>
@@ -4165,7 +4240,11 @@ export function AdminView({
         }
         detail={
           adminTab === "Utenti"
-            ? `${authUsers.filter((user) => !user.disabled).length} attivi · ${accessRequests.filter((request) => request.status === "pending").length} in attesa`
+            ? authUsersLoaded
+              ? `${authUsers.filter((user) => !user.disabled).length} attivi · ${accessRequests.filter((request) => request.status === "pending").length} in attesa`
+              : authLoading
+                ? "Caricamento accessi..."
+                : "Dati di accesso non disponibili"
             : adminTab === "Catalogo" && catalogView === "drive"
             ? `${driveLinkedCount}/${workshops.length} slide collegate`
             : adminTab === "Mail"

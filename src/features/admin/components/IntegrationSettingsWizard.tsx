@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarCheck, Check, FolderKanban, Mail, RefreshCw } from "../../../components/ui/FaIcons";
+import { CalendarCheck, Check, FolderKanban, LogIn, LogOut, Mail, RefreshCw, Settings2 } from "../../../components/ui/FaIcons";
 import { AppButton } from "../../../components/ui/AppButton";
 import { Stepper } from "../../../components/ui/Stepper";
 import {
+  beginMailOAuth,
+  configureMailOAuth,
+  disconnectMailOAuth,
   sendIntegrationTestEmail,
   testIntegrationSettings,
   updateIntegrationProperties,
@@ -22,7 +25,6 @@ type IntegrationDraft = {
   slidesRootFolderId: string;
   fromName: string;
   replyTo: string;
-  senderAlias: string;
 };
 
 function buildDraft(settings: Map<string, WorkspaceSetting>, health: GoogleHealth | null): IntegrationDraft {
@@ -33,7 +35,6 @@ function buildDraft(settings: Map<string, WorkspaceSetting>, health: GoogleHealt
     slidesRootFolderId: settings.get("drive.slidesRootFolderId")?.value || health?.drive.slidesRootFolderId || "",
     fromName: settings.get("mail.fromName")?.value || health?.mail.fromName || "FunniFin Workshop Planner",
     replyTo: settings.get("mail.replyTo")?.value || health?.mail.replyTo || "",
-    senderAlias: settings.get("mail.senderAlias")?.value || health?.mail.senderAlias || "",
   };
 }
 
@@ -56,6 +57,10 @@ export function IntegrationSettingsWizard({
   const [busy, setBusy] = useState(false);
   const [testRecipient, setTestRecipient] = useState("");
   const [testSending, setTestSending] = useState(false);
+  const [oauthBusy, setOauthBusy] = useState(false);
+  const [showProductSetup, setShowProductSetup] = useState(false);
+  const [oauthClientId, setOauthClientId] = useState("");
+  const [oauthClientSecret, setOauthClientSecret] = useState("");
   const [verified, setVerified] = useState<Partial<Record<IntegrationStep, IntegrationSettingsTest>>>({});
   const onRefreshRef = useRef(onRefresh);
 
@@ -70,9 +75,20 @@ export function IntegrationSettingsWizard({
   useEffect(() => {
     if (step !== "Email") return;
     const refreshAfterGoogleFlow = () => onRefreshRef.current();
+    const receiveGoogleFlow = (event: MessageEvent) => {
+      const data = event.data as { type?: string; success?: boolean; email?: string; error?: string } | null;
+      if (!data || data.type !== "funnifin-mail-oauth") return;
+      onRefreshRef.current();
+      if (data.success) notify("Mittente collegato", `${data.email || "Il nuovo account"} è ora il mittente attivo.`);
+      else notify("Collegamento non riuscito", data.error || "Google non ha completato il collegamento.");
+    };
     window.addEventListener("focus", refreshAfterGoogleFlow);
-    return () => window.removeEventListener("focus", refreshAfterGoogleFlow);
-  }, [step]);
+    window.addEventListener("message", receiveGoogleFlow);
+    return () => {
+      window.removeEventListener("focus", refreshAfterGoogleFlow);
+      window.removeEventListener("message", receiveGoogleFlow);
+    };
+  }, [notify, step]);
 
   const updateDraft = (patch: Partial<IntegrationDraft>) => {
     setDraft((current) => ({ ...current, ...patch }));
@@ -84,16 +100,13 @@ export function IntegrationSettingsWizard({
   };
 
   const stepIndex = INTEGRATION_STEPS.indexOf(step);
-  const availableAliases = health?.mail.aliases || [];
-  const gmailAuthorizationRequired = health?.mail.authorizationRequired === true;
-  const senderAliasIsAvailable = !draft.senderAlias || availableAliases.includes(draft.senderAlias);
   const replyToIsValid = !draft.replyTo.trim() || EMAIL_PATTERN.test(draft.replyTo.trim());
   const testRecipientIsValid = EMAIL_PATTERN.test(testRecipient.trim());
   const canVerify = step === "Calendario"
     ? Boolean(draft.calendarId.trim() || draft.calendarName.trim())
     : step === "Dati e Drive"
       ? Boolean(draft.driveRootFolderId.trim() || draft.slidesRootFolderId.trim())
-      : Boolean(draft.fromName.trim()) && replyToIsValid && senderAliasIsAvailable && !gmailAuthorizationRequired;
+      : Boolean(draft.fromName.trim()) && replyToIsValid;
 
   const verifyAndSave = async () => {
     if (!canVerify) return;
@@ -107,7 +120,6 @@ export function IntegrationSettingsWizard({
         slidesRootFolderId: draft.slidesRootFolderId,
         fromName: draft.fromName,
         replyTo: draft.replyTo,
-        senderAlias: draft.senderAlias,
       });
       const toSave: WorkspaceSetting[] = step === "Calendario"
         ? [
@@ -120,7 +132,6 @@ export function IntegrationSettingsWizard({
             { key: "drive.slidesRootFolderId", value: draft.slidesRootFolderId.trim(), group: "provider", label: "Drive root Slides" },
           ]
           : [
-            { key: "mail.senderAlias", value: draft.senderAlias.trim().toLowerCase(), group: "mail", label: "Indirizzo mittente" },
             { key: "mail.fromName", value: draft.fromName.trim(), group: "mail", label: "Nome mittente" },
             { key: "mail.replyTo", value: draft.replyTo.trim().toLowerCase(), group: "mail", label: "Rispondi a" },
           ];
@@ -131,7 +142,6 @@ export function IntegrationSettingsWizard({
         calendarName: test.calendar?.name || draft.calendarName,
         driveRootFolderId: draft.driveRootFolderId,
         slidesRootFolderId: draft.slidesRootFolderId,
-        senderAlias: draft.senderAlias,
         fromName: draft.fromName,
         replyTo: draft.replyTo,
       });
@@ -142,6 +152,56 @@ export function IntegrationSettingsWizard({
       notify("Configurazione non salvata", error instanceof Error ? error.message : "Verifica Google non riuscita.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const saveProductOAuth = async () => {
+    if (!oauthClientId.trim() || !oauthClientSecret.trim()) return;
+    setOauthBusy(true);
+    try {
+      await configureMailOAuth({ clientId: oauthClientId.trim(), clientSecret: oauthClientSecret.trim() });
+      setOauthClientSecret("");
+      setShowProductSetup(false);
+      notify("OAuth prodotto configurato", "Ora puoi collegare e sostituire il mittente direttamente dal BO.");
+      onRefresh();
+    } catch (error) {
+      notify("Configurazione OAuth non riuscita", error instanceof Error ? error.message : "Credenziali Google non valide.");
+    } finally {
+      setOauthBusy(false);
+    }
+  };
+
+  const connectMailAccount = async () => {
+    const authWindow = window.open("about:blank", "funnifin-google-mail", "popup=yes,width=620,height=760");
+    setOauthBusy(true);
+    try {
+      const result = await beginMailOAuth(window.location.origin);
+      if (authWindow) authWindow.location.href = result.authorizationUrl;
+      else window.open(result.authorizationUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      authWindow?.close();
+      notify("Collegamento non avviato", error instanceof Error ? error.message : "Google OAuth non disponibile.");
+    } finally {
+      setOauthBusy(false);
+    }
+  };
+
+  const disconnectMailAccount = async () => {
+    if (!window.confirm("Scollegare il mittente attivo? Le email torneranno temporaneamente all'account dell'installazione.")) return;
+    setOauthBusy(true);
+    try {
+      await disconnectMailOAuth();
+      setVerified((current) => {
+        const next = { ...current };
+        delete next.Email;
+        return next;
+      });
+      notify("Mittente scollegato", "Puoi collegare subito un altro account Google.");
+      onRefresh();
+    } catch (error) {
+      notify("Scollegamento non riuscito", error instanceof Error ? error.message : "Riprova.");
+    } finally {
+      setOauthBusy(false);
     }
   };
 
@@ -156,7 +216,6 @@ export function IntegrationSettingsWizard({
     try {
       const result = await sendIntegrationTestEmail({
         to: testRecipient.trim().toLowerCase(),
-        senderAlias: draft.senderAlias,
         fromName: draft.fromName,
         replyTo: draft.replyTo,
       });
@@ -208,43 +267,47 @@ export function IntegrationSettingsWizard({
           </div>
         ) : (
           <div className="integration-step-panel">
-            <div className="integration-step-title"><Mail size={20} /><div><strong>Mittente email</strong><span>Google invia dall'account proprietario dello script.</span></div></div>
-            <div className={`integration-consent-card ${gmailAuthorizationRequired ? "required" : "ready"}`}>
+            <div className="integration-step-title"><Mail size={20} /><div><strong>Mittente email</strong><span>Collega, prova e sostituisci l'account che invia le email.</span></div></div>
+            <div className={`integration-consent-card ${health?.mail.connected ? "ready" : "required"}`}>
               <div>
-                {gmailAuthorizationRequired ? <strong>1. Autorizza Gmail</strong> : <strong><Check size={16} /> 1. Gmail autorizzato</strong>}
-                <span>{gmailAuthorizationRequired ? "Google deve consentire al backend di leggere gli alias e inviare con il sender scelto." : "Il backend può leggere gli alias verificati dell'account."}</span>
+                <strong>{health?.mail.connected ? <><Check size={16} /> Account mittente collegato</> : "Collega l'account mittente"}</strong>
+                <span>{health?.mail.connected ? `${health.mail.connectedEmail} invia tutte le email applicative.` : health?.mail.configured ? "Si aprirà Google: scegli l'account e accetta il solo permesso di invio." : "Prima completa il setup OAuth una tantum del prodotto."}</span>
               </div>
-              {gmailAuthorizationRequired && health?.mail.authorizationUrl ? (
-                <a className="app-btn app-btn-primary" href={health.mail.authorizationUrl} target="_blank" rel="noreferrer">Apri consenso Google</a>
-              ) : (
-                <AppButton type="button" variant="outline" onClick={onRefresh}>Rileggi permessi</AppButton>
-              )}
-            </div>
-            <div className="integration-consent-card ready">
-              <div>
-                <strong>{availableAliases.length ? <><Check size={16} /> 2. Alias disponibili</> : "2. Aggiungi un alias (opzionale)"}</strong>
-                <span>{availableAliases.length ? `${availableAliases.length} indirizzi “Invia come” trovati.` : "Senza alias le mail partono dall'account principale Apps Script."}</span>
+              <div className="integration-inline-actions">
+                <AppButton type="button" variant={health?.mail.connected ? "outline" : "primary"} loading={oauthBusy} disabled={!health?.mail.configured} onClick={() => void connectMailAccount()}>
+                  <LogIn size={16} /> {health?.mail.connected ? "Cambia account" : "Collega Google"}
+                </AppButton>
+                {health?.mail.connected ? <AppButton type="button" variant="ghost" disabled={oauthBusy} onClick={() => void disconnectMailAccount()}><LogOut size={16} /> Scollega</AppButton> : null}
               </div>
-              <a className="app-btn app-btn-outline" href="https://mail.google.com/mail/u/0/#settings/accounts" target="_blank" rel="noreferrer">Gestisci alias Gmail</a>
             </div>
             <div className="integration-current-destination">
-              <span>Mittente reale</span>
+              <span>Mittente attivo adesso</span>
               <strong>{health?.mail.senderEmail || "Rileva dal backend"}</strong>
-              <small>Il menu contiene soltanto il proprietario e gli alias “Invia come” che Google ha già verificato.</small>
+              <small>{health?.mail.connected ? `Connesso via OAuth · ${health.mail.connectedAt || "connessione attiva"}` : `Fallback attuale: ${health?.mail.fallbackEmail || "account dell'installazione"}. Collegando Google verrà sostituito senza cambiare codice.`}</small>
             </div>
             <div className="auth-invite-grid">
-              <label className="auth-invite-field">
-                Indirizzo mittente
-                <select value={draft.senderAlias} onChange={(event) => updateDraft({ senderAlias: event.target.value })}>
-                  <option value="">Account principale · {health?.mail.primarySenderEmail || "Apps Script"}</option>
-                  {availableAliases.map((alias) => <option value={alias} key={alias}>{alias}</option>)}
-                </select>
-              </label>
               <label className="auth-invite-field">Nome visibile<input value={draft.fromName} onChange={(event) => updateDraft({ fromName: event.target.value })} placeholder="FunniFin Workshop Planner" /></label>
               <label className="auth-invite-field">Rispondi a<input type="email" value={draft.replyTo} onChange={(event) => updateDraft({ replyTo: event.target.value })} placeholder="team@azienda.it" /></label>
             </div>
-            {!senderAliasIsAvailable ? <p className="admin-email-error">L'alias salvato non è più autorizzato: scegline uno disponibile o usa l'account principale.</p> : null}
             {!replyToIsValid ? <p className="admin-email-error">Inserisci un indirizzo completo, per esempio nome@azienda.it.</p> : null}
+            {!health?.mail.configured || showProductSetup ? (
+              <div className="integration-product-setup">
+                <button type="button" className="integration-setup-toggle" onClick={() => setShowProductSetup((current) => !current)}>
+                  <Settings2 size={16} /> Setup tecnico prodotto · una sola volta
+                </button>
+                {showProductSetup || !health?.mail.configured ? (
+                  <div className="integration-product-setup-body">
+                    <p>Queste credenziali le configura chi vende il prodotto. Il cliente finale vedrà soltanto “Collega Google”.</p>
+                    <label className="auth-invite-field">URI di reindirizzamento Google<input readOnly value={health?.mail.redirectUri || "Pubblica prima il backend Apps Script"} onFocus={(event) => event.currentTarget.select()} /></label>
+                    <div className="auth-invite-grid">
+                      <label className="auth-invite-field">OAuth Client ID<input value={oauthClientId} onChange={(event) => setOauthClientId(event.target.value)} autoComplete="off" placeholder="…apps.googleusercontent.com" /></label>
+                      <label className="auth-invite-field">OAuth Client Secret<input type="password" value={oauthClientSecret} onChange={(event) => setOauthClientSecret(event.target.value)} autoComplete="new-password" placeholder="••••••••" /></label>
+                    </div>
+                    <AppButton type="button" variant="secondary" loading={oauthBusy} disabled={!oauthClientId.trim() || !oauthClientSecret.trim()} onClick={() => void saveProductOAuth()}>Salva setup OAuth</AppButton>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             {verified.Email?.mail ? <div className="integration-verified"><Check size={16} /><span>{verified.Email.mail.provider} · quota {verified.Email.mail.remainingDailyQuota}</span></div> : null}
             {verified.Email?.mail ? (
               <div className="integration-email-test">

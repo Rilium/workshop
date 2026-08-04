@@ -270,6 +270,28 @@
 }
 
 @media (max-width: 820px) {
+  .request-success-card {
+    grid-template-columns: 56px minmax(0, 1fr);
+    align-items: start;
+    padding: var(--sp-4);
+  }
+
+  .request-success-card .success-check {
+    width: 56px;
+    height: 56px;
+  }
+
+  .request-success-card .submitted-email-box {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .submitted-email-box strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
   .topbar.topbar--public {
     min-height: 76px;
     padding: 10px 14px;
@@ -473,6 +495,15 @@
     grid-template-columns: 1fr;
   }
 
+  .admin-auth-load-error {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .admin-auth-load-error .app-btn {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
   .admin-email-account-card,
   .admin-email-change-summary {
     grid-template-columns: 1fr;
@@ -508,6 +539,11 @@
   }
 
   .integration-consent-card .app-btn {
+    width: 100%;
+  }
+
+  .integration-inline-actions {
+    grid-auto-flow: row;
     width: 100%;
   }
 
@@ -1510,6 +1546,65 @@
   }
 }
 
+@media (max-width: 360px) {
+  .guided-choice-card.recommended {
+    overflow: hidden;
+  }
+
+  .guided-outcome-preview > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(4px, 1.5vw, 8px);
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .guided-outcome-preview span {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    padding-inline: clamp(4px, 2vw, 10px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ff-stepper-tabs {
+    overflow-x: hidden;
+  }
+
+  .ff-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: clamp(3px, 1.5vw, 8px);
+    justify-content: center;
+  }
+
+  .ff-tab--active {
+    flex: 1.65 1 0;
+    min-width: 0;
+  }
+
+  .ff-tab--active .ff-tab-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .workshop-command-summary {
+    overflow-x: hidden;
+  }
+
+  .workshop-command-view-label-mobile {
+    display: block;
+    min-width: 0;
+    flex: 1 1 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 @media (max-width: 420px) {
   .meta-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -1548,9 +1643,122 @@
   padding-inline: clamp(18px, 3vw, 40px);
 }
 
+@media (max-width: 980px) {
+  .bottom-action-bar.client-bottom-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: clamp(18px, 4vw, 48px);
+  }
+
+  .bottom-action-bar.client-bottom-bar .bottom-action-copy {
+    width: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    justify-items: start;
+    gap: 5px;
+  }
+
+  .bottom-action-bar.client-bottom-bar .bottom-price-stack {
+    padding-left: 0;
+    border-left: 0;
+    justify-items: start;
+  }
+
+  .bottom-action-bar.client-bottom-bar .bottom-action-copy em {
+    grid-column: auto;
+  }
+
+  .bottom-action-bar.client-bottom-bar .bottom-action-buttons,
+  .bottom-action-bar.client-bottom-bar .bottom-action-buttons--with-back,
+  .bottom-action-bar.client-bottom-bar .bottom-action-buttons--with-back.bottom-action-buttons--with-secondary {
+    width: auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    gap: var(--sp-2);
+  }
+
+  .bottom-action-bar.client-bottom-bar .bottom-action-buttons .app-btn,
+  .bottom-action-bar.client-bottom-bar .bottom-primary-group,
+  .bottom-action-bar.client-bottom-bar .bottom-primary-group .app-btn,
+  .bottom-action-bar.client-bottom-bar .bottom-action-buttons .bottom-back-btn {
+    grid-column: auto;
+    grid-row: auto;
+    width: auto;
+  }
+
+  .bottom-action-bar.client-bottom-bar .bottom-primary-group {
+    min-width: min(250px, 34vw);
+    height: auto;
+    align-items: stretch;
+  }
+
+  .bottom-action-bar.client-bottom-bar .bottom-primary-group .app-btn {
+    min-width: 0;
+  }
+
+  .bottom-action-bar.client-bottom-bar .bottom-action-buttons .bottom-back-btn {
+    width: 44px;
+    min-width: 44px;
+    justify-self: auto;
+    align-self: flex-start;
+  }
+}
+
 @media (max-width: 640px) {
+  .guided-outcome-preview > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(4px, 1.5vw, 8px);
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .guided-outcome-preview span {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    padding-inline: clamp(4px, 2vw, 10px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .bottom-action-bar.client-bottom-bar {
     width: calc(100vw - 16px);
     padding-inline: var(--sp-3);
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: var(--sp-2);
+  }
+
+  .bottom-action-bar.client-bottom-bar .bottom-action-buttons,
+  .bottom-action-bar.client-bottom-bar .bottom-action-buttons--with-back,
+  .bottom-action-bar.client-bottom-bar .bottom-action-buttons--with-back.bottom-action-buttons--with-secondary {
+    gap: 6px;
+  }
+
+  .bottom-action-bar.client-bottom-bar .bottom-primary-group {
+    min-width: 0;
+  }
+
+  .bottom-action-bar.client-bottom-bar .bottom-primary-group .app-btn,
+  .bottom-action-bar.client-bottom-bar .bottom-primary-group .app-btn > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .bottom-action-bar.client-bottom-bar .bottom-bar-hint {
+    max-width: 180px;
+    font-size: 0.64rem;
+  }
+
+  .bottom-action-bar.client-bottom-bar .bottom-action-copy em {
+    display: none;
   }
 }

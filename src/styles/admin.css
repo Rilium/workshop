@@ -437,6 +437,17 @@
   gap: var(--sp-3);
 }
 
+.catalog-bundle-loading {
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-xl);
+  background: var(--neutral-50);
+  color: var(--neutral-600);
+  font-weight: var(--fw-bold);
+}
+
 .bundle-admin-card {
   display: grid;
   gap: var(--sp-3);
@@ -2311,6 +2322,34 @@
   box-shadow: var(--brand-shadow-card);
 }
 
+.admin-auth-load-error {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--sp-3);
+  align-items: center;
+  padding: var(--sp-4);
+  border: 1px solid rgba(239, 111, 155, 0.42);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-pink);
+  color: var(--accent-pink-dark);
+}
+
+.admin-auth-load-error > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-auth-load-error strong {
+  color: var(--neutral-900);
+}
+
+.admin-auth-load-error span {
+  color: var(--neutral-700);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
 .auth-user-modal {
   width: min(920px, 100%);
 }
@@ -2458,6 +2497,13 @@
   border-bottom: 1px solid var(--neutral-100);
   vertical-align: middle;
   color: var(--neutral-700);
+}
+
+.auth-users-table .admin-auth-empty {
+  padding: var(--sp-6) var(--sp-3);
+  color: var(--neutral-500);
+  text-align: center;
+  font-weight: var(--fw-bold);
 }
 
 .auth-users-table td small {
@@ -3143,6 +3189,13 @@
   font-size: var(--text-sm);
 }
 
+.integration-inline-actions {
+  display: flex !important;
+  grid-auto-flow: column;
+  gap: var(--sp-2) !important;
+  align-items: center;
+}
+
 .integration-current-destination span,
 .integration-current-destination small {
   color: var(--neutral-600);
@@ -3172,11 +3225,40 @@
   font-weight: var(--fw-bold);
 }
 
-.integration-alias-link {
+.integration-product-setup {
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px dashed var(--neutral-300);
+  border-radius: var(--radius-md);
+  background: var(--neutral-50);
+}
+
+.integration-setup-toggle {
+  display: inline-flex;
+  gap: var(--sp-2);
+  align-items: center;
   width: fit-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--brand-dark);
-  font-size: var(--text-sm);
+  font: inherit;
   font-weight: var(--fw-bold);
+  cursor: pointer;
+}
+
+.integration-product-setup-body {
+  display: grid;
+  gap: var(--sp-3);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--neutral-200);
+}
+
+.integration-product-setup-body p {
+  margin: 0;
+  color: var(--neutral-600);
+  font-size: var(--text-sm);
 }
 
 .integration-email-test {

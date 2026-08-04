@@ -1,5 +1,6 @@
 import { SECRET_SETTINGS } from "./secretSettings";
 import { withSessionPayload } from "./authTransport";
+import { fetchAppsScript } from "./appsScriptTransport";
 
 type EmailWorkshop = {
   title: string;
@@ -325,7 +326,7 @@ function buildWorkflowText(payload: WorkflowNotificationPayload, to: string[]) {
 
 async function postAppsScriptJson<T>(scriptUrl: string, body: unknown): Promise<T> {
   const serialized = JSON.stringify(body);
-  const response = await fetch(scriptUrl, {
+  const response = await fetchAppsScript(scriptUrl, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: serialized,

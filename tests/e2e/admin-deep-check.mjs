@@ -39,27 +39,39 @@ function loadEnv() {
   return env;
 }
 
-async function post(env, action, payload) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 90_000);
-  try {
-    const response = await fetch(env.VITE_APPS_SCRIPT_DEPLOYMENT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action, payload }),
-      signal: controller.signal,
-    });
-    const result = await response.json().catch(() => ({}));
-    assert(response.ok && result.ok !== false, `${action}: ${result.error || response.status}`);
-    return result;
-  } finally {
-    clearTimeout(timeout);
+async function post(env, action, payload, { retryTransient = false } = {}) {
+  const delays = retryTransient ? [0, 1_000, 2_000, 4_000, 8_000] : [0];
+  let lastError;
+  for (let attempt = 0; attempt < delays.length; attempt += 1) {
+    if (delays[attempt]) await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90_000);
+    try {
+      const response = await fetch(env.VITE_APPS_SCRIPT_DEPLOYMENT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action, payload }),
+        signal: controller.signal,
+      });
+      const result = await response.json().catch(() => ({}));
+      if (response.ok && result.ok !== false) return result;
+      lastError = new Error(`${action}: ${result.error || response.status}`);
+      if (!retryTransient || response.status !== 404) throw lastError;
+    } catch (error) {
+      lastError = error;
+      if (!retryTransient || attempt === delays.length - 1) throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
+  throw lastError;
 }
 
 async function get(env, action, session, params = {}) {
   let lastError;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  const retryDelays = [0, 1_000, 2_000, 4_000, 8_000];
+  for (let attempt = 1; attempt <= retryDelays.length; attempt += 1) {
+    if (retryDelays[attempt - 1]) await new Promise((resolve) => setTimeout(resolve, retryDelays[attempt - 1]));
     const url = new URL(env.VITE_APPS_SCRIPT_DEPLOYMENT_URL);
     url.searchParams.set("action", action);
     url.searchParams.set("sessionToken", session.token);
@@ -75,7 +87,6 @@ async function get(env, action, session, params = {}) {
       return result;
     } catch (error) {
       lastError = error;
-      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 500));
     } finally {
       clearTimeout(timeout);
     }
@@ -106,11 +117,15 @@ async function backendAudit(env, session) {
   const pricingResult = await get(env, "listPricingRules", session);
   const expertResult = await get(env, "listExperts", session);
   const settingsResult = await get(env, "listWorkspaceSettings", session);
+  const authUserResult = await get(env, "listAuthUsers", session);
+  const accessRequestResult = await get(env, "listAccessRequests", session);
   const topics = topicResult.topics || [];
   const workshops = workshopResult.workshops || [];
   const rules = pricingResult.rules || [];
   const experts = expertResult.experts || [];
   const settings = settingsResult.settings || [];
+  const authUsers = authUserResult.users || [];
+  const accessRequests = accessRequestResult.requests || [];
   const topicIds = new Set(topics.map((topic) => topic.id));
   const workshopIds = new Set(workshops.map((workshop) => workshop.id));
   const settingMap = new Map(settings.map((setting) => [setting.key, setting]));
@@ -138,8 +153,9 @@ async function backendAudit(env, session) {
   assert(Number(settingMap.get("pricing.inPersonExtra")?.value) === 500, "extra presenza errato");
   assert(Number(settingMap.get("pricing.customExtra")?.value) === 500, "extra personalizzazione errato");
   assert(Number(settingMap.get("pricing.recordingOptOutDiscount")?.value) === 100, "riduzione registrazione errata");
+  assert(authUsers.length > 0, "nessun utente autorizzato restituito dallo Sheet");
 
-  return { topics, workshops, rules, experts, settings, bundles, settingMap };
+  return { topics, workshops, rules, experts, settings, bundles, settingMap, authUsers, accessRequests };
 }
 
 async function mutationLifecycle(env, session, baseline) {
@@ -352,7 +368,9 @@ async function uiAudit(env, session, baseline) {
     assert((await page.getByRole("button", { name: /Salva workshop/ }).isDisabled()) === true, "validazione nuovo workshop assente");
     await page.getByRole("button", { name: "Chiudi", exact: true }).click();
 
+    await page.getByLabel("Caricamento bundle dal catalogo Google").waitFor({ state: "detached", timeout: 120_000 });
     const bundleCards = page.locator(".bundle-admin-card");
+    await bundleCards.first().waitFor({ timeout: 30_000 });
     const bundleTitles = await bundleCards.evaluateAll((cards) => cards.map((card) => card.querySelector("input")?.value || ""));
     const casaIndex = bundleTitles.indexOf("Bundle Casa");
     const famigliaIndex = bundleTitles.indexOf("Bundle Famiglia");
@@ -361,7 +379,10 @@ async function uiAudit(env, session, baseline) {
     const famigliaCard = bundleCards.nth(famigliaIndex);
     const casaSelections = await casaCard.locator(".bundle-member-list select").evaluateAll((items) => items.map((item) => item.value));
     const familySelections = await famigliaCard.locator(".bundle-member-list select").evaluateAll((items) => items.map((item) => item.value));
-    assert(JSON.stringify(casaSelections) !== JSON.stringify(familySelections), "UI Casa/Famiglia ancora duplicata");
+    assert(
+      JSON.stringify(casaSelections) !== JSON.stringify(familySelections),
+      `UI Casa/Famiglia ancora duplicata: casa=${JSON.stringify(casaSelections)} famiglia=${JSON.stringify(familySelections)}`,
+    );
     const casaSelects = casaCard.locator(".bundle-member-list select");
     await casaSelects.nth(1).selectOption(casaSelections[2]);
     await casaSelects.nth(2).selectOption(casaSelections[1]);
@@ -444,6 +465,10 @@ async function uiAudit(env, session, baseline) {
     trace("UI: apro Utenti e inviti");
     await clickAdminSection(page, "Utenti e inviti");
     assert((await page.getByRole("heading", { name: "Utenti e inviti", exact: true }).count()) === 1, "utenti non renderizzati");
+    await page.locator(".auth-users-table tbody tr").first().waitFor({ timeout: 30_000 });
+    assert((await page.locator(".auth-users-table tbody tr").count()) === baseline.authUsers.length, "conteggio utenti UI diverso dallo Sheet");
+    assert((await page.locator(".admin-auth-load-error").count()) === 0, "errore di caricamento utenti visibile");
+    assert((await page.locator(".pricing-hero-card").filter({ hasText: `${baseline.authUsers.filter((user) => !user.disabled).length} account attivi` }).count()) === 1, "riepilogo utenti non coerente");
     trace("UI: sezioni informative verificate");
 
     const viewportMatrix = [
@@ -523,7 +548,7 @@ async function run() {
     setupSecret: env.ADMIN_SETUP_SECRET,
     email: env.SMOKE_FUNNIFIN_EMAIL || env.INITIAL_FUNNIFIN_EMAIL || "",
     durationMinutes: 45,
-  });
+  }, { retryTransient: true });
   assert(sessionResult.session?.token, "sessione admin di test non creata");
   const session = sessionResult.session;
   const baseline = await backendAudit(env, session);

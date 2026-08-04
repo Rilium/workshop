@@ -7,6 +7,7 @@ import {
   fallbackCatalogWorkshops as fallbackWorkshops,
 } from "./data/clientCatalog";
 import { SECRET_SETTINGS } from "./secretSettings";
+import { fetchAppsScript } from "./appsScriptTransport";
 import type { CatalogBundle, CommercialConfig, Duration, Format, PricingRule, Topic, Workshop } from "./types/domain";
 import type { CatalogTopicConfig, CatalogWorkshopConfig, PricingRuleConfig } from "./googleAdminService";
 import { buildClientCatalogSeed, catalogDurationOptions } from "./utils/clientCatalogImport";
@@ -164,7 +165,7 @@ export async function getPublicCatalog(): Promise<PublicCatalog> {
   url.searchParams.set("action", "publicCatalog");
 
   try {
-    const response = await fetch(url.toString());
+    const response = await fetchAppsScript(url.toString());
     if (!response.ok) throw new Error("Catalogo pubblico non disponibile");
     const result = (await response.json().catch(() => null)) as PublicCatalogResponse | null;
     if (!result) throw new Error("Apps Script ha risposto con un formato non valido");

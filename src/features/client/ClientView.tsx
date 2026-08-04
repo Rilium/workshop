@@ -444,7 +444,9 @@ export function ClientView({
   const clientSteps = hasCustomizableSelections
     ? allClientSteps
     : allClientSteps.filter((step) => step !== "Personalizza");
-  const selectedBundleId = selections.find((selection) => selection.bundleId)?.bundleId;
+  const selectedBundleIds = new Set(selections.flatMap((selection) =>
+    selection.bundleIds ?? (selection.bundleId ? [selection.bundleId] : []),
+  ));
   const allCatalogActive = activeTopics.length === topics.length && activeThemes.length === allThemes.length;
   const selectedRecommendationCount = recommendedWorkshops.filter((workshop) => selections.some((selection) => selection.workshopId === workshop.id)).length;
   const missingDateRows = selectedWorkshopRows.filter(({ selection }) => !selection.dateConfirmed);
@@ -1640,7 +1642,7 @@ export function ClientView({
                       bundle={bundle}
                       workshops={workshops}
                       commercialConfig={commercialConfig}
-                      selected={selectedBundleId === bundle.id}
+                      selected={selectedBundleIds.has(bundle.id)}
                       onSelect={() => selectBundle(bundle, selectedSurveyProfile?.requestedFormat === "online" ? "webinar" : undefined)}
                       onOpenWorkshop={(workshop) => {
                         setClientStep("Workshop");
@@ -1948,7 +1950,7 @@ export function ClientView({
                       bundle={bundle}
                       workshops={workshops}
                       commercialConfig={commercialConfig}
-                      selected={selectedBundleId === bundle.id}
+                      selected={selectedBundleIds.has(bundle.id)}
                       onSelect={() => selectBundle(bundle, selectedSurveyProfile?.requestedFormat === "online" ? "webinar" : undefined)}
                       onOpenWorkshop={(workshop) => {
                         setCatalogMode("workshops");
@@ -2439,13 +2441,13 @@ export function ClientView({
       <BottomActionBar
         className="client-bottom-bar"
         context={`Step ${activeStepIndex + 1} — ${clientStep}`}
-        detail={`${selectedWorkshopRows.length} workshop ${selectedWorkshopRows.length === 1 ? "selezionato" : "selezionati"}`}
+        detail={`${selectedWorkshopRows.length} ${selectedWorkshopRows.length === 1 ? "selezionato" : "selezionati"}`}
         priceBefore={quote.saved > 0 ? money(quote.gross) : undefined}
         priceAfter={money(quote.total)}
         discountLabel={quote.saved > 0 ? `Sconto ${money(quote.saved)}` : undefined}
         caveat={
-          quote.bundleTitle
-            ? `${quote.bundleTitle}: prezzo pacchetto applicato`
+          quote.bundleTitles?.length
+            ? `${quote.bundleTitles.length === 1 ? quote.bundleTitles[0] : `${quote.bundleTitles.length} pacchetti`}: prezzo dedicato applicato`
             : selectedWorkshopRows.length > 0
               ? "Totale calcolato sui workshop selezionati"
               : undefined

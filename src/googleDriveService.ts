@@ -1,5 +1,6 @@
 import { SECRET_SETTINGS } from "./secretSettings";
 import { appendSessionParams } from "./authTransport";
+import { fetchAppsScript } from "./appsScriptTransport";
 
 export type BrandPresentationStatus = "in_review" | "changes_requested" | "approved" | "archived";
 
@@ -91,7 +92,7 @@ export async function getBrandPresentations(): Promise<BrandPresentationResponse
     const timeout = window.setTimeout(() => controller.abort(), 20000);
 
   try {
-    const response = await fetch(url.toString(), { signal: controller.signal });
+    const response = await fetchAppsScript(url.toString(), { signal: controller.signal });
     if (!response.ok) throw new Error("Drive presentations request failed");
     return (await response.json()) as BrandPresentationResponse;
   } catch (error) {
@@ -118,7 +119,7 @@ export async function getDriveFolderPreview(folderId = getConfiguredFolderId()):
   const timeout = window.setTimeout(() => controller.abort(), 8000);
 
   try {
-    const response = await fetch(url.toString(), { signal: controller.signal });
+    const response = await fetchAppsScript(url.toString(), { signal: controller.signal });
     if (!response.ok) throw new Error("Drive folder request failed");
     return (await response.json()) as DriveFolderResponse;
   } catch (error) {

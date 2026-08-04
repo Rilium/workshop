@@ -152,24 +152,25 @@ async function run() {
     await page.getByRole("button", { name: /^Cliente$/ }).click();
 
     await page.getByRole("heading", { name: /Costruisci il piano formativo/ }).waitFor({ timeout: 30000 });
-    await page.getByRole("button", { name: /Inizia/ }).click();
-    await page.getByRole("heading", { name: "Su quali temi vuoi generare maggiore impatto?" }).waitFor({ timeout: 5000 });
+    await page.getByRole("button", { name: "Vedi dettagli" }).first().click();
+    await page.getByRole("dialog").getByRole("button", { name: "Inizia percorso guidato" }).click();
+    await page.getByRole("heading", { name: "Su quali ambiti vuoi generare maggiore impatto?" }).waitFor({ timeout: 5000 });
     await page.getByRole("button", { name: /Retribuzione/ }).click();
     await page.getByRole("button", { name: /Risparmio/ }).click();
     await assertIconCentered(page);
     await page.locator(".survey-nav").getByRole("button", { name: "Continua" }).click();
 
-    await answerCurrentQuestion(page, /Formazione pratica/);
+    await answerCurrentQuestion(page, /Sensibilizzazione/);
     await page.getByRole("button", { name: /51-200/ }).click();
     await page.locator(".survey-nav").getByRole("button", { name: "Indietro" }).click();
     await page.getByRole("heading", { name: "Quale risultato vuoi ottenere?" }).waitFor({ timeout: 5000 });
     await page.locator(".survey-nav").getByRole("button", { name: "Continua" }).click();
     await answerCurrentQuestion(page, /51-200/);
-    await answerCurrentQuestion(page, /Webinar live/);
+    await answerCurrentQuestion(page, /^Online/);
     await answerCurrentQuestion(page, /2.000 - 5.000 €/);
 
     await page.getByRole("heading", { name: "Abbiamo trovato il percorso ideale" }).waitFor({ timeout: 10000 });
-    await page.getByRole("button", { name: /Aggiungi percorso consigliato/ }).waitFor({ timeout: 5000 });
+    await page.getByRole("button", { name: /Aggiungi (il pacchetto|i workshop) consigliat/ }).waitFor({ timeout: 5000 });
 
     console.log("PASS e2e: live Google Sheet lifecycle, real sheet auth session, guided survey back/forward");
   } finally {

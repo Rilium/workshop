@@ -13,7 +13,7 @@
    - `REQUEST_SPREADSHEET_ID`: opzionale. Se non lo imposti, lo script usa lo spreadsheet creato per il progetto: `1g0BWyyVw6Fz5krVc1Edd-iTlmYS2CQVUdMgk78veBPs`.
    - `EXPERT_CALENDAR_IDS`: lista separata da virgole degli ID calendario esperti.
    - `INTERNAL_RECIPIENT`: inbox reale FunniFin per copie operative e fallback email.
-   - `MAIL_SENDER_ALIAS`: opzionale. Alias Gmail verificato da usare come mittente reale; deve comparire in Gmail > Account > Invia messaggio come.
+   - `MAIL_DEFAULT_SENDER_EMAIL`: opzionale, etichetta dell'account Apps Script usato come fallback finché non viene collegato un mittente OAuth.
    - `MAIL_FROM_NAME`: nome visualizzato del mittente.
    - `MAIL_REPLY_TO`: indirizzo che riceve le risposte.
    - `INITIAL_FUNNIFIN_EMAIL`: email reale del primo utente FunniFin da creare nello Sheet, oppure `AUTH_SEED_USERS_JSON` con la lista iniziale.
@@ -22,8 +22,19 @@
 6. Deploy > New deployment > Web app:
    - Execute as: **Me**.
    - Who has access: **Anyone with the link** per test, oppure dominio Workspace quando disponibile.
-7. Esegui una volta `authorizeFunniFinSetup` dall'editor Apps Script e accetta i permessi richiesti, inclusi Spreadsheet, Drive, Calendar, invio mail e Gmail. Gmail serve per leggere gli alias verificati e inviare con il campo From selezionato.
+7. Esegui una volta `authorizeFunniFinSetup` dall'editor Apps Script e accetta i permessi richiesti per Spreadsheet, Drive, Calendar e invio mail.
 8. Copia la Web App URL in `VITE_APPS_SCRIPT_DEPLOYMENT_URL`.
+
+## Mittente sostituibile dal BO
+
+Il fornitore configura una sola volta un client OAuth Google di tipo **Applicazione web**; il cliente finale non deve entrare in Apps Script o nelle impostazioni Gmail.
+
+1. In Google Cloud abilita **Gmail API** e configura la schermata consenso del prodotto.
+2. Crea un OAuth Client ID di tipo **Applicazione web**.
+3. Nel BO apri **Google > Configurazione rapida > Email > Setup tecnico prodotto** e copia l'URI di reindirizzamento mostrato.
+4. Aggiungi quell'URI esatto tra gli URI autorizzati del client Google.
+5. Salva Client ID e Client Secret nel BO. Il secret viene scritto nelle Script Properties e non viene mai restituito al browser.
+6. Da quel momento ogni amministratore vede soltanto **Collega Google**, **Cambia account**, **Scollega** e **Invia email di prova**. Collegare un nuovo account sostituisce il precedente.
 
 ## Vercel env
 
@@ -51,8 +62,8 @@ Poi redeploy.
 - FunniFin: la coda progetti legge `listWorkshopRequests`; status, date, esperto e calendario aggiornano lo stesso record tramite `updateWorkshopRequest`.
 - FunniFin: catalogo, regole prezzo, pool esperti e settings operative possono essere salvati su Google Sheet tramite `listCatalogConfig`, `updateCatalogTopic`, `listPricingRules`, `updatePricingRule`, `listExperts`, `updateExpert`, `listWorkspaceSettings` e `updateWorkspaceSetting`.
 - FunniFin: la tab Google controlla `googleHealth` per Sheets, Calendar, Drive e quota MailApp.
-- FunniFin: la configurazione rapida salva Calendar, Drive e sender sia nelle Settings operative sia nelle Script Properties, verifica gli ID prima del salvataggio e consente un invio email di prova.
-- Il mittente reale puo essere l'account proprietario dello script oppure uno degli alias restituiti da `GmailApp.getAliases()`; indirizzi arbitrari vengono rifiutati da Google e dal backend.
+- FunniFin: la configurazione rapida salva Calendar e Drive, collega il sender con OAuth, verifica la connessione e consente un invio email di prova.
+- Il mittente reale è l'account Google che ha completato il consenso `gmail.send`; collegarne un altro sostituisce il token precedente senza modificare codice o deployment.
 - FunniFin: le azioni di fase possono aprire una modal e inviare template HTML ai destinatari configurati nello Sheet (`mail.funnifin`, `mail.expert`, `mail.brand`) o nelle variabili env equivalenti.
 - FunniFin: la conferma evento puo creare un evento Calendar `provvisorio` o `definitivo`; il titolo diventa `[PROVVISORIO] ...` o `[CONFERMATO] ...`.
 
