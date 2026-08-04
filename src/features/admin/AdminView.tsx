@@ -2488,14 +2488,19 @@ export function AdminView({
             meta={activeAdminSection?.meta}
             actions={
               <div className="section-title-actions">
-                <ToolIconButton
-                  className="danger"
+                <AppButton
+                  type="button"
+                  variant="ghost"
+                  size="small"
+                  className="request-clear-trigger"
                   onClick={() => setClearRequestsConfirm(true)}
                   disabled={remoteRequestCount === 0 || requestSyncState.loading || clearingRequests}
-                  label={remoteRequestCount > 0 ? `Svuota ${remoteRequestCount} richieste cliente` : "Nessuna richiesta da svuotare"}
+                  aria-label={remoteRequestCount > 0 ? `Svuota ${remoteRequestCount} richieste cliente` : "Nessuna richiesta da svuotare"}
                 >
                   <Trash2 size={18} />
-                </ToolIconButton>
+                  <span>Svuota richieste</span>
+                  {remoteRequestCount > 0 && <span className="request-clear-count">{remoteRequestCount}</span>}
+                </AppButton>
                 <ToolIconButton active={requestSyncState.source === "sheet"} onClick={refreshAdminWorkspacePanel} loading={requestSyncState.loading} label="Ricarica richieste cliente">
                   <RefreshCw size={18} />
                 </ToolIconButton>

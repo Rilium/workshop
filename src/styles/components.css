@@ -768,16 +768,6 @@ button .fa-icon,
   color: var(--brand-dark);
 }
 
-.tool-icon-btn.danger {
-  color: var(--accent-pink);
-}
-
-.tool-icon-btn.danger:hover {
-  border-color: color-mix(in srgb, var(--accent-pink) 42%, var(--neutral-200));
-  background: var(--color-error-bg);
-  color: var(--accent-pink);
-}
-
 .topic-icon .fa-icon,
 .section-title-icon .fa-icon,
 .panel-title .fa-icon,
