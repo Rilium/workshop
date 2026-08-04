@@ -55,6 +55,7 @@ import { WorkshopCard } from "../../components/workshop/WorkshopCard";
 import { BundleCard } from "../../components/workshop/BundleCard";
 import { getBundlePrice, getWorkshopSelectionPrice, topicColorClass } from "../../utils/workshop";
 import { buildSurveyRecommendation } from "../../utils/recommendation";
+import { clientCatalogImport } from "../../data/clientCatalog";
 import { saveClientDraft } from "./clientDraft";
 import {
   ALL_CLIENT_STEPS,
@@ -110,6 +111,7 @@ const formatFilterOptions = [
 ];
 
 const PRIVACY_NOTICE_VERSION = "privacy-funnifin-mvp-2026-06-22";
+const surveyTopicDescriptions = new Map(clientCatalogImport.topics.map((topic) => [topic.id, topic.description]));
 
 const guidedSurveyQuestions: SurveyQuestion[] = [
   {
@@ -320,7 +322,7 @@ export function ClientView({
               answers: topics.map((topic) => ({
                 id: topic.id,
                 label: topic.title,
-                description: topic.description || `Workshop dell’ambito ${topic.title}.`,
+                description: surveyTopicDescriptions.get(topic.id) || topic.description || `Workshop dell’ambito ${topic.title}.`,
                 meta: `${workshops.filter((workshop) => (workshop.topicIds?.length ? workshop.topicIds : [workshop.topicId]).includes(topic.id)).length} workshop`,
                 topicIds: [topic.id],
               })),

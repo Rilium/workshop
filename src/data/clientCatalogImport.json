@@ -5,77 +5,77 @@
     {
       "id": "retribuzione",
       "title": "Retribuzione",
-      "description": "",
+      "description": "Leggere la busta paga, valorizzare welfare e fringe benefit, scegliere tra premio in denaro o welfare e comprendere trattenute e vantaggi fiscali.",
       "badge": "base",
       "active": true
     },
     {
       "id": "assicurazione",
       "title": "Assicurazione",
-      "description": "",
+      "description": "Scegliere coperture per casa, vita e salute, leggere correttamente una polizza e proteggere reddito, famiglia e patrimonio senza sovrassicurarsi inutilmente.",
       "badge": "base",
       "active": true
     },
     {
       "id": "risparmio",
       "title": "Risparmio",
-      "description": "",
+      "description": "Costruire un budget sostenibile, gestire liquidità e fondo di emergenza, organizzare le finanze di coppia e bilanciare risparmio, investimenti e debito.",
       "badge": "base",
       "active": true
     },
     {
       "id": "famiglia",
       "title": "Famiglia",
-      "description": "",
+      "description": "Pianificare spese e patrimonio in coppia, prepararsi all’arrivo dei figli, conoscere tutele e trasmettere ai più giovani un rapporto sano con il denaro.",
       "badge": "base",
       "active": true
     },
     {
       "id": "pensione",
       "title": "Pensione",
-      "description": "",
+      "description": "Comprendere TFR e previdenza complementare, confrontare fondi e comparti, valutare la RITA e usare la pensione integrativa per proteggere patrimonio e successione.",
       "badge": "base",
       "active": true
     },
     {
       "id": "investimenti",
       "title": "Investimenti",
-      "description": "",
+      "description": "Comprendere rischio, rendimento, tempo e costi; conoscere ETF, PAC, mercati, strumenti complessi e criptovalute per investire con metodo ed evitare scelte impulsive.",
       "badge": "base",
       "active": true
     },
     {
       "id": "finanziamenti",
       "title": "Finanziamenti",
-      "description": "",
+      "description": "Confrontare mutui, prestiti e cessione del quinto, dialogare con le banche, negoziare condizioni sostenibili e costruire strategie efficaci per uscire dai debiti.",
       "badge": "base",
       "active": true
     },
     {
       "id": "fiscalita",
       "title": "Fiscalità",
-      "description": "",
+      "description": "Orientarsi tra IRPEF, 730, ISEE, bonus e detrazioni, comprendere le novità fiscali e gestire correttamente la tassazione di rendimenti e plusvalenze.",
       "badge": "base",
       "active": true
     },
     {
       "id": "eredita",
       "title": "Eredità",
-      "description": "",
+      "description": "Pianificare successioni e donazioni, conoscere testamento, usufrutto e polizze vita, tutelare partner e familiari e prevenire conflitti nel passaggio del patrimonio.",
       "badge": "base",
       "active": true
     },
     {
       "id": "casa",
       "title": "Casa",
-      "description": "",
+      "description": "Confrontare acquisto e affitto, calcolare mutuo e costi nascosti, usare i bonus ristrutturazione e valutare con consapevolezza l’immobile come investimento.",
       "badge": "base",
       "active": true
     },
     {
       "id": "extra",
       "title": "Extra",
-      "description": "",
+      "description": "Affrontare gender gap, stress finanziario e rapporto emotivo con il denaro, riconoscendo i bias che influenzano spese, risparmio e decisioni economiche.",
       "badge": "base",
       "active": true
     }

@@ -20,21 +20,38 @@ export function ExpandableCardText({
     setCanExpand(false);
     const textElement = textRef.current;
     if (!textElement) return;
+    let cancelled = false;
+    let frame = 0;
 
     const measure = () => {
-      if (!expandedRef.current && textRef.current) {
-        const overflows = textRef.current.scrollHeight > textRef.current.clientHeight + 1;
-        setCanExpand((current) => current || overflows);
+      const element = textRef.current;
+      if (!element || cancelled) return;
+
+      const lineHeight = Number.parseFloat(window.getComputedStyle(element).lineHeight);
+      const collapsedHeight = Number.isFinite(lineHeight) ? lineHeight * lines : element.clientHeight;
+      const overflows = element.scrollHeight > collapsedHeight + 2;
+
+      setCanExpand(overflows);
+      if (!overflows && expandedRef.current) {
+        expandedRef.current = false;
+        setExpanded(false);
       }
     };
-    const frame = window.requestAnimationFrame(measure);
-    const settledMeasure = window.setTimeout(measure, 250);
-    window.addEventListener("resize", measure);
+
+    const scheduleMeasure = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(measure);
+    };
+
+    scheduleMeasure();
+    const resizeObserver = new ResizeObserver(scheduleMeasure);
+    resizeObserver.observe(textElement);
+    document.fonts?.ready.then(scheduleMeasure);
 
     return () => {
+      cancelled = true;
       window.cancelAnimationFrame(frame);
-      window.clearTimeout(settledMeasure);
-      window.removeEventListener("resize", measure);
+      resizeObserver.disconnect();
     };
   }, [lines, text]);
 
