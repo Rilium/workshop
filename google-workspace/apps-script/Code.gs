@@ -136,6 +136,10 @@ function handleGet(event) {
     requireFunniFinSession(event.parameter);
     return jsonResponse(getGoogleHealth(event.parameter));
   }
+  if (action === "validateSession") {
+    const auth = requireSession(event.parameter, ["FunniFin", "Esperto", "Brand"]);
+    return jsonResponse({ ok: true, session: auth.session, user: auth.user });
+  }
   if (action === "listSheetBackups") {
     requireFunniFinSession(event.parameter);
     return jsonResponse(listSheetBackups());
@@ -170,9 +174,10 @@ function handlePost(event) {
   const body = parsePostBody(event);
   if (body.action === "read") {
     const payload = body.payload || {};
+    const readParams = payload.params || {};
     const params = Object.assign({}, payload.params || {}, {
       action: payload.readAction || "",
-      sessionToken: payload.sessionToken || "",
+      sessionToken: payload.sessionToken || readParams.sessionToken || "",
     });
     return handleGet({ parameter: params });
   }

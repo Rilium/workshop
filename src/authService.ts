@@ -156,7 +156,7 @@ export async function validateStoredSession(session: AuthSession): Promise<AuthS
     if (allowLocalFallbacks()) return session;
     throw new Error("Backend autenticazione non configurato.");
   }
-  const result = await postAppsScript<AuthSessionPayload>("validateSession", { sessionToken: session.token });
+  const result = await getAppsScript<AuthSessionPayload>("validateSession", { sessionToken: session.token });
   const validated: AuthSession = {
     ...session,
     ...result.session,
