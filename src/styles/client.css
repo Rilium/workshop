@@ -245,6 +245,7 @@ label.has-error textarea {
   align-items: center;
   gap: 14px;
   min-height: 76px;
+  margin-top: var(--sp-4);
   overflow: hidden;
   padding: 14px 18px;
   border-color: var(--brand-mid);
@@ -291,6 +292,37 @@ label.has-error textarea {
   max-width: 80ch;
   color: var(--neutral-600);
   line-height: 1.4;
+}
+
+.approval-card.privacy-consent {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+  padding: var(--sp-4);
+  border-color: var(--neutral-200);
+  background: var(--neutral-50);
+}
+
+.privacy-consent > input {
+  margin-top: 3px;
+}
+
+.privacy-consent > span {
+  min-width: 0;
+  display: grid;
+  gap: var(--sp-2);
+  color: var(--neutral-800);
+  line-height: 1.45;
+}
+
+.privacy-consent > span > small {
+  display: block;
+  color: var(--neutral-600);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
+  overflow-wrap: anywhere;
 }
 
 /* ─── EcommerceCart empty state ───────────────────────────────────── */
