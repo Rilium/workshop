@@ -526,6 +526,15 @@ label.has-error textarea {
   align-items: start;
 }
 
+@media (min-width: 1181px) {
+  .guided-result-grid > .guided-profile-card {
+    position: sticky;
+    top: calc(var(--sticky-topbar-offset) + var(--sp-4));
+    align-self: start;
+    height: fit-content;
+  }
+}
+
 .guided-choice-card,
 .guided-profile-card,
 .guided-workshop-card,
