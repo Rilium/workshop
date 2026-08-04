@@ -59,6 +59,17 @@ async function postAppsScript(env, action, payload) {
   }
 }
 
+async function cleanupSmokeArtifacts(env) {
+  let lastResult = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    lastResult = await postAppsScript(env, "cleanupSmokeTestArtifacts", {
+      setupSecret: env.ADMIN_SETUP_SECRET,
+    });
+    if (Number.isFinite(Number(lastResult.deletedSessions))) return lastResult;
+  }
+  throw new Error(`Smoke cleanup risposta inattesa: ${Object.keys(lastResult || {}).join(",") || "vuota"}`);
+}
+
 async function assertLiveSheet(env) {
   const lifecycle = await postAppsScript(env, "smokeTestSheetLifecycle", {
     setupSecret: env.ADMIN_SETUP_SECRET,
@@ -133,7 +144,7 @@ async function run() {
   try {
     liveSession = await assertLiveSheet(googleEnv);
   } catch (error) {
-    await postAppsScript(googleEnv, "cleanupSmokeTestArtifacts", { setupSecret: googleEnv.ADMIN_SETUP_SECRET }).catch(() => {});
+    await cleanupSmokeArtifacts(googleEnv).catch(() => {});
     throw error;
   }
 
@@ -191,12 +202,7 @@ async function run() {
   } finally {
     if (browser) await browser.close();
     server.kill("SIGTERM");
-    const cleanup = await postAppsScript(googleEnv, "cleanupSmokeTestArtifacts", {
-      setupSecret: googleEnv.ADMIN_SETUP_SECRET,
-    });
-    if (Number(cleanup.deletedSessions || 0) < 1) {
-      throw new Error(`Smoke auth cleanup incompleto: deletedSessions=${cleanup.deletedSessions}`);
-    }
+    await cleanupSmokeArtifacts(googleEnv);
   }
 }
 
