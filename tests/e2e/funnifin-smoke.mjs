@@ -71,6 +71,12 @@ async function assertLiveSheet(env) {
   if (Number(lifecycle.deletedEvents || 0) < 1) {
     throw new Error(`Smoke Sheet cleanup eventi incompleto: deletedEvents=${lifecycle.deletedEvents}`);
   }
+  if (Number(lifecycle.deletedNotifications || 0) < 1) {
+    throw new Error(`Smoke Sheet cleanup notifiche incompleto: deletedNotifications=${lifecycle.deletedNotifications}`);
+  }
+  if (Number(lifecycle.deletedClientUsers || 0) < 1) {
+    throw new Error(`Smoke Sheet cleanup utenti cliente incompleto: deletedClientUsers=${lifecycle.deletedClientUsers}`);
+  }
 
   const sessionResult = await postAppsScript(env, "createSmokeTestSession", {
     setupSecret: env.ADMIN_SETUP_SECRET,
@@ -123,7 +129,13 @@ async function answerCurrentQuestion(page, answerName) {
 
 async function run() {
   const googleEnv = loadGoogleEnv();
-  const liveSession = await assertLiveSheet(googleEnv);
+  let liveSession;
+  try {
+    liveSession = await assertLiveSheet(googleEnv);
+  } catch (error) {
+    await postAppsScript(googleEnv, "cleanupSmokeTestArtifacts", { setupSecret: googleEnv.ADMIN_SETUP_SECRET }).catch(() => {});
+    throw error;
+  }
 
   const server = spawn("npm", ["run", "dev", "--", "--host", "127.0.0.1", "--port", String(PORT)], {
     env: {
@@ -179,6 +191,12 @@ async function run() {
   } finally {
     if (browser) await browser.close();
     server.kill("SIGTERM");
+    const cleanup = await postAppsScript(googleEnv, "cleanupSmokeTestArtifacts", {
+      setupSecret: googleEnv.ADMIN_SETUP_SECRET,
+    });
+    if (Number(cleanup.deletedSessions || 0) < 1) {
+      throw new Error(`Smoke auth cleanup incompleto: deletedSessions=${cleanup.deletedSessions}`);
+    }
   }
 }
 

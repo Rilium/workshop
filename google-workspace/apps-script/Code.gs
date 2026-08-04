@@ -308,6 +308,10 @@ function handlePost(event) {
     requireSetupSecret(body.payload || {});
     return jsonResponse(smokeTestSheetLifecycle(body.payload || {}));
   }
+  if (body.action === "cleanupSmokeTestArtifacts") {
+    requireSetupSecret(body.payload || {});
+    return jsonResponse(cleanupSmokeTestArtifacts());
+  }
   if (body.action === "createCalendarEvent") {
     requireFunniFinSession(body.payload || {});
     return jsonResponse(createCalendarEvent(body.payload));
@@ -3950,6 +3954,8 @@ function smokeTestSheetLifecycle(payload) {
   }).request;
   const deleted = deleteWorkshopRequest({ requestId }).deleted;
   const deletedEvents = deleteRequestEventsByRequestId(requestId);
+  const deletedNotifications = deleteNotificationsByRequestId(requestId);
+  const deletedClientUsers = deleteClientUsersByRequestId(requestId);
 
   return {
     ok: true,
@@ -3960,20 +3966,66 @@ function smokeTestSheetLifecycle(payload) {
     updated: updated.status === "in_verifica_funnifin",
     deleted,
     deletedEvents,
+    deletedNotifications,
+    deletedClientUsers,
   };
 }
 
-function deleteRequestEventsByRequestId(requestId) {
-  const sheet = getRequestEventsSheet();
+function deleteSheetRowsWhere(sheet, predicate) {
   const rows = sheet.getDataRange().getValues();
   let deleted = 0;
   for (let index = rows.length - 1; index >= 1; index -= 1) {
-    if (String(rows[index][1] || "") === String(requestId)) {
-      sheet.deleteRow(index + 1);
-      deleted += 1;
-    }
+    if (!predicate(rows[index])) continue;
+    sheet.deleteRow(index + 1);
+    deleted += 1;
   }
   return deleted;
+}
+
+function deleteRequestEventsByRequestId(requestId) {
+  return deleteSheetRowsWhere(getRequestEventsSheet(), function(row) {
+    return String(row[1] || "") === String(requestId);
+  });
+}
+
+function deleteNotificationsByRequestId(requestId) {
+  return deleteSheetRowsWhere(getNotificationsSheet(), function(row) {
+    return String(row[15] || "") === String(requestId);
+  });
+}
+
+function deleteClientUsersByRequestId(requestId) {
+  return deleteSheetRowsWhere(getClientUsersSheet(), function(row) {
+    return String(row[0] || "") === String(requestId);
+  });
+}
+
+function cleanupSmokeTestArtifacts() {
+  const smokeRequestPrefix = "smoke-sheet-";
+  const deletedRequests = deleteSheetRowsWhere(getRequestsSheet(), function(row) {
+    return String(row[0] || "").indexOf(smokeRequestPrefix) === 0;
+  });
+  const deletedEvents = deleteSheetRowsWhere(getRequestEventsSheet(), function(row) {
+    return String(row[1] || "").indexOf(smokeRequestPrefix) === 0;
+  });
+  const deletedNotifications = deleteSheetRowsWhere(getNotificationsSheet(), function(row) {
+    return String(row[15] || "").indexOf(smokeRequestPrefix) === 0;
+  });
+  const deletedClientUsers = deleteSheetRowsWhere(getClientUsersSheet(), function(row) {
+    return String(row[0] || "").indexOf(smokeRequestPrefix) === 0;
+  });
+  const deletedSessions = deleteSheetRowsWhere(getAuthSessionsSheet(), function(row) {
+    return String(row[0] || "").indexOf("smoke-") === 0;
+  });
+  return {
+    ok: true,
+    source: "google-sheet",
+    deletedRequests,
+    deletedEvents,
+    deletedNotifications,
+    deletedClientUsers,
+    deletedSessions,
+  };
 }
 
 function requireFunniFinSession(source) {
