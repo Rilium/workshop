@@ -1682,6 +1682,14 @@
   overflow: hidden;
 }
 
+.workshop-card.selected .workshop-config-disclosure {
+  margin-top: auto;
+}
+
+.workshop-card.selected > .card-footer {
+  margin-top: 0;
+}
+
 .workshop-config-disclosure > summary {
   min-height: 46px;
   display: flex;
@@ -1935,10 +1943,9 @@
   min-width: 0;
   height: 100%;
   padding: var(--sp-4);
-  display: grid;
-  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   gap: var(--sp-3);
-  align-content: stretch;
   transition: var(--ease-shadow), var(--ease-fast);
 }
 
@@ -2093,10 +2100,6 @@
   padding: 5px 9px;
   font-size: var(--text-xs);
   font-weight: var(--fw-bold);
-}
-
-.workshop-card > .card-footer {
-  grid-row: -2 / -1;
 }
 
 .workshop-bundle-footer {
