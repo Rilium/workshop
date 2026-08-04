@@ -897,6 +897,9 @@ export function ClientView({
   const resultBundle = bundles.find((bundle) => bundle.id === surveyProfile.recommendedBundleId);
   const resultBundleMemberIds = new Set(resultBundle?.workshopIds ?? []);
   const resultExtraWorkshops = resultWorkshops.filter((workshop) => !resultBundleMemberIds.has(workshop.id));
+  const resultExtraWorkshopIds = new Set(resultExtraWorkshops.map((workshop) => workshop.id));
+  const resultAlternativeCandidates = recommendedWorkshops.filter((workshop) => !resultExtraWorkshopIds.has(workshop.id));
+  const resultAlternativeWorkshops = (resultAlternativeCandidates.length > 0 ? resultAlternativeCandidates : recommendedWorkshops).slice(0, 3);
   const outcomeLabel = surveyQuestions.find((question) => question.id === "outcome")?.answers.find((answer) => surveyAnswers.outcome?.includes(answer.id))?.label ?? "Sensibilizzazione";
   const employeesLabel = surveyQuestions.find((question) => question.id === "employees")?.answers.find((answer) => surveyAnswers.employees?.includes(answer.id))?.label ?? "Da definire";
   const formatLabel = surveyQuestions.find((question) => question.id === "format")?.answers.find((answer) => surveyAnswers.format?.includes(answer.id))?.label ?? "Consigliato da FunniFin";
@@ -1032,7 +1035,7 @@ export function ClientView({
     setActiveThemes(resultThemeIds);
     if (!preserveCatalogAfterSurvey) {
       clearWorkshopDiscovery();
-      setCatalogMode(surveyProfile.recommendedBundleId ? "bundles" : "none");
+      setCatalogMode("none");
     }
     setClientJourneyStage("manual");
     setClientStep("Workshop");
@@ -1428,6 +1431,52 @@ export function ClientView({
                 </div>
               )}
               <p className="guided-recommendation-reason">{surveyProfile.reason}</p>
+              {resultAlternativeWorkshops.length > 0 && (
+                <section className="guided-single-alternatives" aria-labelledby="guided-single-alternatives-title">
+                  <div className="guided-single-alternatives-head">
+                    <div>
+                      <span className="eyebrow">Alternativa flessibile</span>
+                      <h2 id="guided-single-alternatives-title">Oppure scegli i workshop singoli</h2>
+                    </div>
+                    <span>{resultAlternativeWorkshops.length} consigliati</span>
+                  </div>
+                  <p>Componi liberamente il percorso partendo dai contenuti più coerenti con le priorità indicate.</p>
+                  <div className="guided-workshop-stack">
+                    {resultAlternativeWorkshops.map((workshop) => {
+                      const topic = topics.find((item) => workshopTopicIds(workshop).includes(item.id));
+                      const previewPrice = getWorkshopSelectionPrice(
+                        workshop,
+                        {
+                          duration: workshop.durationOptions[0],
+                          format: surveyProfile.resolvedFormat,
+                          custom: false,
+                          recordingIncluded: commercialConfig.recordingDefault,
+                        },
+                        commercialConfig,
+                      ).total;
+                      return (
+                        <article className="guided-workshop-card" key={workshop.id}>
+                          <span className={`card-taxonomy-eyebrow topic-outline-badge ${topicColorClass(topic?.id ?? "all")}`}>
+                            {topic?.title ?? "Workshop consigliato"}
+                          </span>
+                          <strong>{workshop.title}</strong>
+                          <ExpandableCardText text={workshop.short} />
+                          <em>{workshop.durationOptions[0]} · {surveyProfile.resolvedFormat === "webinar" ? "Online" : "In presenza"} · {money(previewPrice)}</em>
+                        </article>
+                      );
+                    })}
+                  </div>
+                  <AppButton
+                    variant="outline"
+                    onClick={() => {
+                      openGuidedCatalog();
+                      setCatalogMode("workshops");
+                    }}
+                  >
+                    Esplora i workshop singoli <ArrowRight size={17} />
+                  </AppButton>
+                </section>
+              )}
             </div>
           ) : (
             <div className="guided-workshop-stack">
@@ -1465,7 +1514,7 @@ export function ClientView({
           detail={resultBundle ? resultBundle.title : `${resultWorkshops.length} workshop consigliati`}
           primaryLabel={resultBundle ? (resultExtraWorkshops.length > 0 ? "Aggiungi pacchetto e workshop" : "Aggiungi il pacchetto consigliato") : "Aggiungi i workshop consigliati"}
           onPrimary={addGuidedWorkshops}
-          secondaryLabel="Modifica dal catalogo"
+          secondaryLabel="Confronta tutte le proposte"
           onSecondary={openGuidedCatalog}
           backLabel="Torna alla survey"
           onBack={() => setClientJourneyStage("survey")}

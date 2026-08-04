@@ -120,6 +120,11 @@ async function run() {
     await page.getByRole("heading", { name: "Abbiamo trovato il percorso ideale" }).waitFor({ timeout: 10000 });
     await page.locator(".guided-bundle-recommendation .bundle-card").filter({ hasText: "Bundle Educazione Finanziaria Avanzata" }).waitFor({ timeout: 5000 });
     await page.locator(".guided-bundle-extras").filter({ hasText: "Come leggere una busta paga" }).waitFor({ timeout: 5000 });
+    await page.getByRole("heading", { name: "Oppure scegli i workshop singoli" }).waitFor({ timeout: 5000 });
+    const standaloneAlternatives = await page.locator(".guided-single-alternatives .guided-workshop-card").count();
+    if (standaloneAlternatives < 1) {
+      throw new Error("Bundle recommendation should also expose coherent standalone workshop alternatives");
+    }
     const extraSummary = await page.locator(".guided-bundle-extras .guided-workshop-card").innerText();
     if (!extraSummary.includes("In presenza") || !/1500\s*€/.test(extraSummary)) {
       throw new Error(`In-person recommendation price/format is inconsistent: ${extraSummary}`);
