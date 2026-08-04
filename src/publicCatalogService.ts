@@ -40,6 +40,18 @@ function getScriptUrl() {
   ];
 }
 
+function getCatalogUrl(scriptUrl: string | undefined) {
+  const env = (import.meta as unknown as { env: Record<string, string | boolean | undefined> }).env;
+  const configuredProxy = String(env.VITE_PUBLIC_CATALOG_PROXY_URL || "").trim();
+  if (configuredProxy || env.PROD) {
+    return new URL(configuredProxy || "/api/public-catalog", window.location.origin).toString();
+  }
+  if (!scriptUrl) return "";
+  const directUrl = new URL(scriptUrl);
+  directUrl.searchParams.set("action", "publicCatalog");
+  return directUrl.toString();
+}
+
 function asDurationOptions(values: string[]): Duration[] {
   return values.filter((value): value is Duration => value === "1h" || value === "1.5h" || value === "2h");
 }
@@ -225,16 +237,14 @@ function localFallback(): PublicCatalog {
 
 export async function getPublicCatalog(): Promise<PublicCatalog> {
   const scriptUrl = getScriptUrl();
-  if (!scriptUrl) {
+  const catalogUrl = getCatalogUrl(scriptUrl);
+  if (!catalogUrl) {
     if (allowLocalFallbacks()) return localFallback();
     throw new Error("VITE_APPS_SCRIPT_DEPLOYMENT_URL non configurato");
   }
 
-  const url = new URL(scriptUrl);
-  url.searchParams.set("action", "publicCatalog");
-
   try {
-    const response = await fetchAppsScript(url.toString());
+    const response = await fetchAppsScript(catalogUrl);
     if (!response.ok) throw new Error("Catalogo pubblico non disponibile");
     const result = (await response.json().catch(() => null)) as PublicCatalogResponse | null;
     if (!result) throw new Error("Apps Script ha risposto con un formato non valido");

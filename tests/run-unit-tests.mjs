@@ -15,3 +15,4 @@ const result = await build({
 
 const source = result.outputFiles[0].text;
 await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
+await import("./unit/public-catalog-proxy.test.mjs");

@@ -8,6 +8,12 @@ if (!/^https:\/\//.test(targetUrl)) {
 const response = await fetch(targetUrl, { redirect: "follow" });
 if (!response.ok) throw new Error(`Frontend non raggiungibile: HTTP ${response.status}`);
 
+const catalogResponse = await fetch(new URL("/api/public-catalog", targetUrl), { redirect: "follow" });
+const catalog = await catalogResponse.json().catch(() => null);
+if (!catalogResponse.ok || catalog?.ok !== true || catalog?.source !== "google-sheet" || !catalog.workshops?.length) {
+  throw new Error(`Proxy catalogo non disponibile: HTTP ${catalogResponse.status}`);
+}
+
 const csp = response.headers.get("content-security-policy") || "";
 if (!csp.includes("default-src 'self'")) throw new Error("Content-Security-Policy assente o incompleta.");
 if (response.headers.get("x-content-type-options") !== "nosniff") throw new Error("X-Content-Type-Options non impostato.");
@@ -49,8 +55,12 @@ try {
   const addWorkshop = page.locator('button[aria-label^="Aggiungi "][aria-label$=" al percorso"]').first();
   await addWorkshop.waitFor({ timeout: 10_000 });
   await addWorkshop.click();
-  await page.waitForTimeout(300);
-  if ((await disabledProceed.getAttribute("aria-disabled")) === "true") {
+  const nextPrimaryAction = page.locator(".bottom-action-bar .bottom-primary-action");
+  await page.waitForFunction(() => {
+    const action = document.querySelector(".bottom-action-bar .bottom-primary-action");
+    return action && action.getAttribute("aria-disabled") !== "true";
+  });
+  if ((await nextPrimaryAction.getAttribute("aria-disabled")) === "true") {
     throw new Error("Il percorso resta bloccato dopo aver aggiunto un workshop.");
   }
 

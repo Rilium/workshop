@@ -152,8 +152,11 @@ async function run() {
     await page.getByRole("button", { name: /^Cliente$/ }).click();
 
     await page.getByRole("heading", { name: /Costruisci il piano formativo/ }).waitFor({ timeout: 30000 });
-    await page.getByRole("button", { name: "Vedi dettagli" }).first().click();
-    await page.getByRole("dialog").getByRole("button", { name: "Inizia percorso guidato" }).click();
+    const startGuided = page.getByRole("button", { name: "Inizia percorso guidato", exact: true });
+    if (await startGuided.count() === 0) {
+      await page.getByRole("button", { name: "Vedi dettagli", exact: true }).first().click();
+    }
+    await startGuided.click();
     await page.getByRole("heading", { name: "Su quali ambiti vuoi generare maggiore impatto?" }).waitFor({ timeout: 5000 });
     await page.getByRole("button", { name: /Retribuzione/ }).click();
     await page.getByRole("button", { name: /Risparmio/ }).click();

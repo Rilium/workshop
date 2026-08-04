@@ -214,6 +214,8 @@ async function run() {
     assert(visibleGoogleShortcutButtons === 0, `admin-home: mobile Google shortcut should be hidden, found ${visibleGoogleShortcutButtons}`);
     await page.locator("button:visible").filter({ hasText: "Google backend" }).click();
     await page.getByRole("heading", { name: "Google backend", exact: true }).waitFor({ timeout: 5000 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(100);
     const googleSettings = await mobileMetrics(page, "admin-settings");
     assertNoHorizontalOverflow(googleSettings);
     assertWithinViewport(googleSettings, "system");
