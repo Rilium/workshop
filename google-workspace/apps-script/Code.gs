@@ -3894,6 +3894,7 @@ function smokeTestSheetLifecycle(payload) {
 
   const created = createWorkshopRequest({
     id: requestId,
+    clientMutationId: `smoke-mutation-${suffix}`,
     contact: {
       firstName: "Smoke",
       lastName: "Test",
