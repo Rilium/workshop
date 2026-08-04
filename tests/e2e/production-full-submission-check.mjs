@@ -119,9 +119,15 @@ async function submitFromBrowser(page) {
   }
   await successCard.waitFor({ timeout: 5_000 });
   const successCopy = await successCard.innerText();
-  if (!successCopy.includes("email inviata al cliente e a FunniFin")) {
+  if (!successCopy.includes("riepilogo è stato inviato via email")) {
     throw new Error(`La UI non conferma l'invio email: ${successCopy}`);
   }
+  if (await page.getByText("Richiesta presa in carico", { exact: true }).count()) {
+    throw new Error("La UI Cliente espone ancora il toast tecnico di presa in carico");
+  }
+  await page.locator(".confetti-burst").waitFor({ state: "detached", timeout: 5_000 }).catch(() => {
+    throw new Error("La fase animata di conferma supera i 5 secondi");
+  });
   return attempts;
 }
 

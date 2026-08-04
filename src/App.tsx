@@ -424,7 +424,7 @@ function AppInner() {
             selectBundle={selectBundle}
             clearSelections={clearSelections}
             updateSelection={updateSelection}
-            setProjectStatus={setStatusWithFeedback}
+            setProjectStatus={syncProjectStatus}
             notify={notify}
             showCustomModal={(workshop: Workshop) => setCustomModalWorkshop(workshop)}
             openCustomRequest={(workshop: Workshop) => setCustomRequestWorkshop(workshop)}

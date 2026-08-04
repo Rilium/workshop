@@ -349,7 +349,9 @@ export function ClientSubmitStep({
           <span className="success-check"><Check size={38} /></span>
           <div>
             <strong>Richiesta inviata</strong>
-            <p>{emailDeliveryMode === "not_sent" ? "Richiesta salvata sullo Sheet. Email non inviata." : "Richiesta salvata sullo Sheet, email inviata al cliente e a FunniFin."}</p>
+            <p>{emailDeliveryMode === "not_sent"
+              ? "Richiesta ricevuta. Il recap email non è partito: il team FunniFin ti ricontatterà."
+              : "Il riepilogo è stato inviato via email. FunniFin verificherà date, disponibilità e fattibilità."}</p>
           </div>
           <div className="submitted-email-box">
             <span>{emailDeliveryMode === "not_sent" ? "Recap finale per" : "Inviata a"}</span>

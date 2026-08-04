@@ -163,10 +163,10 @@ export function useClientSubmission({
       onRequestCreated(request);
       setProjectStatus(
         "richiesta_inviata",
-        "Richiesta presa in carico",
+        "Richiesta inviata",
         emailResult.sent
-          ? `Richiesta ${request.id} salvata sullo Sheet e recap inviato a ${contact.email.trim()}.`
-          : `Richiesta ${request.id} salvata sullo Sheet, ma l'email non è partita.`,
+          ? "Il recap è stato inviato. FunniFin verificherà disponibilità e fattibilità."
+          : "La richiesta è stata salvata, ma il recap email non è partito.",
       );
       setSubmittedEmail(contact.email.trim());
       setEmailDeliveryMode(emailResult.sent ? "sent" : "not_sent");
