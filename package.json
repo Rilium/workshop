@@ -13,6 +13,7 @@
     "test:e2e:admin": "node tests/e2e/admin-deep-check.mjs",
     "test:e2e:architecture": "node tests/e2e/client-architecture-check.mjs",
     "test:e2e:production": "node tests/e2e/production-client-check.mjs",
+    "test:e2e:production:submission": "node tests/e2e/production-full-submission-check.mjs",
     "test:admin:real": "node tests/e2e/admin-deep-check.mjs",
     "test:e2e:local": "node tests/e2e/funnifin-local-smoke.mjs && node tests/e2e/notification-deep-check.mjs && node tests/e2e/manual-regressions.mjs && node tests/e2e/mobile-layout-deep-check.mjs",
     "test:e2e:live": "node tests/e2e/funnifin-smoke.mjs",
