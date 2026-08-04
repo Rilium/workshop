@@ -3,6 +3,12 @@ const READ_RETRY_DELAYS_MS = [0, 750, 1500, 3000];
 const DEFAULT_REQUEST_TIMEOUT_MS = 20_000;
 const MAX_CONCURRENT_READS = 3;
 
+export function isTransientAppsScriptReadResponse(response: Response) {
+  if (TRANSIENT_READ_STATUSES.has(response.status)) return true;
+  const contentType = response.headers.get("content-type")?.toLowerCase() || "";
+  return response.ok && contentType.includes("text/html");
+}
+
 type QueuedRequest = {
   input: RequestInfo | URL;
   init?: RequestInit;
@@ -76,7 +82,7 @@ async function fetchWithSafeReadRetry(input: RequestInfo | URL, init: RequestIni
 
       const response = await fetch(input, { ...init, signal: deadline.signal });
       lastResponse = response;
-      const shouldRetry = canRetry && TRANSIENT_READ_STATUSES.has(response.status) && attempt < delays.length - 1;
+      const shouldRetry = canRetry && isTransientAppsScriptReadResponse(response) && attempt < delays.length - 1;
       if (!shouldRetry) return response;
       await response.text().catch(() => "");
     }

@@ -61,12 +61,19 @@ async function postAppsScript(env, action, payload) {
 
 async function cleanupSmokeArtifacts(env) {
   let lastResult = null;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    lastResult = await postAppsScript(env, "cleanupSmokeTestArtifacts", {
-      setupSecret: env.ADMIN_SETUP_SECRET,
-    });
-    if (Number.isFinite(Number(lastResult.deletedSessions))) return lastResult;
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      lastResult = await postAppsScript(env, "cleanupSmokeTestArtifacts", {
+        setupSecret: env.ADMIN_SETUP_SECRET,
+      });
+      if (Number.isFinite(Number(lastResult.deletedSessions))) return lastResult;
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt < 2) await wait(750 * (attempt + 1));
   }
+  if (lastError) throw lastError;
   throw new Error(`Smoke cleanup risposta inattesa: ${Object.keys(lastResult || {}).join(",") || "vuota"}`);
 }
 

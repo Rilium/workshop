@@ -11,6 +11,7 @@ import {
   getOrCreateClientSubmissionIdentity,
 } from "../../src/features/client/clientSubmissionIdentity";
 import { calculateQuote } from "../../src/hooks/useQuote";
+import { isTransientAppsScriptReadResponse } from "../../src/appsScriptTransport";
 import type { Selection } from "../../src/types/domain";
 
 test("il reducer ripristina un draft parziale senza perdere i default", () => {
@@ -116,4 +117,18 @@ test("l'identità di invio resta stabile tra tentativi e cambia dopo il completa
   const nextRequest = getOrCreateClientSubmissionIdentity("Acme");
   assert.notEqual(nextRequest.clientMutationId, first.clientMutationId);
   delete (globalThis as { window?: unknown }).window;
+});
+
+test("le letture Apps Script riprovano anche la pagina HTML di errore restituita con status 200", () => {
+  const googleHtmlError = new Response("<!doctype html><title>Pagina non trovata</title>", {
+    status: 200,
+    headers: { "content-type": "text/html; charset=utf-8" },
+  });
+  const validJson = new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+
+  assert.equal(isTransientAppsScriptReadResponse(googleHtmlError), true);
+  assert.equal(isTransientAppsScriptReadResponse(validJson), false);
 });
