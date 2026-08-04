@@ -3891,6 +3891,11 @@ function smokeTestSheetLifecycle(payload) {
   const requestId = `smoke-sheet-${Utilities.formatDate(now, SETTINGS.timezone, "yyyyMMdd-HHmmss")}-${suffix}`;
   const email = String(payload.email || `smoke+${suffix}@example.com`).trim().toLowerCase();
   const company = String(payload.company || `Smoke Sheet ${suffix}`);
+  const catalog = getPublicCatalog({});
+  const smokeWorkshop = (catalog.workshops || []).find(function(workshop) {
+    return (workshop.durationOptions || []).length > 0 && (workshop.formatOptions || []).length > 0;
+  });
+  if (!smokeWorkshop) throw new Error("Catalogo ufficiale privo di workshop utilizzabili per lo smoke test.");
 
   const created = createWorkshopRequest({
     id: requestId,
@@ -3904,10 +3909,10 @@ function smokeTestSheetLifecycle(payload) {
     },
     workshops: [
       {
-        workshopId: "ws-budget-step",
-        title: "Budgeting personale step by step",
-        duration: "1h",
-        format: "webinar",
+        workshopId: smokeWorkshop.id,
+        title: smokeWorkshop.title,
+        duration: smokeWorkshop.durationOptions[0],
+        format: smokeWorkshop.formatOptions[0],
         date: Utilities.formatDate(now, SETTINGS.timezone, "yyyy-MM-dd"),
         time: "10:00",
         price: 300,
