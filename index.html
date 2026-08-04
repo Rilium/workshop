@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="it">
+<html lang="it" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,8 +9,18 @@
       content="Configura workshop di educazione finanziaria per aziende: scegli temi, formato, date e ricevi una proposta FunniFin pronta per la verifica del team."
     />
     <meta name="robots" content="index, follow" />
-    <meta name="theme-color" content="#123832" />
-    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f6faf8" />
+    <meta name="color-scheme" content="light" />
+    <script>
+      try {
+        if (localStorage.getItem("funnifin_theme_preference_v2") === "dark") {
+          document.documentElement.setAttribute("data-theme", "dark");
+          document.querySelector('meta[name="theme-color"]').setAttribute("content", "#141c1c");
+        }
+      } catch (_) {
+        document.documentElement.setAttribute("data-theme", "light");
+      }
+    </script>
     <meta name="application-name" content="FunniFin Workshop Planner" />
     <meta name="apple-mobile-web-app-title" content="FunniFin" />
     <link rel="canonical" href="https://funnifin-workshop-planner.vercel.app/" />

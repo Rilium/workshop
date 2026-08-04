@@ -66,11 +66,24 @@ async function run() {
     await page.addInitScript((session) => {
       Math.random = () => 0;
       window.localStorage.setItem("funnifin_auth_session", JSON.stringify(session));
+      window.localStorage.setItem("funnifin_theme", "dark");
       window.sessionStorage.setItem(`funnifin_welcome_seen_${session.token}`, "1");
     }, localSession("funnifin"));
     await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
 
     await page.getByLabel(/Esci \(Team FunniFin\)/).waitFor({ timeout: 5000 });
+    if ((await page.locator("html").getAttribute("data-theme")) !== "light") {
+      throw new Error("Legacy/system theme should not start the app in dark mode");
+    }
+    await page.getByRole("button", { name: "Attiva modalità scura", exact: true }).click();
+    await page.locator('html[data-theme="dark"]').waitFor({ timeout: 3000 });
+    if ((await page.evaluate(() => window.localStorage.getItem("funnifin_theme_preference_v2"))) !== "dark") {
+      throw new Error("Explicit dark preference was not persisted");
+    }
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.locator('html[data-theme="dark"]').waitFor({ timeout: 3000 });
+    await page.getByRole("button", { name: "Attiva modalità chiara", exact: true }).click();
+    await page.locator('html[data-theme="light"]').waitFor({ timeout: 3000 });
     await page.getByLabel("Chiudi benvenuto").click().catch(() => {});
     await page.getByText("Visualizza come: FunniFin").click();
     await page.getByRole("button", { name: /^Cliente$/ }).click();
@@ -105,7 +118,7 @@ async function run() {
     await page.getByRole("heading", { name: "Abbiamo trovato il percorso ideale" }).waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: /Aggiungi (il pacchetto|i workshop) consigliat/ }).waitFor({ timeout: 5000 });
 
-    console.log("PASS local e2e: injected auth session, guided survey back/forward, centered nav icons");
+    console.log("PASS local e2e: explicit light default, persisted user theme, guided survey back/forward, centered nav icons");
   } finally {
     if (browser) await browser.close();
     server.kill("SIGTERM");
