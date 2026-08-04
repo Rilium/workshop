@@ -3978,13 +3978,21 @@ function smokeTestSheetLifecycle(payload) {
 
 function deleteSheetRowsWhere(sheet, predicate) {
   const rows = sheet.getDataRange().getValues();
-  let deleted = 0;
-  for (let index = rows.length - 1; index >= 1; index -= 1) {
-    if (!predicate(rows[index])) continue;
-    sheet.deleteRow(index + 1);
-    deleted += 1;
+  const matchingRows = [];
+  for (let index = 1; index < rows.length; index += 1) {
+    if (predicate(rows[index])) matchingRows.push(index + 1);
   }
-  return deleted;
+  for (let cursor = matchingRows.length - 1; cursor >= 0;) {
+    const endRow = matchingRows[cursor];
+    let startRow = endRow;
+    cursor -= 1;
+    while (cursor >= 0 && matchingRows[cursor] === startRow - 1) {
+      startRow = matchingRows[cursor];
+      cursor -= 1;
+    }
+    sheet.deleteRows(startRow, endRow - startRow + 1);
+  }
+  return matchingRows.length;
 }
 
 function deleteRequestEventsByRequestId(requestId) {
