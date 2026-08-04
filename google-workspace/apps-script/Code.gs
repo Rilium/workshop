@@ -4030,6 +4030,7 @@ function cleanupSmokeTestArtifacts() {
   const deletedSessions = deleteSheetRowsWhere(getAuthSessionsSheet(), function(row) {
     return String(row[0] || "").indexOf("smoke-") === 0;
   });
+  const deletedAssetDraftFolders = trashSmokeAssetDraftFolders();
   return {
     ok: true,
     source: "google-sheet",
@@ -4038,7 +4039,29 @@ function cleanupSmokeTestArtifacts() {
     deletedNotifications,
     deletedClientUsers,
     deletedSessions,
+    deletedAssetDraftFolders,
   };
+}
+
+function trashSmokeAssetDraftFolders() {
+  const rootId = getRuntimeDriveRootFolderId() || getRuntimeSlidesRootFolderId();
+  if (!rootId) return 0;
+  const folders = DriveApp.getFolderById(rootId).getFolders();
+  let deleted = 0;
+  while (folders.hasNext()) {
+    const folder = folders.next();
+    if (folder.getName().indexOf("DRAFT - ") !== 0) continue;
+    let isSmokeFolder = folder.getName().indexOf("DRAFT - Smoke ") === 0;
+    const files = folder.getFiles();
+    while (!isSmokeFolder && files.hasNext()) {
+      isSmokeFolder = files.next().getName().indexOf("smoke-") === 0;
+    }
+    if (!isSmokeFolder) continue;
+    folder.setTrashed(true);
+    deleteAssetDraftToken(folder.getId());
+    deleted += 1;
+  }
+  return deleted;
 }
 
 function requireFunniFinSession(source) {
