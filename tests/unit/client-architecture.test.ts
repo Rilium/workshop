@@ -12,6 +12,7 @@ import {
 } from "../../src/features/client/clientSubmissionIdentity";
 import { calculateQuote } from "../../src/hooks/useQuote";
 import { isTransientAppsScriptReadResponse } from "../../src/appsScriptTransport";
+import { isDefinitiveSessionValidationError } from "../../src/authService";
 import type { Selection } from "../../src/types/domain";
 
 test("il reducer ripristina un draft parziale senza perdere i default", () => {
@@ -131,4 +132,11 @@ test("le letture Apps Script riprovano anche la pagina HTML di errore restituita
 
   assert.equal(isTransientAppsScriptReadResponse(googleHtmlError), true);
   assert.equal(isTransientAppsScriptReadResponse(validJson), false);
+});
+
+test("solo un rifiuto esplicito invalida definitivamente la sessione locale", () => {
+  assert.equal(isDefinitiveSessionValidationError(new Error("Sessione scaduta.")), true);
+  assert.equal(isDefinitiveSessionValidationError(new Error("Utente non autorizzato.")), true);
+  assert.equal(isDefinitiveSessionValidationError(new Error("Connessione Google non disponibile per validateSession.")), false);
+  assert.equal(isDefinitiveSessionValidationError(new DOMException("Tempo massimo superato", "TimeoutError")), false);
 });

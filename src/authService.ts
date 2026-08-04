@@ -60,6 +60,11 @@ export type ChangeAdminEmailResult = {
 
 export const AUTH_SESSION_UPDATED_EVENT = "funnifin:auth-session-updated";
 
+export function isDefinitiveSessionValidationError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return /sessione non valida|sessione scaduta|utente non autorizzato|permessi insufficienti/i.test(message);
+}
+
 type AuthSessionPayload = {
   session: AuthSession;
   user: AuthUser;

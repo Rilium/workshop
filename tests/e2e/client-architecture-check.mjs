@@ -6,6 +6,7 @@ import { localSession } from "./localTestSettings.mjs";
 const HUNG_BACKEND_PORT = 5195;
 const STRICT_APP_PORT = 5196;
 const DRAFT_APP_PORT = 5197;
+const SESSION_APP_PORT = 5198;
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -124,11 +125,45 @@ async function verifyDraftSurvivesRefresh(browser) {
   }
 }
 
+async function verifyTransientAuthFailureKeepsTokenWithoutGrantingAccess(browser) {
+  const hungBackend = createServer(() => {
+    // La sessione non può essere rivalidata, ma non è stata rifiutata.
+  });
+  await new Promise((resolve) => hungBackend.listen(HUNG_BACKEND_PORT, "127.0.0.1", resolve));
+  const app = startVite(SESSION_APP_PORT, {
+    VITE_APPS_SCRIPT_DEPLOYMENT_URL: `http://127.0.0.1:${HUNG_BACKEND_PORT}/exec`,
+    VITE_APPS_SCRIPT_TIMEOUT_MS: "500",
+    VITE_ALLOW_LOCAL_FALLBACKS: "true",
+    VITE_STRICT_GOOGLE_BACKEND: "false",
+    VITE_CLIENT_TELEMETRY: "false",
+  });
+  try {
+    const url = `http://127.0.0.1:${SESSION_APP_PORT}/`;
+    await waitForServer(app, url);
+    const page = await browser.newPage();
+    const storedSession = localSession("funnifin", { token: "architecture-transient-auth" });
+    await page.addInitScript((session) => {
+      window.localStorage.setItem("funnifin_auth_session", JSON.stringify(session));
+    }, storedSession);
+    await page.goto(url, { waitUntil: "domcontentloaded" });
+    await wait(1_200);
+    const token = await page.evaluate(() => JSON.parse(window.localStorage.getItem("funnifin_auth_session") || "null")?.token);
+    assert(token === storedSession.token, "Un timeout transitorio non deve eliminare il token di sessione");
+    assert(await page.getByLabel(/Esci \(.+\)/).count() === 0, "Lo snapshot locale non deve concedere accesso senza rivalidazione server");
+    await page.close();
+  } finally {
+    await stopProcess(app);
+    hungBackend.closeAllConnections?.();
+    await new Promise((resolve) => hungBackend.close(resolve));
+  }
+}
+
 const browser = await chromium.launch({ headless: true });
 try {
   await verifyCatalogFailsClosed(browser);
   await verifyDraftSurvivesRefresh(browser);
-  console.log("PASS client architecture: catalog fail-closed con timeout e draft versionato dopo refresh");
+  await verifyTransientAuthFailureKeepsTokenWithoutGrantingAccess(browser);
+  console.log("PASS client architecture: catalog fail-closed, draft versionato, auth transitoria senza logout o accesso locale");
 } finally {
   await browser.close();
 }

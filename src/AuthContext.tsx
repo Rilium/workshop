@@ -5,6 +5,7 @@ import {
   logout as serviceLogout,
   requestLoginCode,
   AUTH_SESSION_UPDATED_EVENT,
+  isDefinitiveSessionValidationError,
   setSessionEffectiveRole,
   validateStoredSession,
   verifyLoginCode,
@@ -49,7 +50,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Ripristina e rivalida la sessione al mount: lo snapshot locale non decide i permessi.
   useEffect(() => {
     let cancelled = false;
-    const restoreSession = async () => {
+    let retryTimer: number | undefined;
+    const restoreSession = async (attempt = 0) => {
       const stored = getStoredSession();
       if (!stored) {
         if (!cancelled) setLoading(false);
@@ -65,11 +67,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         window.setTimeout(() => {
           window.dispatchEvent(new CustomEvent(AUTH_ENTRY_CONFETTI_EVENT, { detail: { token: validated.token } }));
         }, 0);
-      } catch {
+      } catch (error) {
         if (cancelled) return;
-        serviceLogout();
         setSession(null);
         setCurrentUser(null);
+        if (isDefinitiveSessionValidationError(error)) {
+          serviceLogout();
+        } else if (attempt < 2) {
+          // Non usare lo snapshot locale per autorizzare la UI, ma conserva il
+          // token e rivalidalo in background quando Google torna disponibile.
+          retryTimer = window.setTimeout(() => void restoreSession(attempt + 1), 3_000 * (attempt + 1));
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -77,6 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void restoreSession();
     return () => {
       cancelled = true;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
     };
   }, []);
 
