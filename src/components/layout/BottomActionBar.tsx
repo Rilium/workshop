@@ -22,6 +22,8 @@ export function BottomActionBar({
   onSecondary,
   secondaryLoading,
   secondaryDisabled,
+  onSummaryClick,
+  summaryAriaLabel,
 }: {
   className?: string;
   context?: string;
@@ -42,6 +44,8 @@ export function BottomActionBar({
   onSecondary?: () => void;
   secondaryLoading?: boolean;
   secondaryDisabled?: boolean;
+  onSummaryClick?: () => void;
+  summaryAriaLabel?: string;
 }) {
   const hasBack = Boolean(backLabel && onBack);
   const hasSecondary = Boolean(secondaryLabel && onSecondary);
@@ -56,7 +60,23 @@ export function BottomActionBar({
       className={`bottom-action-bar ${primaryDisabled && primaryHint ? "bottom-action-bar--with-hint" : ""} ${className ?? ""}`}
       aria-label="Azione principale"
     >
-      {leftContent ?? (
+      {leftContent ?? (onSummaryClick ? (
+        <button type="button" className="bottom-action-copy bottom-action-copy--trigger" onClick={onSummaryClick} aria-label={summaryAriaLabel ?? "Apri riepilogo"} aria-haspopup="dialog">
+          <div>
+            <span>{context}</span>
+            <strong>{detail}</strong>
+          </div>
+          {priceAfter && (
+            <div className="bottom-price-stack">
+              {priceBefore && <del>{priceBefore}</del>}
+              <strong>{priceAfter}</strong>
+              {discountLabel && <small>{discountLabel}</small>}
+            </div>
+          )}
+          {caveat && <em>{caveat}</em>}
+          <small className="bottom-summary-label">Vedi percorso</small>
+        </button>
+      ) : (
         <div className="bottom-action-copy">
           <div>
             <span>{context}</span>
@@ -71,7 +91,7 @@ export function BottomActionBar({
           )}
           {caveat && <em>{caveat}</em>}
         </div>
-      )}
+      ))}
       <div className={buttonsClassName}>
         {hasBack && (
           <AppButton variant="ghost" className="bottom-back-btn" onClick={onBack} aria-label={backLabel} title={backLabel}>

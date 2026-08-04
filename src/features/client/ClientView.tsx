@@ -269,6 +269,7 @@ export function ClientView({
   const [dateSubmitGateOpen, setDateSubmitGateOpen] = useState(false);
   const [selectedSurveyProfile, setSelectedSurveyProfile] = useState<SurveyProfile | null>(null);
   const [sharingCart, setSharingCart] = useState(false);
+  const [pathSummaryOpen, setPathSummaryOpen] = useState(false);
   const [contactTouched, setContactTouched] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
@@ -1142,11 +1143,11 @@ export function ClientView({
       };
     }
     if (clientStep === "Workshop") return {
-      label: hasCustomizableSelections ? "Personalizza percorso" : "Scegli le date",
+      label: hasCustomizableSelections ? "Personalizza percorso" : "Procedi",
       disabled: selectedWorkshopRows.length === 0,
       action: goNext,
     };
-    if (clientStep === "Personalizza") return { label: "Scegli le date", disabled: selectedWorkshopRows.length === 0, action: goNext };
+    if (clientStep === "Personalizza") return { label: "Procedi", disabled: selectedWorkshopRows.length === 0, action: goNext };
     if (clientStep === "Date") return { label: "Materiali opzionali", disabled: !allDatesSelected && !datesDeferred, action: goNext };
     if (clientStep === "Materiali") return { label: uploadedAssets.length > 0 ? "Vai all'invio" : "Salta e vai all'invio", disabled: false, action: goNext };
     if (requestFinalized) return { label: "Richiesta inviata", disabled: true, action: () => {} };
@@ -2454,6 +2455,8 @@ export function ClientView({
           onShare={handleShareCart}
           submitting={sharingCart}
           commercialConfig={commercialConfig}
+          expanded={pathSummaryOpen}
+          onExpandedChange={setPathSummaryOpen}
         />
       </div>
       <BottomActionBar
@@ -2487,6 +2490,8 @@ export function ClientView({
         onBack={activeStepIndex > 0 ? goBack : undefined}
         secondaryLabel={clientStep === "Consigliati" ? "Scegli manualmente" : undefined}
         onSecondary={clientStep === "Consigliati" ? () => setClientStep("Workshop") : undefined}
+        onSummaryClick={() => setPathSummaryOpen(true)}
+        summaryAriaLabel={`Apri il percorso: ${selectedWorkshopRows.length} workshop, totale ${money(quote.total)}`}
       />
       {flyToBar && (
         <div

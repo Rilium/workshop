@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Share2, Trash2 } from "../../components/ui/FaIcons";
+import { createPortal } from "react-dom";
+import { BookOpen, ChevronDown, Share2, Trash2, X } from "../../components/ui/FaIcons";
 import type { CommercialConfig, Quote, Selection, Workshop } from "../../types/domain";
 import { money } from "../../utils/money";
 import { getWorkshopSelectionPrice } from "../../utils/workshop";
@@ -15,6 +16,8 @@ export function EcommerceCart({
   onShare,
   submitting = false,
   commercialConfig,
+  expanded,
+  onExpandedChange,
 }: {
   rows: Array<{ selection: Selection; workshop: Workshop }>;
   quote: Quote;
@@ -23,8 +26,11 @@ export function EcommerceCart({
   onShare: () => void | Promise<void>;
   submitting?: boolean;
   commercialConfig: CommercialConfig;
+  expanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
 }) {
   const cartRef = useRef<HTMLElement | null>(null);
+  const closeRef = useRef<HTMLButtonElement | null>(null);
   const [clearArmed, setClearArmed] = useState(false);
 
   useEffect(() => {
@@ -42,6 +48,21 @@ export function EcommerceCart({
       window.removeEventListener("scroll", updateCartHeight);
     };
   }, [rows.length]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.setTimeout(() => closeRef.current?.focus(), 0);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onExpandedChange(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [expanded, onExpandedChange]);
 
   useEffect(() => {
     if (!clearArmed) return;
@@ -62,116 +83,172 @@ export function EcommerceCart({
     setClearArmed(false);
   };
 
-  return (
-    <aside
-      ref={cartRef}
-      className={`ecommerce-cart ${quote.bundleSummaries?.length ? "has-bundle" : ""}`}
-      aria-label="Carrello workshop"
-    >
-      <div className="cart-head">
-        <div className="cart-head-copy">
-          <div className="cart-title-row">
-            <span>Carrello</span>
-            <div className="cart-head-actions">
-              <AppButton
-                variant="secondary"
-                size="small"
-                className="cart-share-btn"
-                onClick={onShare}
-                disabled={rows.length === 0}
-                loading={submitting}
-                loadingText="Preparo"
-                aria-label="Condividi carrello workshop"
-              >
-                <Share2 size={15} /> Condividi
-              </AppButton>
-              {rows.length > 0 && (
-                <button
-                  type="button"
-                  className={`cart-clear-btn ${clearArmed ? "confirm" : ""}`}
-                  onClick={handleClear}
-                  aria-label={clearArmed ? "Conferma svuota carrello" : "Svuota carrello"}
-                  title={clearArmed ? "Premi di nuovo per confermare" : "Svuota carrello"}
-                >
-                  <Trash2 size={15} />
-                  {clearArmed && <span>Conferma</span>}
-                </button>
-              )}
-            </div>
-          </div>
-          <strong>{rows.length} workshop</strong>
-          {rows.length > 0 && <small>Pronto da condividere</small>}
-        </div>
-        <div className="cart-head-total">
-          <strong>{money(quote.total)}</strong>
-        </div>
+  const totals = (
+    <div className="cart-totals">
+      <Line label="Subtotale workshop" value={money(quote.gross)} />
+      {quote.bundleSummaries?.map((bundle) => (
+        <Line key={bundle.id} label={bundle.title} value={`-${money(bundle.discount)}`} good />
+      ))}
+      {quote.promoDiscount > 0 && <Line label="Date promo" value={`-${money(quote.promoDiscount)}`} good />}
+      {quote.customTotal > 0 && <Line label="Su misura" value={`+${money(quote.customTotal)}`} />}
+      {quote.recordingDiscount > 0 && <Line label="Senza registrazione" value={`-${money(quote.recordingDiscount)}`} good />}
+      <div className="total-line">
+        <span>Totale indicativo</span>
+        <strong>{money(quote.total)}</strong>
       </div>
+      {quote.saved > 0 && <div className="saving">Risparmio incluso: {money(quote.saved)}</div>}
+    </div>
+  );
 
-      <>
-        {Boolean(quote.bundleSummaries?.length) && (
-          <div className="cart-bundle-summary">
-            <span>{quote.bundleSummaries?.length === 1 ? "Pacchetto selezionato" : "Pacchetti selezionati"}</span>
-            <div className="cart-bundle-list">
-              {quote.bundleSummaries?.map((bundle) => (
-                <div key={bundle.id}>
-                  <strong>{bundle.title}</strong>
-                  <small>-{money(bundle.discount)}</small>
-                </div>
-              ))}
-            </div>
-            {Boolean(quote.sharedBundleWorkshopCount) && (
-              <small className="cart-bundle-note">
-                {quote.sharedBundleWorkshopCount} {quote.sharedBundleWorkshopCount === 1 ? "workshop condiviso" : "workshop condivisi"}: una sola riga nel carrello, sconti inclusi.
-              </small>
-            )}
+  const bundleSummary = Boolean(quote.bundleSummaries?.length) && (
+    <div className="cart-bundle-summary">
+      <span>{quote.bundleSummaries?.length === 1 ? "Pacchetto selezionato" : "Pacchetti selezionati"}</span>
+      <div className="cart-bundle-list">
+        {quote.bundleSummaries?.map((bundle) => (
+          <div key={bundle.id}>
+            <strong>{bundle.title}</strong>
+            <small>-{money(bundle.discount)}</small>
           </div>
-        )}
-        <div className="cart-lines">
-            {rows.length === 0 && (
-              <div className="cart-empty">
-                <strong>Il percorso è vuoto</strong>
-                <span>Aggiungi workshop dal catalogo per costruire il tuo percorso formativo.</span>
+        ))}
+      </div>
+      {Boolean(quote.sharedBundleWorkshopCount) && (
+        <small className="cart-bundle-note">
+          {quote.sharedBundleWorkshopCount} {quote.sharedBundleWorkshopCount === 1 ? "workshop condiviso" : "workshop condivisi"}: una sola voce, sconti già inclusi.
+        </small>
+      )}
+    </div>
+  );
+
+  const expandedDialog = expanded && createPortal(
+    <div className="path-summary-backdrop" role="presentation" onMouseDown={() => onExpandedChange(false)}>
+      <section
+        className="path-summary-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="path-summary-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header className="path-summary-header">
+          <div className="path-summary-heading">
+            <span className="path-summary-icon" aria-hidden="true"><BookOpen size={22} /></span>
+            <div>
+              <span className="eyebrow">Riepilogo proposta</span>
+              <h2 id="path-summary-title">Il tuo percorso</h2>
+              <p>{rows.length} {rows.length === 1 ? "workshop selezionato" : "workshop selezionati"} · puoi modificarli prima di condividere.</p>
+            </div>
+          </div>
+          <button ref={closeRef} type="button" className="path-summary-close" onClick={() => onExpandedChange(false)} aria-label="Chiudi riepilogo">
+            <X size={21} />
+          </button>
+        </header>
+
+        <div className="path-summary-content">
+          <div className="path-summary-main">
+            {rows.length === 0 ? (
+              <div className="cart-empty path-summary-empty">
+                <strong>Il percorso è ancora vuoto</strong>
+                <span>Chiudi il riepilogo e aggiungi i workshop che ti interessano dal catalogo.</span>
+              </div>
+            ) : (
+              <div className="path-workshop-list" aria-label="Workshop selezionati">
+                {rows.map(({ selection, workshop }, index) => {
+                  const price = getWorkshopSelectionPrice(workshop, selection, commercialConfig);
+                  return (
+                    <article className="path-workshop-row" key={workshop.id}>
+                      <span className="path-workshop-index" aria-hidden="true">{index + 1}</span>
+                      <div className="path-workshop-copy">
+                        <strong>{workshop.title}</strong>
+                        <span>{selection.duration} · {selection.format} · {selection.recordingIncluded === false ? "senza registrazione" : "registrazione inclusa"}</span>
+                        <div className="path-workshop-tags">
+                          {price.liveExtra > 0 && <small>Live +{money(price.liveExtra)}</small>}
+                          {selection.custom && <small>Su misura +{money(commercialConfig.customExtra)}</small>}
+                          {selection.promo && <small className="is-saving">Promo data</small>}
+                        </div>
+                      </div>
+                      <div className="path-workshop-price">
+                        <strong>{money(price.total)}</strong>
+                        <RemoveWorkshopButton onClick={() => onRemove(workshop.id)} label={workshop.title} compact />
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             )}
-            {rows.map(({ selection, workshop }) => {
-              const price = getWorkshopSelectionPrice(workshop, selection, commercialConfig);
-              return (
-                <div className="cart-line" key={workshop.id}>
-                  <div>
-                    <strong>{workshop.title}</strong>
-                    <span>
-                      {selection.duration} · {selection.format}
-                      {price.liveExtra > 0 ? ` · live +${money(price.liveExtra)}` : ""}
-                      {selection.custom ? ` · su misura +${money(commercialConfig.customExtra)}` : ""}
-                      {selection.recordingIncluded === false ? ` · senza registrazione -${money(price.recordingDiscount)}` : " · registrazione inclusa"}
-                      {selection.promo ? " · promo data" : ""}
-                    </span>
-                  </div>
-                  <div className="cart-line-price">
-                    <strong>{money(price.total)}</strong>
-                    <RemoveWorkshopButton onClick={() => onRemove(workshop.id)} label={workshop.title} compact />
-                  </div>
-                </div>
-              );
-            })}
+          </div>
+
+          <aside className="path-summary-aside" aria-label="Totale proposta">
+            {bundleSummary}
+            {totals}
+            <p className="path-summary-note">Non è un acquisto: il totale è una stima della proposta da inviare a FunniFin.</p>
+          </aside>
         </div>
 
-        <div className="cart-totals">
-            <Line label="Subtotale workshop" value={money(quote.gross)} />
-            {quote.bundleSummaries?.map((bundle) => (
-              <Line key={bundle.id} label={bundle.title} value={`-${money(bundle.discount)}`} good />
-            ))}
-            {quote.promoDiscount > 0 && <Line label="Date promo" value={`-${money(quote.promoDiscount)}`} good />}
-            {quote.customTotal > 0 && <Line label="Su misura" value={`+${money(quote.customTotal)}`} />}
-            {quote.recordingDiscount > 0 && <Line label="Senza registrazione" value={`-${money(quote.recordingDiscount)}`} good />}
-            <div className="total-line">
-              <span>Totale</span>
-              <strong>{money(quote.total)}</strong>
+        <footer className="path-summary-footer">
+          {rows.length > 0 && (
+            <button type="button" className={`cart-clear-btn path-clear-btn ${clearArmed ? "confirm" : ""}`} onClick={handleClear}>
+              <Trash2 size={16} /> {clearArmed ? "Conferma svuota" : "Svuota percorso"}
+            </button>
+          )}
+          <div>
+            <AppButton variant="secondary" onClick={() => onExpandedChange(false)}>Continua a scegliere</AppButton>
+            <AppButton onClick={onShare} disabled={rows.length === 0} loading={submitting} loadingText="Preparo">
+              <Share2 size={16} /> Condividi proposta
+            </AppButton>
+          </div>
+        </footer>
+      </section>
+    </div>,
+    document.body,
+  );
+
+  return (
+    <>
+      <aside ref={cartRef} className="ecommerce-cart" aria-label="Riepilogo del percorso workshop">
+        <div className="cart-compact-head">
+          <span className="cart-compact-icon" aria-hidden="true"><BookOpen size={20} /></span>
+          <div>
+            <span>Il tuo percorso</span>
+            <strong>{rows.length} {rows.length === 1 ? "workshop" : "workshop"}</strong>
+          </div>
+        </div>
+
+        <div className="cart-compact-total">
+          <span>Totale indicativo</span>
+          <strong>{money(quote.total)}</strong>
+          {quote.saved > 0 && <small>Hai già ottimizzato {money(quote.saved)}</small>}
+        </div>
+
+        <div className="cart-compact-preview">
+          {rows.length === 0 ? (
+            <div className="cart-empty">
+              <strong>Inizia il tuo percorso</strong>
+              <span>Aggiungi workshop dal catalogo: potrai rivederli tutti qui.</span>
             </div>
-            {quote.saved > 0 && <div className="saving">Risparmio: {money(quote.saved)}</div>}
+          ) : (
+            <ol>
+              {rows.slice(0, 3).map(({ workshop }) => <li key={workshop.id}>{workshop.title}</li>)}
+            </ol>
+          )}
+          {rows.length > 3 && <small className="cart-more-count">+ altri {rows.length - 3} workshop</small>}
         </div>
-      </>
 
-    </aside>
+        <button type="button" className="cart-expand-button" onClick={() => onExpandedChange(true)} aria-haspopup="dialog">
+          <span>Vedi riepilogo completo</span>
+          <ChevronDown size={18} />
+        </button>
+
+        <AppButton
+          variant="secondary"
+          className="cart-share-btn"
+          onClick={onShare}
+          disabled={rows.length === 0}
+          loading={submitting}
+          loadingText="Preparo"
+        >
+          <Share2 size={15} /> Condividi proposta
+        </AppButton>
+      </aside>
+      {expandedDialog}
+    </>
   );
 }
