@@ -1224,8 +1224,18 @@ export function ClientView({
         <div className="guided-choice-grid">
           <article className="guided-choice-card recommended" aria-label="Percorso guidato consigliato">
             <BadgeCheck className="guided-choice-bg-icon" aria-hidden="true" />
+            <button
+              type="button"
+              className="guided-card-info-button"
+              onClick={() => setChoiceSheet("guided")}
+              aria-label="Mostra i dettagli del percorso guidato"
+              title="Dettagli percorso guidato"
+            >
+              <InfoIcon size={18} aria-hidden="true" />
+            </button>
             <div className="guided-card-topline">
-              <span className="guided-card-badge">Consigliato · ~2 minuti</span>
+              <span className="guided-card-badge">Consigliato</span>
+              <span className="guided-card-time">~2 minuti</span>
             </div>
             <div>
               <strong>Percorso guidato</strong>
@@ -1242,15 +1252,24 @@ export function ClientView({
                 Inizia percorso guidato
               </AppButton>
             </footer>
-            <button type="button" className="guided-mobile-detail-button" onClick={() => setChoiceSheet("guided")}>
-              Vedi dettagli
-              <ArrowRight size={17} aria-hidden="true" />
-            </button>
+            <AppButton className="guided-mobile-cta" onClick={() => startGuidedJourney()} rightIcon={<ArrowRight size={17} />}>
+              Inizia percorso guidato
+            </AppButton>
           </article>
           <article className="guided-choice-card secondary" aria-label="Catalogo completo">
             <BookOpen className="guided-choice-bg-icon" aria-hidden="true" />
+            <button
+              type="button"
+              className="guided-card-info-button"
+              onClick={() => setChoiceSheet("catalog")}
+              aria-label="Mostra i dettagli del catalogo completo"
+              title="Dettagli catalogo completo"
+            >
+              <InfoIcon size={18} aria-hidden="true" />
+            </button>
             <div className="guided-card-topline">
-              <span className="guided-card-badge neutral">Manuale · ~5 minuti</span>
+              <span className="guided-card-badge neutral">Manuale</span>
+              <span className="guided-card-time">~5 minuti</span>
             </div>
             <div>
               <strong>Catalogo completo</strong>
@@ -1267,10 +1286,9 @@ export function ClientView({
                 Esplora catalogo
               </AppButton>
             </footer>
-            <button type="button" className="guided-mobile-detail-button" onClick={() => setChoiceSheet("catalog")}>
-              Vedi dettagli
-              <ArrowRight size={17} aria-hidden="true" />
-            </button>
+            <AppButton className="guided-mobile-cta" variant="secondary" onClick={startManualJourney} rightIcon={<ArrowRight size={17} />}>
+              Esplora catalogo
+            </AppButton>
           </article>
         </div>
         <aside className="guided-outcome-preview" aria-label="Cosa otterrai">
