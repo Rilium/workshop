@@ -96,29 +96,48 @@ async function run() {
     await startGuided.click();
     await page.getByRole("heading", { name: "Su quali ambiti vuoi generare maggiore impatto?" }).waitFor({ timeout: 5000 });
     await page.getByRole("button", { name: /Retribuzione/ }).click();
-    await page.getByRole("button", { name: /Risparmio/ }).click();
-    await page.getByRole("button", { name: /Investimenti/ }).click();
-    await page.getByRole("button", { name: /Fiscalità/ }).click();
+    await page.getByRole("button", { name: /Famiglia/ }).click();
+    await page.getByRole("button", { name: /Finanziamenti/ }).click();
     const selectedTopicAnswers = await page.locator(".survey-option.selected").count();
-    if (selectedTopicAnswers !== 4) {
-      throw new Error(`Guided survey should allow more than 3 topic answers, got ${selectedTopicAnswers}`);
+    if (selectedTopicAnswers !== 3) {
+      throw new Error(`Guided survey should preserve the three selected topics, got ${selectedTopicAnswers}`);
     }
     await assertIconCentered(page);
     await page.locator(".survey-nav").getByRole("button", { name: "Continua" }).click();
 
-    await answerCurrentQuestion(page, /Sensibilizzazione/);
-    await page.getByRole("button", { name: /51-200/ }).click();
+    await answerCurrentQuestion(page, /Avanzata/);
+    if ((await page.locator(".survey-option").count()) !== 3) {
+      throw new Error("Employee survey step should expose exactly three bands");
+    }
+    await page.getByRole("button", { name: /Fino a 50/ }).click();
     await page.locator(".survey-nav").getByRole("button", { name: "Indietro" }).click();
     await page.getByRole("heading", { name: "Quale risultato vuoi ottenere?" }).waitFor({ timeout: 5000 });
     await page.locator(".survey-nav").getByRole("button", { name: "Continua" }).click();
-    await answerCurrentQuestion(page, /51-200/);
-    await answerCurrentQuestion(page, /^Online/);
-    await answerCurrentQuestion(page, /2.000 - 5.000 €/);
+    await answerCurrentQuestion(page, /Fino a 50/);
+    await answerCurrentQuestion(page, /^In presenza/);
+    await answerCurrentQuestion(page, /> 10.000 €/);
 
     await page.getByRole("heading", { name: "Abbiamo trovato il percorso ideale" }).waitFor({ timeout: 10000 });
-    await page.getByRole("button", { name: /Aggiungi (il pacchetto|i workshop) consigliat/ }).waitFor({ timeout: 5000 });
+    await page.locator(".guided-bundle-recommendation .bundle-card").filter({ hasText: "Bundle Educazione Finanziaria Avanzata" }).waitFor({ timeout: 5000 });
+    await page.locator(".guided-bundle-extras").filter({ hasText: "Come leggere una busta paga" }).waitFor({ timeout: 5000 });
+    const extraSummary = await page.locator(".guided-bundle-extras .guided-workshop-card").innerText();
+    if (!extraSummary.includes("In presenza") || !/1500\s*€/.test(extraSummary)) {
+      throw new Error(`In-person recommendation price/format is inconsistent: ${extraSummary}`);
+    }
+    if ((await page.getByText("Nessun pacchetto copre bene questa combinazione", { exact: false }).count()) !== 0) {
+      throw new Error("Valid advanced bundle was incorrectly replaced by the à-la-carte fallback");
+    }
+    const addRecommendation = page.getByRole("button", { name: "Aggiungi pacchetto e workshop", exact: true });
+    await addRecommendation.waitFor({ timeout: 5000 });
+    await addRecommendation.click();
+    const pathSummary = page.locator('button[aria-label^="Apri il percorso:"]');
+    await pathSummary.waitFor({ timeout: 5000 });
+    const pathSummaryLabel = await pathSummary.getAttribute("aria-label");
+    if (!pathSummaryLabel?.includes("7 workshop") || !/9[.\s]?000/.test(pathSummaryLabel)) {
+      throw new Error(`Applied recommendation is inconsistent: ${pathSummaryLabel}`);
+    }
 
-    console.log("PASS local e2e: explicit light default, persisted user theme, guided survey back/forward, centered nav icons");
+    console.log("PASS local e2e: light default, 3 employee bands, balanced advanced bundle, in-person price/format");
   } finally {
     if (browser) await browser.close();
     server.kill("SIGTERM");

@@ -146,10 +146,9 @@ const guidedSurveyQuestions: SurveyQuestion[] = [
     title: "Quanti dipendenti coinvolgerai?",
     kind: "single",
     answers: [
-      { id: "1-20", label: "1-20", description: "Gruppo ristretto o prima sperimentazione." },
-      { id: "21-50", label: "21-50", description: "Team ampio con obiettivi formativi condivisi." },
+      { id: "up-to-50", label: "Fino a 50", description: "Team compatto o prima sperimentazione aziendale." },
       { id: "51-200", label: "51-200", description: "Popolazione aziendale media, da segmentare per priorità." },
-      { id: "200+", label: "200+", description: "Programma scalabile per platea estesa." },
+      { id: "200+", label: "Oltre 200", description: "Programma scalabile per una platea aziendale estesa." },
     ],
   },
   {
@@ -896,6 +895,8 @@ export function ClientView({
     .map((workshopId) => workshops.find((workshop) => workshop.id === workshopId))
     .filter(Boolean) as Workshop[];
   const resultBundle = bundles.find((bundle) => bundle.id === surveyProfile.recommendedBundleId);
+  const resultBundleMemberIds = new Set(resultBundle?.workshopIds ?? []);
+  const resultExtraWorkshops = resultWorkshops.filter((workshop) => !resultBundleMemberIds.has(workshop.id));
   const outcomeLabel = surveyQuestions.find((question) => question.id === "outcome")?.answers.find((answer) => surveyAnswers.outcome?.includes(answer.id))?.label ?? "Sensibilizzazione";
   const employeesLabel = surveyQuestions.find((question) => question.id === "employees")?.answers.find((answer) => surveyAnswers.employees?.includes(answer.id))?.label ?? "Da definire";
   const formatLabel = surveyQuestions.find((question) => question.id === "format")?.answers.find((answer) => surveyAnswers.format?.includes(answer.id))?.label ?? "Consigliato da FunniFin";
@@ -1004,16 +1005,21 @@ export function ClientView({
   };
   const addGuidedWorkshops = () => {
     const recommendedBundle = bundles.find((bundle) => bundle.id === surveyProfile.recommendedBundleId);
+    const recommendedFormat = surveyProfile.resolvedFormat;
     if (recommendedBundle) {
-      selectBundle(recommendedBundle, requestedFormat === "online" ? "webinar" : undefined);
+      selectBundle(recommendedBundle, recommendedFormat);
+      addWorkshops(
+        resultWorkshops.filter((workshop) => !recommendedBundle.workshopIds.includes(workshop.id)).map((workshop) => workshop.id),
+        { format: recommendedFormat },
+      );
     } else {
       addWorkshops(resultWorkshops.map((workshop) => workshop.id), {
-        format: requestedFormat === "online" ? "webinar" : undefined,
+        format: recommendedFormat,
       });
     }
     resultWorkshops.forEach((workshop) => {
       updateSelection(workshop.id, {
-        ...(requestedFormat === "online" ? { format: "webinar" as Format } : {}),
+        format: recommendedFormat,
         recordingIncluded: commercialConfig.recordingDefault,
       });
     });
@@ -1392,13 +1398,42 @@ export function ClientView({
                   setSearchQuery(workshop.title);
                 }}
               />
+              {resultExtraWorkshops.length > 0 && (
+                <div className="guided-bundle-extras guided-workshop-stack">
+                  <span className="eyebrow">Copertura aggiuntiva</span>
+                  <p>Questi workshop completano gli ambiti prioritari non presenti nel pacchetto.</p>
+                  {resultExtraWorkshops.map((workshop) => {
+                    const topic = topics.find((item) => workshopTopicIds(workshop).includes(item.id));
+                    const previewPrice = getWorkshopSelectionPrice(
+                      workshop,
+                      {
+                        duration: workshop.durationOptions[0],
+                        format: surveyProfile.resolvedFormat,
+                        custom: false,
+                        recordingIncluded: commercialConfig.recordingDefault,
+                      },
+                      commercialConfig,
+                    ).total;
+                    return (
+                      <article className="guided-workshop-card" key={workshop.id}>
+                        <span className={`card-taxonomy-eyebrow topic-outline-badge ${topicColorClass(topic?.id ?? "all")}`}>
+                          {topic?.title ?? "Workshop consigliato"}
+                        </span>
+                        <strong>{workshop.title}</strong>
+                        <p>{workshop.short}</p>
+                        <em>{workshop.durationOptions[0]} · {surveyProfile.resolvedFormat === "webinar" ? "Online" : "In presenza"} · {money(previewPrice)}</em>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
               <p className="guided-recommendation-reason">{surveyProfile.reason}</p>
             </div>
           ) : (
             <div className="guided-workshop-stack">
               {resultWorkshops.map((workshop) => {
               const topic = topics.find((item) => workshopTopicIds(workshop).includes(item.id));
-              const previewFormat = requestedFormat === "online" ? "webinar" : workshop.formatOptions[0];
+              const previewFormat = surveyProfile.resolvedFormat;
               const previewPrice = getWorkshopSelectionPrice(
                 workshop,
                 {
@@ -1428,7 +1463,7 @@ export function ClientView({
           className="client-bottom-bar guided-result-bottom"
           context={`Match ${matchScore}%`}
           detail={resultBundle ? resultBundle.title : `${resultWorkshops.length} workshop consigliati`}
-          primaryLabel={resultBundle ? "Aggiungi il pacchetto consigliato" : "Aggiungi i workshop consigliati"}
+          primaryLabel={resultBundle ? (resultExtraWorkshops.length > 0 ? "Aggiungi pacchetto e workshop" : "Aggiungi il pacchetto consigliato") : "Aggiungi i workshop consigliati"}
           onPrimary={addGuidedWorkshops}
           secondaryLabel="Modifica dal catalogo"
           onSecondary={openGuidedCatalog}
