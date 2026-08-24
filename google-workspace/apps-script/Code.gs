@@ -617,7 +617,7 @@ function createCalendarEvent(payload) {
   const start = parseDateTime(firstWorkshop.date, firstWorkshop.time);
   const totalMinutes = payload.workshops.reduce((sum, workshop) => sum + (workshop.duration === "2h" ? 120 : workshop.duration === "1.5h" ? 90 : 60), 0);
   const end = new Date(start.getTime() + Math.max(totalMinutes, 60) * 60 * 1000);
-  const hasOnlineWorkshop = payload.workshops.some((workshop) => workshop.format === "webinar" || workshop.format === "ibrido");
+  const hasOnlineWorkshop = payload.workshops.some((workshop) => workshop.format === "webinar");
   const event = buildCalendarEvent(payload, eventMode, start, end, hasOnlineWorkshop, existingEventId);
   const created = existingEventId ? updateCalendarEvent(existingEventId, event, calendarId, payload) : insertCalendarEvent(event, calendarId, start, end, payload);
 
@@ -1063,19 +1063,24 @@ function sendWorkshopRequestEmail(body) {
 
 function buildWorkshopRequestEmailText(request) {
   const workshops = (request.workshops || []).map(function(workshop) {
+    const schedule = workshop.date
+      ? [workshop.date, workshop.time || "orario da concordare"].join(" ")
+      : "data e orario da concordare";
     return [
       "- " + (workshop.title || "Workshop"),
       workshop.duration || "",
       workshop.format || "",
-      [workshop.date || "data da concordare", workshop.time || ""].join(" ").trim(),
+      schedule,
       formatMailMoney(workshop.price || 0),
     ].filter(Boolean).join(" · ");
   }).join("\n");
+  const deferredDates = Boolean(request.datesDeferred) || (request.workshops || []).some(function(workshop) { return !workshop.date; });
   return [
     "Richiesta workshop ricevuta",
     "",
     `Ciao ${request.contact.firstName || request.contact.company || ""},`,
-    "abbiamo salvato la tua richiesta. Il team FunniFin verifichera date, esperti e fattibilita.",
+    "abbiamo salvato la tua richiesta. Il team FunniFin verificherà esperti e fattibilità operativa.",
+    deferredDates ? "Hai scelto di definire le date in seguito: ti contatteremo per concordare data e orario di ogni workshop." : "Verificheremo le date proposte prima della conferma definitiva.",
     "",
     workshops,
     "",
@@ -1085,19 +1090,45 @@ function buildWorkshopRequestEmailText(request) {
 }
 
 function buildWorkshopRequestEmailHtml(request) {
-  const rows = (request.workshops || []).map(function(workshop) {
-    const details = [workshop.duration || "", workshop.format || "", workshop.date || "data da concordare", workshop.time || ""].filter(Boolean).join(" · ");
-    return "<tr><td style=\"padding:12px 0;border-top:1px solid #dde0e3;\"><strong style=\"display:block;color:#171d1d;\">" + escapeHtml(workshop.title || "Workshop") + "</strong><span style=\"color:#687273;font-size:13px;\">" + escapeHtml(details) + "</span></td><td align=\"right\" style=\"padding:12px 0;border-top:1px solid #dde0e3;font-weight:800;white-space:nowrap;\">" + escapeHtml(formatMailMoney(workshop.price || 0)) + "</td></tr>";
+  const rows = (request.workshops || []).map(function(workshop, index) {
+    const schedule = workshop.date
+      ? [workshop.date, workshop.time || "orario da concordare"].join(" · ")
+      : "data e orario da concordare";
+    const borderTop = index > 0 ? "border-top:1px solid #dde0e3;" : "";
+    return "<tr>" +
+      "<td style=\"padding:15px 16px;" + borderTop + "vertical-align:top;\">" +
+        "<strong style=\"display:block;margin:0 0 6px;color:#171d1d;font-size:15px;line-height:1.35;\">" + escapeHtml(workshop.title || "Workshop") + "</strong>" +
+        "<span style=\"color:#687273;font-size:13px;line-height:1.5;\">" + escapeHtml([workshop.duration || "", workshop.format || "", schedule].filter(Boolean).join(" · ")) + "</span>" +
+      "</td>" +
+      "<td align=\"right\" style=\"padding:15px 16px;" + borderTop + "vertical-align:top;font-weight:800;color:#007f87;font-size:15px;white-space:nowrap;\">" + escapeHtml(formatMailMoney(workshop.price || 0)) + "</td>" +
+    "</tr>";
   }).join("");
+  const deferredDates = Boolean(request.datesDeferred) || (request.workshops || []).some(function(workshop) { return !workshop.date; });
+  const nextStepCopy = deferredDates
+    ? "Hai scelto di definire le date in seguito. Ti contatteremo per concordare data e orario di ogni workshop; nessun orario viene considerato prenotato finché non ricevi la conferma."
+    : "Verificheremo le date proposte, la disponibilità degli esperti e la fattibilità operativa prima della conferma definitiva.";
   return emailBaseTemplate(
-    "<tr><td style=\"padding:32px;\">" +
-      "<span style=\"color:#08747a;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;\">Richiesta ricevuta</span>" +
-      "<h1 style=\"margin:8px 0 12px;color:#171d1d;font-size:26px;\">Il tuo percorso FunniFin e stato salvato</h1>" +
-      "<p style=\"margin:0 0 22px;color:#687273;line-height:1.6;\">Ciao " + escapeHtml(request.contact.firstName || request.contact.company || "") + ", il team verifichera date, esperti e fattibilita operativa.</p>" +
-      "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">" + rows + "</table>" +
-      "<p style=\"margin:22px 0 4px;color:#687273;\">Totale indicativo</p>" +
-      "<strong style=\"display:block;color:#004f54;font-size:24px;\">" + escapeHtml(formatMailMoney(request.quote && request.quote.total)) + "</strong>" +
-      "<small style=\"display:block;margin-top:16px;color:#8c9096;\">Riferimento: " + escapeHtml(request.id) + "</small>" +
+    "<tr><td style=\"padding:34px 32px 28px;background:#1cafb9;text-align:center;\">" +
+      "<img src=\"" + FUNNIFIN_LOGO_URL + "\" alt=\"FunniFin\" height=\"48\" style=\"display:block;margin:0 auto 18px;max-width:180px;object-fit:contain;\" />" +
+      "<span style=\"display:block;margin:0 0 8px;color:rgba(255,255,255,.82);font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;\">Richiesta ricevuta</span>" +
+      "<h1 style=\"margin:0;color:#ffffff;font-size:26px;line-height:1.2;\">Il tuo percorso FunniFin è stato salvato</h1>" +
+    "</td></tr>" +
+    "<tr><td style=\"padding:28px 32px 0;\">" +
+      "<p style=\"margin:0 0 20px;color:#444748;font-size:14px;line-height:1.65;\">Ciao " + escapeHtml(request.contact.firstName || request.contact.company || "") + ", abbiamo ricevuto la tua richiesta. Il team verificherà esperti e fattibilità operativa.</p>" +
+      "<p style=\"margin:0 0 10px;color:#1cafb9;font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;\">Workshop selezionati</p>" +
+      "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border:1px solid #dde0e3;border-radius:12px;overflow:hidden;background:#ffffff;\">" + rows + "</table>" +
+    "</td></tr>" +
+    "<tr><td style=\"padding:16px 32px 0;\">" +
+      "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:rgba(28,175,185,.10);border:1px solid rgba(28,175,185,.28);border-radius:12px;\"><tr>" +
+        "<td style=\"padding:16px 20px;color:#444748;font-size:14px;font-weight:800;\">Totale indicativo</td>" +
+        "<td align=\"right\" style=\"padding:16px 20px;color:#007f87;font-size:22px;font-weight:900;white-space:nowrap;\">" + escapeHtml(formatMailMoney(request.quote && request.quote.total)) + "</td>" +
+      "</tr></table>" +
+    "</td></tr>" +
+    "<tr><td style=\"padding:16px 32px 30px;\">" +
+      "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#f7f8f9;border:1px solid #dde0e3;border-radius:12px;\"><tr><td style=\"padding:16px 20px;color:#444748;font-size:13px;line-height:1.7;\">" +
+        "<strong style=\"display:block;margin-bottom:5px;color:#171d1d;\">Cosa succede ora</strong>" + escapeHtml(nextStepCopy) +
+        "<small style=\"display:block;margin-top:12px;color:#8c9096;\">Riferimento: " + escapeHtml(request.id) + "</small>" +
+      "</td></tr></table>" +
     "</td></tr>"
   );
 }
@@ -1596,7 +1627,15 @@ function getPublicCatalog(params) {
     ok: true,
     source: "google-sheet",
     topics: listCatalogConfig().topics.filter((topic) => topic.active !== false),
-    workshops: listCatalogWorkshops().workshops.filter((workshop) => workshop.active !== false && workshop.state !== "nascosto"),
+    workshops: listCatalogWorkshops().workshops
+      .filter((workshop) => workshop.active !== false && workshop.state !== "nascosto")
+      .map(function(workshop) {
+        const durations = normalizeStringList(workshop.durationOptions)
+          .filter(function(duration) { return ["1h", "1.5h", "2h"].indexOf(duration) >= 0; });
+        return Object.assign({}, workshop, {
+          durationOptions: ["1h"].concat(durations.filter(function(duration) { return duration !== "1h"; })),
+        });
+      }),
     rules: listPricingRules().rules,
     bundles: parsePublicJson("catalog.bundlesJson", []),
     commercialConfig,
@@ -3133,16 +3172,17 @@ function validateWorkshopRequestPayload(payload) {
   assertShortText(payload.contact.firstName, "Nome", 80);
   assertShortText(payload.contact.lastName, "Cognome", 80);
   assertShortText(payload.contact.phone, "Telefono", 40);
+  assertShortText(payload.contact.employeeCount, "Numero dipendenti", 12);
   if (!assertShortText(payload.id, "ID richiesta", 140)) throw new Error("ID richiesta obbligatorio.");
   if (!assertShortText(payload.clientMutationId, "ID mutazione", 80)) throw new Error("ID mutazione obbligatorio.");
   const workshops = Array.isArray(payload.workshops) ? payload.workshops : [];
   if (!workshops.length) throw new Error("Seleziona almeno un workshop.");
-  if (workshops.length > 12) throw new Error("Troppi workshop nella richiesta.");
+  if (workshops.length > 25) throw new Error("Puoi inserire al massimo 25 workshop nella stessa richiesta.");
   workshops.forEach((workshop) => {
     assertShortText(workshop.workshopId, "Workshop", 80);
     assertShortText(workshop.title, "Titolo workshop", 180);
     if (["1h", "1.5h", "2h"].indexOf(String(workshop.duration || "")) === -1) throw new Error("Durata workshop non valida.");
-    if (["live", "webinar", "ibrido"].indexOf(String(workshop.format || "")) === -1) throw new Error("Formato workshop non valido.");
+    if (["live", "webinar"].indexOf(String(workshop.format || "")) === -1) throw new Error("Formato workshop non valido.");
     if (Number(workshop.price || 0) < 0 || Number(workshop.price || 0) > 50000) throw new Error("Prezzo workshop non valido.");
     assertShortText(workshop.customNote, "Nota custom", 1200);
   });
@@ -4560,7 +4600,7 @@ function normalizeWorkshopRequest(request) {
     duration: workshop.duration || "1h",
     format: workshop.format || "webinar",
     date: workshop.date || "",
-    time: workshop.time || "",
+    time: workshop.date ? (workshop.time || "") : "",
     price: Number(workshop.price || 0),
     custom: Boolean(workshop.custom),
     recordingIncluded: workshop.recordingIncluded !== false,
@@ -4594,6 +4634,7 @@ function normalizeWorkshopRequest(request) {
       email: contact.email || request.email || "",
       company: contact.company || request.company || "",
       phone: contact.phone || request.phone || "",
+      employeeCount: contact.employeeCount || "",
     },
     workshops,
     quote: {
@@ -4647,8 +4688,25 @@ function buildCalendarIds(expertIds) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
-  const calendars = requested.length ? requested : SETTINGS.expertCalendarIds;
-  return Array.from(new Set(calendars));
+  const experts = listExperts().experts || [];
+  const requestedCalendars = requested.map(function(value) {
+    const normalized = normalizeCalendarName(value);
+    const expert = experts.find(function(item) {
+      const fullName = [item.firstName || "", item.lastName || ""].filter(Boolean).join(" ");
+      return [item.id, item.email, fullName]
+        .map(normalizeCalendarName)
+        .indexOf(normalized) >= 0;
+    });
+    return expert && expert.calendarId ? String(expert.calendarId).trim() : value;
+  });
+  const candidates = requestedCalendars.length ? requestedCalendars : SETTINGS.expertCalendarIds;
+  return Array.from(new Set(candidates)).filter(function(calendarId) {
+    try {
+      return Boolean(CalendarApp.getCalendarById(calendarId));
+    } catch (error) {
+      return false;
+    }
+  });
 }
 
 function resolveSessionExpert(auth, params) {

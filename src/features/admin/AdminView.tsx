@@ -103,7 +103,7 @@ const queueSortOptions: Array<{ id: AdminQueueSort; label: string }> = [
   { id: "date_vicine", label: "Date più vicine" },
   { id: "date_lontane", label: "Date più lontane" },
 ];
-const USER_MANUAL_URL = "/FunniFin_Manuale_Utente.docx";
+const USER_MANUAL_URL = "/FunniFin_Manuale_Completo.docx";
 const AUTH_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const todoLabelPriority: AdminTodoLabel[] = ["date da rivedere", "date", "verifica", "esperti", "materiali", "deck", "brand", "evento"];
 const todoLabelCopy: Record<AdminTodoLabel, string> = {
@@ -1914,7 +1914,7 @@ export function AdminView({
     {
       id: "Manuale",
       title: "Manuale utente",
-      meta: "DOCX v2.2",
+      meta: "DOCX v3.0",
       body: "Guida FunniFin con flussi, notifiche, mail e atlante UI annotato.",
       icon: <BookOpen size={18} />,
     },
@@ -1999,7 +1999,7 @@ export function AdminView({
           disabled: false,
           action: () => {
             window.open(USER_MANUAL_URL, "_blank", "noopener,noreferrer");
-            notify("Manuale utente", "Aperto il manuale FunniFin v2.2 in una nuova scheda.");
+            notify("Manuale utente", "Aperto il manuale unico FunniFin v3.0 in una nuova scheda.");
           },
         };
       }
@@ -2161,7 +2161,7 @@ export function AdminView({
     if (adminTab === "Manuale") {
       return {
         eyebrow: "Manuale utente",
-        title: "FunniFin Manuale v2.2",
+        title: "FunniFin Manuale unico v3.0",
         detail: "Flussi Cliente, FunniFin, Esperto, Brand, notifiche, mail e atlante UI",
         meta: "DOCX",
       };
@@ -3578,7 +3578,7 @@ export function AdminView({
           <SectionTitle
             title="Manuale utente"
             icon={<BookOpen size={20} />}
-            meta="DOCX v2.2"
+            meta="DOCX v3.0"
             actions={
               <a className="app-btn app-btn-primary" href={USER_MANUAL_URL} target="_blank" rel="noreferrer">
                 <ExternalLink size={16} />
@@ -4343,7 +4343,7 @@ export function AdminView({
             : adminTab === "Mail"
               ? "Destinatari · trigger · preview HTML"
             : adminTab === "Manuale"
-              ? "DOCX v2.2 · flussi e atlante UI"
+              ? "DOCX v3.0 · manuale completo unico"
             : adminTab === "Google"
               ? `Workspace Google · ${googleHealthStatusLabel.toLowerCase()}`
               : `${selectedProject.company} · ${statusLabel[activeAdminStatus]}`

@@ -9,7 +9,7 @@ import { BundleCard } from "../../../components/workshop/BundleCard";
 import { WorkshopCard } from "../../../components/workshop/WorkshopCard";
 import type { CatalogBundle, CommercialConfig, Format, Selection, SurveyProfile, Topic, Workshop } from "../../../types/domain";
 import { money } from "../../../utils/money";
-import { topicColorClass } from "../../../utils/workshop";
+import { formatDuration, topicColorClass } from "../../../utils/workshop";
 import type { CatalogSort } from "../clientFlowState";
 
 function workshopTopicIds(workshop: Workshop) {
@@ -79,6 +79,7 @@ export function ClientRecommendationsStep({
   commercialConfig,
   selectedSurveyProfile,
   selectBundle,
+  removeBundle,
   openWorkshop,
   toggleWorkshop,
   onEmpty,
@@ -94,6 +95,7 @@ export function ClientRecommendationsStep({
   commercialConfig: CommercialConfig;
   selectedSurveyProfile: SurveyProfile | null;
   selectBundle: (bundle: CatalogBundle, format?: "webinar") => void;
+  removeBundle: (bundle: CatalogBundle) => void;
   openWorkshop: (workshop: Workshop) => void;
   toggleWorkshop: (workshop: Workshop, event?: MouseEvent<HTMLButtonElement>) => void;
   onEmpty: () => void;
@@ -130,6 +132,7 @@ export function ClientRecommendationsStep({
                 commercialConfig={commercialConfig}
                 selected={selectedBundleIds.has(bundle.id)}
                 onSelect={() => selectBundle(bundle, selectedSurveyProfile?.requestedFormat === "online" ? "webinar" : undefined)}
+                onRemove={() => removeBundle(bundle)}
                 onOpenWorkshop={openWorkshop}
               />
             ))}
@@ -154,7 +157,7 @@ export function ClientRecommendationsStep({
                   </div>
                   <strong>{workshop.title}</strong>
                   <ExpandableCardText text={workshop.short} />
-                  <em className="recommendation-card-context eyebrow">{workshop.durationOptions[0]} · {workshop.formatOptions[0] === "webinar" ? "Online" : "In presenza"} · Livello {workshop.level}</em>
+                  <em className="recommendation-card-context eyebrow">{formatDuration(workshop.durationOptions[0])} · {workshop.formatOptions[0] === "webinar" ? "Online" : "In presenza"} · Livello {workshop.level}</em>
                   <footer>
                     <span>{money(workshop.price1h)}</span>
                     <AppButton variant={selected ? "outline" : "secondary"} onClick={(event) => toggleWorkshop(workshop, event)}>
@@ -216,6 +219,7 @@ export function ClientWorkshopStep({
   commercialConfig,
   selectedSurveyProfile,
   selectBundle,
+  removeBundle,
   selections,
   toggleWorkshop,
   updateSelection,
@@ -255,6 +259,7 @@ export function ClientWorkshopStep({
   commercialConfig: CommercialConfig;
   selectedSurveyProfile: SurveyProfile | null;
   selectBundle: (bundle: CatalogBundle, format?: Format) => void;
+  removeBundle: (bundle: CatalogBundle) => void;
   selections: Selection[];
   toggleWorkshop: (workshop: Workshop, event?: MouseEvent<HTMLButtonElement>) => void;
   updateSelection: (workshopId: string, patch: Partial<Selection>) => void;
@@ -376,6 +381,7 @@ export function ClientWorkshopStep({
                 commercialConfig={commercialConfig}
                 selected={selectedBundleIds.has(bundle.id)}
                 onSelect={() => selectBundle(bundle, selectedSurveyProfile?.requestedFormat === "online" ? "webinar" : undefined)}
+                onRemove={() => removeBundle(bundle)}
                 onOpenWorkshop={(workshop) => {
                   setCatalogMode("workshops");
                   setSearchQuery(workshop.title);

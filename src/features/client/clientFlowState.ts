@@ -54,6 +54,7 @@ const INITIAL_CLIENT_FLOW_STATE: ClientFlowState = {
     email: "",
     company: "",
     phone: "",
+    employeeCount: "",
   },
 };
 
@@ -72,9 +73,18 @@ export function clientFlowReducer(state: ClientFlowState, action: ClientFlowActi
 }
 
 export function createInitialClientFlowState(saved?: Partial<ClientFlowState>): ClientFlowState {
+  const savedBudget = saved?.surveyAnswers?.budget;
+  const migratedSurveyAnswers = saved?.surveyAnswers
+    ? {
+        ...saved.surveyAnswers,
+        ...(savedBudget?.includes("under-5000") ? { budget: ["2000-5000"] } : {}),
+        ...(savedBudget?.includes("over-10000") ? { budget: ["5000-10000"] } : {}),
+      }
+    : INITIAL_CLIENT_FLOW_STATE.surveyAnswers;
   return {
     ...INITIAL_CLIENT_FLOW_STATE,
     ...saved,
+    surveyAnswers: migratedSurveyAnswers,
     workshopFilters: {
       ...INITIAL_CLIENT_FLOW_STATE.workshopFilters,
       ...(saved?.workshopFilters ?? {}),

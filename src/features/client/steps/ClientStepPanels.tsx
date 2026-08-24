@@ -22,6 +22,7 @@ import { ReadinessPanel } from "../../../components/workshop/ReadinessPanel";
 import type { AssetDraftFolder, UploadedAsset } from "../../../driveAssetService";
 import type { ClientContact, CommercialConfig, Selection, Workshop } from "../../../types/domain";
 import { money } from "../../../utils/money";
+import { formatDuration } from "../../../utils/workshop";
 import type { SelectedWorkshopRow } from "../hooks/useClientSubmission";
 
 export function ClientPersonalizeStep({
@@ -182,8 +183,8 @@ export function ClientDatesStep({
           {datePlanningMode === "now" && (
             <>
               <div className="date-list-intro">
-                <strong>Scegli una data per ogni workshop</strong>
-                <span>Potrai modificarle finché la richiesta non viene inviata.</span>
+                <strong>Scegli le date che conosci già</strong>
+                <span>Puoi indicarne anche solo una o alcune: le altre resteranno da concordare con FunniFin.</span>
               </div>
               <div className="date-choice-grid">
                 {selections.map((selection) => {
@@ -194,7 +195,7 @@ export function ClientDatesStep({
                   const dateStateClass = isConfirmed ? "done" : hasDate ? "proposed" : "";
                   const dateIcon = isConfirmed ? <Check size={16} /> : hasDate ? <CalendarCheck size={16} /> : <Clock3 size={16} />;
                   const dateLabel = isConfirmed
-                    ? `${selection.date} · ${selection.time} · ${selection.duration}`
+                    ? `${selection.date} · ${selection.time} · ${formatDuration(selection.duration)}`
                     : hasDate
                       ? `${selection.date} · ${selection.time} — in attesa di conferma`
                       : "Data non ancora scelta";
@@ -330,7 +331,7 @@ export function ClientSubmitStep({
   missingDateRows: SelectedWorkshopRow[];
   datesDeferred: boolean;
   requestFinalized: boolean;
-  emailDeliveryMode: "sent" | "not_sent";
+  emailDeliveryMode: "pending" | "sent" | "not_sent";
   submittedEmail: string;
   contact: ClientContact;
   setContact: Dispatch<SetStateAction<ClientContact>>;
@@ -348,13 +349,15 @@ export function ClientSubmitStep({
         <div className="request-success-card">
           <span className="success-check"><Check size={38} /></span>
           <div>
-            <strong>Richiesta inviata</strong>
-            <p>{emailDeliveryMode === "not_sent"
-              ? "Richiesta ricevuta. Il recap email non è partito: il team FunniFin ti ricontatterà."
-              : "Il riepilogo è stato inviato via email. FunniFin verificherà date, disponibilità e fattibilità."}</p>
+            <strong>Richiesta salvata</strong>
+            <p>{emailDeliveryMode === "pending"
+              ? "Richiesta ricevuta. Stiamo inviando il riepilogo via email: puoi già chiudere questa pagina."
+              : emailDeliveryMode === "not_sent"
+                ? "Il recap email non è partito, ma la richiesta è al sicuro: il team FunniFin ti ricontatterà."
+                : "Il riepilogo è stato inviato via email. FunniFin verificherà date, disponibilità e fattibilità."}</p>
           </div>
           <div className="submitted-email-box">
-            <span>{emailDeliveryMode === "not_sent" ? "Recap finale per" : "Inviata a"}</span>
+            <span>{emailDeliveryMode === "sent" ? "Inviata a" : "Recap per"}</span>
             <strong>{submittedEmail}</strong>
           </div>
         </div>
@@ -364,29 +367,39 @@ export function ClientSubmitStep({
             <div><strong>Dati per recap e contatto FunniFin</strong><span>Nessun account richiesto: inserisci i dati solo alla fine per inviare la richiesta.</span></div>
             <div className="contact-grid">
               <label className={contactTouched && !contact.firstName.trim() ? "has-error" : ""}>
-                Nome
+                Nome *
                 <input value={contact.firstName} onChange={(event) => setContact({ ...contact, firstName: event.target.value })} autoComplete="given-name" />
                 {contactTouched && !contact.firstName.trim() && <small className="field-error">Campo obbligatorio</small>}
               </label>
               <label className={contactTouched && !contact.lastName.trim() ? "has-error" : ""}>
-                Cognome
+                Cognome *
                 <input value={contact.lastName} onChange={(event) => setContact({ ...contact, lastName: event.target.value })} autoComplete="family-name" />
                 {contactTouched && !contact.lastName.trim() && <small className="field-error">Campo obbligatorio</small>}
               </label>
               <label className={contactTouched && !validEmail ? "has-error" : ""}>
-                Email aziendale
+                Mail aziendale *
                 <input type="email" value={contact.email} onChange={(event) => setContact({ ...contact, email: event.target.value })} autoComplete="email" />
                 {contactTouched && !validEmail && <small className="field-error">Email non valida</small>}
               </label>
               <label className={contactTouched && !contact.company.trim() ? "has-error" : ""}>
-                Azienda
+                Azienda *
                 <input value={contact.company} onChange={(event) => setContact({ ...contact, company: event.target.value })} autoComplete="organization" />
                 {contactTouched && !contact.company.trim() && <small className="field-error">Campo obbligatorio</small>}
               </label>
-              <label className={contactTouched && !contact.phone.trim() ? "has-error" : ""}>
-                Telefono
+              <label>
+                Telefono <small>(facoltativo)</small>
                 <input value={contact.phone} onChange={(event) => setContact({ ...contact, phone: event.target.value })} autoComplete="tel" />
-                {contactTouched && !contact.phone.trim() && <small className="field-error">Campo obbligatorio</small>}
+              </label>
+              <label>
+                Numero dipendenti dell’azienda <small>(facoltativo)</small>
+                <input
+                  type="number"
+                  min="1"
+                  inputMode="numeric"
+                  value={contact.employeeCount}
+                  onChange={(event) => setContact({ ...contact, employeeCount: event.target.value })}
+                  placeholder="Es. 128"
+                />
               </label>
             </div>
           </div>
@@ -397,7 +410,7 @@ export function ClientSubmitStep({
           <label className={`approval-card privacy-consent ${contactTouched && !privacyAccepted ? "has-error" : ""}`}>
             <input type="checkbox" checked={privacyAccepted} onChange={(event) => setPrivacyAccepted(event.target.checked)} />
             <span>
-              Autorizzo FunniFin a trattare questi dati per gestire la richiesta workshop, ricontattarmi e preparare materiali/date collegati.
+              Autorizzo FunniFin a trattare questi dati per gestire la richiesta workshop, ricontattarmi e preparare materiali/date collegati. *
               <small>Versione informativa: {privacyNoticeVersion}</small>
               {contactTouched && !privacyAccepted && <small className="field-error">Conferma obbligatoria</small>}
             </span>

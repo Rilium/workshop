@@ -35,11 +35,15 @@ import { getWorkshopAvailability } from "../../../googleCalendarService";
 import type { Selection, Workshop } from "../../../types/domain";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { calendarDateLimitMessage, calendarDateLimits, formatDateKey, isCalendarDateAllowed } from "../../../utils/dateLimits";
+import { formatDuration } from "../../../utils/workshop";
 
 function parseDateKey(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year || new Date().getFullYear(), (month || 1) - 1, day || 1, 12, 0, 0);
 }
+
+const FALLBACK_TIME_SLOTS = ["09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00", "17:00"]
+  .map((time) => ({ time, status: "available" as const }));
 
 export function DatePickerModal({
   selection,
@@ -59,7 +63,7 @@ export function DatePickerModal({
   const dateLimits = calendarDateLimits();
   const initialDate = selection.date && isCalendarDateAllowed(selection.date) ? selection.date : dateLimits.min;
   const [day, setDay] = useState(initialDate);
-  const [time, setTime] = useState(selection.time || "18:00");
+  const [time, setTime] = useState(selection.time || "09:00");
   const [availability, setAvailability] = useState<{ source: string; slots: Array<{ time: string; status: "available" | "busy" | "promo" }> }>({
     source: "google-freebusy",
     slots: [],
@@ -102,12 +106,18 @@ export function DatePickerModal({
     }
     getWorkshopAvailability({ date: formattedDay, duration: selection.duration, format: selection.format, expertIds: workshop.experts })
       .then((result) => {
-        if (!cancelled) setAvailability(result);
+        if (cancelled) return;
+        const slots = result.slots.length > 0 ? result.slots : FALLBACK_TIME_SLOTS;
+        setAvailability({ ...result, slots });
+        if (!slots.some((slot) => slot.time === time && slot.status !== "busy")) {
+          setTime(slots.find((slot) => slot.status !== "busy")?.time ?? "09:00");
+        }
       })
-      .catch((error) => {
+      .catch(() => {
         if (!cancelled) {
-          setAvailability({ source: "google-freebusy", slots: [] });
-          setAvailabilityError(error instanceof Error ? error.message : "Disponibilita Calendar non disponibile.");
+          setAvailability({ source: "orari-proposti", slots: FALLBACK_TIME_SLOTS });
+          setAvailabilityError("Calendar non è disponibile: scegli un orario indicativo, FunniFin lo verificherà.");
+          setTime((current) => FALLBACK_TIME_SLOTS.some((slot) => slot.time === current) ? current : "09:00");
         }
       })
       .finally(() => {
@@ -232,7 +242,7 @@ export function DatePickerModal({
                 })()}
               </span>
             </div>
-            <em>{selection.duration}</em>
+            <em>{formatDuration(selection.duration)}</em>
           </div>
           <button className="primary-btn" disabled={!selectedDateAllowed} onClick={() => onConfirm(formattedDay, time)}>
             Conferma proposta

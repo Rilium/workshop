@@ -47,7 +47,7 @@ export const SECRET_SETTINGS = {
       ],
       defaultWorkshopDurationMinutes: 60,
       qAndAMinutes: 10,
-      createMeetForFormats: ["webinar", "ibrido"],
+      createMeetForFormats: ["webinar"],
       calendarSlotStartHour: 8,
       calendarSlotEndHour: 23,
     },

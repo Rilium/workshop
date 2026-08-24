@@ -115,7 +115,10 @@ async function run() {
     await page.locator(".survey-nav").getByRole("button", { name: "Continua" }).click();
     await answerCurrentQuestion(page, /Fino a 50/);
     await answerCurrentQuestion(page, /^In presenza/);
-    await answerCurrentQuestion(page, /> 10.000 €/);
+    if ((await page.locator(".survey-option").count()) !== 3) {
+      throw new Error("La domanda sul budget deve mostrare esattamente tre fasce di prezzo");
+    }
+    await answerCurrentQuestion(page, /Oltre 10.000 €/);
 
     await page.getByRole("heading", { name: "Abbiamo trovato il percorso ideale" }).waitFor({ timeout: 10000 });
     await page.locator(".guided-bundle-recommendation .bundle-card").filter({ hasText: "Bundle Educazione Finanziaria Avanzata" }).waitFor({ timeout: 5000 });

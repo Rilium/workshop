@@ -53,7 +53,7 @@ import { QuoteStrip } from "../../components/workshop/QuoteStrip";
 import { ReadinessPanel } from "../../components/workshop/ReadinessPanel";
 import { WorkshopCard } from "../../components/workshop/WorkshopCard";
 import { BundleCard } from "../../components/workshop/BundleCard";
-import { getBundlePrice, getWorkshopSelectionPrice, topicColorClass } from "../../utils/workshop";
+import { formatDuration, getBundlePrice, getWorkshopSelectionPrice, topicColorClass } from "../../utils/workshop";
 import { buildSurveyRecommendation } from "../../utils/recommendation";
 import { clientCatalogImport } from "../../data/clientCatalog";
 import { saveClientDraft } from "./clientDraft";
@@ -105,9 +105,8 @@ const catalogSortOptions: Array<{ value: CatalogSort; label: string }> = [
 
 const formatFilterOptions = [
   { value: "all", label: "Tutti i formati" },
-  { value: "webinar", label: "Webinar" },
+  { value: "webinar", label: "Online" },
   { value: "live", label: "In presenza" },
-  { value: "ibrido", label: "Ibrido" },
 ];
 
 const PRIVACY_NOTICE_VERSION = "privacy-funnifin-mvp-2026-06-22";
@@ -166,11 +165,9 @@ const guidedSurveyQuestions: SurveyQuestion[] = [
     title: "Hai già un budget indicativo?",
     kind: "single",
     answers: [
-      { id: "under-2000", label: "< 2.000 €", description: "Percorso essenziale o primo pilota." },
-      { id: "2000-5000", label: "2.000 - 5.000 €", description: "Combinazione di workshop con buona copertura." },
-      { id: "5000-10000", label: "5.000 - 10.000 €", description: "Percorso completo e personalizzabile." },
-      { id: "over-10000", label: "> 10.000 €", description: "Piano esteso o programma annuale." },
-      { id: "unknown", label: "Non ancora definito", description: "Costruiamo prima il perimetro consigliato." },
+      { id: "under-2000", label: "Fino a 2.000 €", description: "Workshop singoli sulle priorità principali." },
+      { id: "2000-5000", label: "Da 2.000 a 5.000 €", description: "Percorso essenziale o combinazione mirata." },
+      { id: "5000-10000", label: "Da 5.000 a 10.000 €", description: "Percorso completo e personalizzabile." },
     ],
   },
 ];
@@ -209,6 +206,7 @@ export function ClientView({
   toggleWorkshop,
   addWorkshops,
   selectBundle,
+  removeBundle,
   clearSelections,
   updateSelection,
   setProjectStatus,
@@ -240,6 +238,7 @@ export function ClientView({
   toggleWorkshop: (id: string) => void;
   addWorkshops: (ids: string[], options?: { bundleId?: string; format?: Format }) => void;
   selectBundle: (bundle: CatalogBundle, format?: Format) => void;
+  removeBundle: (bundle: CatalogBundle) => void;
   clearSelections: () => void;
   updateSelection: (id: string, patch: Partial<Selection>) => void;
   setProjectStatus: (status: ProjectStatus, title: string, body: string) => void;
@@ -476,6 +475,7 @@ export function ClientView({
   const selectedRecommendationCount = recommendedWorkshops.filter((workshop) => selections.some((selection) => selection.workshopId === workshop.id)).length;
   const missingDateRows = selectedWorkshopRows.filter(({ selection }) => !selection.dateConfirmed);
   const allDatesSelected = selectedWorkshopRows.length > 0 && missingDateRows.length === 0;
+  const someDatesSelected = missingDateRows.length < selectedWorkshopRows.length;
   const activeStepIndex = clientSteps.indexOf(clientStep);
   const goNext = () => setClientStep(clientSteps[Math.min(activeStepIndex + 1, clientSteps.length - 1)]);
   const goBack = () => setClientStep(clientSteps[Math.max(activeStepIndex - 1, 0)]);
@@ -483,7 +483,6 @@ export function ClientView({
     contact.firstName.trim() &&
     contact.lastName.trim() &&
     contact.company.trim() &&
-    contact.phone.trim() &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email.trim()),
   );
   const { uploadingAssets, assetUploadError, handleAssetFiles } = useClientAssetUploads({
@@ -747,7 +746,7 @@ export function ClientView({
       ...selectedWorkshopRows.map(({ selection, workshop }) => {
         const price = getWorkshopSelectionPrice(workshop, selection, commercialConfig);
         const date = selection.date ? `, ${selection.date} ${selection.time}` : "";
-        return `- ${workshop.title}: ${selection.duration}, ${selection.format}${date} (${money(price.total)})`;
+        return `- ${workshop.title}: ${formatDuration(selection.duration)}, ${selection.format}${date} (${money(price.total)})`;
       }),
       `Totale: ${money(quote.total)}`,
     ].join("\n");
@@ -1074,7 +1073,14 @@ export function ClientView({
       action: goNext,
     };
     if (clientStep === "Personalizza") return { label: "Procedi", disabled: selectedWorkshopRows.length === 0, action: goNext };
-    if (clientStep === "Date") return { label: "Materiali opzionali", disabled: !allDatesSelected && !datesDeferred, action: goNext };
+    if (clientStep === "Date") return {
+      label: allDatesSelected || datesDeferred ? "Vai ai materiali opzionali" : "Continua con le date scelte",
+      disabled: !allDatesSelected && !datesDeferred && !someDatesSelected,
+      action: () => {
+        if (!allDatesSelected) setDatesDeferred(true);
+        goNext();
+      },
+    };
     if (clientStep === "Materiali") return { label: uploadedAssets.length > 0 ? "Vai all'invio" : "Salta e vai all'invio", disabled: false, action: goNext };
     if (requestFinalized) return { label: "Richiesta inviata", disabled: true, action: () => {} };
     return { label: "Invia richiesta", disabled: sendingRequest || selectedWorkshopRows.length === 0, action: () => void submitRequest() };
@@ -1144,7 +1150,8 @@ export function ClientView({
         <div className="guided-choice-head">
           <img className="guided-brand-lockup" src="/funnifin-logo.svg" alt="FunniFin" />
           <h1 id="client-entry-title">
-            Costruisci il <span>piano formativo</span> più adatto alla tua azienda
+            Costruisci il <span>piano formativo</span> più
+            <br className="guided-title-desktop-break" /> adatto alla tua azienda
           </h1>
           <p>Scegli se partire da una proposta guidata oppure esplorare il catalogo completo. Potrai modificare workshop, esperti, date e costi in qualsiasi momento.</p>
         </div>
@@ -1424,7 +1431,7 @@ export function ClientView({
                         </span>
                         <strong>{workshop.title}</strong>
                         <p>{workshop.short}</p>
-                        <em>{workshop.durationOptions[0]} · {surveyProfile.resolvedFormat === "webinar" ? "Online" : "In presenza"} · {money(previewPrice)}</em>
+                        <em>{formatDuration(workshop.durationOptions[0])} · {surveyProfile.resolvedFormat === "webinar" ? "Online" : "In presenza"} · {money(previewPrice)}</em>
                       </article>
                     );
                   })}
@@ -1461,7 +1468,7 @@ export function ClientView({
                           </span>
                           <strong>{workshop.title}</strong>
                           <ExpandableCardText text={workshop.short} />
-                          <em>{workshop.durationOptions[0]} · {surveyProfile.resolvedFormat === "webinar" ? "Online" : "In presenza"} · {money(previewPrice)}</em>
+                          <em>{formatDuration(workshop.durationOptions[0])} · {surveyProfile.resolvedFormat === "webinar" ? "Online" : "In presenza"} · {money(previewPrice)}</em>
                         </article>
                       );
                     })}
@@ -1500,7 +1507,7 @@ export function ClientView({
                   </span>
                   <strong>{workshop.title}</strong>
                   <p>{workshop.short}</p>
-                  <em>{workshop.durationOptions[0]} · {previewFormat === "webinar" ? "Online" : "In presenza"} · {money(previewPrice)}</em>
+                  <em>{formatDuration(workshop.durationOptions[0])} · {previewFormat === "webinar" ? "Online" : "In presenza"} · {money(previewPrice)}</em>
                 </article>
               );
               })}
@@ -1531,15 +1538,17 @@ export function ClientView({
         title="Scegli gli ambiti, proponi date e ricevi la conferma dal team."
         actions={
           <>
-            <ToolIconButton
+            <AppButton
+              variant="outline"
+              size="small"
+              leftIcon={<ChevronLeft size={17} />}
               onClick={() => {
                 setChoiceSheet(null);
                 setClientJourneyStage("choice");
               }}
-              label="Torna alla scelta guidata/manuale"
             >
-              <Sparkles size={22} />
-            </ToolIconButton>
+              Torna alla home
+            </AppButton>
             <ToolIconButton
               onClick={() => {
                 setClientStep("Date");
@@ -1594,6 +1603,7 @@ export function ClientView({
           commercialConfig={commercialConfig}
           selectedSurveyProfile={selectedSurveyProfile}
           selectBundle={selectBundle}
+          removeBundle={removeBundle}
           openWorkshop={(workshop) => {
             setClientStep("Workshop");
             setCatalogMode("workshops");
@@ -1642,6 +1652,7 @@ export function ClientView({
           commercialConfig={commercialConfig}
           selectedSurveyProfile={selectedSurveyProfile}
           selectBundle={selectBundle}
+          removeBundle={removeBundle}
           selections={selections}
           toggleWorkshop={toggleWorkshopWithFeedback}
           updateSelection={updateSelection}
@@ -1784,6 +1795,7 @@ export function ClientView({
           rows={selectedWorkshopRows}
           quote={quote}
           onRemove={removeWorkshop}
+          onChange={updateSelection}
           onClear={clearSelections}
           onShare={handleShareCart}
           submitting={sharingCart}
@@ -1812,7 +1824,7 @@ export function ClientView({
             : clientStep === "Workshop" && clientMainAction.disabled
               ? "Aggiungi almeno un workshop al percorso"
               : clientStep === "Date" && clientMainAction.disabled
-                ? "Scegli la data per tutti i workshop"
+                ? "Scegli almeno una data oppure seleziona “Le definirò in seguito”"
                 : undefined
         }
         primaryLabel={clientMainAction.label}

@@ -44,7 +44,7 @@ export type NotifyOptions = {
   toast?: boolean;
 };
 export type Duration = "1h" | "1.5h" | "2h";
-export type Format = "live" | "webinar" | "ibrido";
+export type Format = "live" | "webinar";
 export type ProjectStatus =
   | "draft_cliente"
   | "richiesta_inviata"
@@ -201,6 +201,7 @@ export type ClientContact = {
   email: string;
   company: string;
   phone: string;
+  employeeCount: string;
 };
 
 export type AdminProject = {

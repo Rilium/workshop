@@ -1,5 +1,5 @@
 import { BUNDLE_PRICES, defaultCommercialConfig } from "../data/pricing";
-import type { AdminProject, CatalogBundle, CommercialConfig, ProjectStatus, Selection, Workshop } from "../types/domain";
+import type { AdminProject, CatalogBundle, CommercialConfig, Duration, ProjectStatus, Selection, Workshop } from "../types/domain";
 import type { WorkshopRequestRecord } from "../requestService";
 
 export function requestToAdminProject(request: WorkshopRequestRecord): AdminProject {
@@ -36,6 +36,10 @@ export function buildLocalAdminProject(selections: Selection[], quoteTotal: numb
 
 export function topicColorClass(topicId: string) {
   return `topic-color-${topicId}`;
+}
+
+export function formatDuration(duration: Duration) {
+  return duration === "1.5h" ? "1h 30 min" : duration;
 }
 
 export function getWorkshopSelectionPrice(

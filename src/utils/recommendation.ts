@@ -2,10 +2,12 @@ import type { CatalogBundle, CommercialConfig, SurveyProfile, Workshop } from ".
 import { getBundlePrice, getWorkshopSelectionPrice } from "./workshop";
 
 const budgetCeilings: Record<string, number> = {
+  // Valori legacy mantenuti per profili già salvati.
+  "under-5000": 5000,
   "under-2000": 2000,
   "2000-5000": 5000,
   "5000-10000": 10000,
-  "over-10000": Number.POSITIVE_INFINITY,
+  "over-10000": 10000,
   unknown: Number.POSITIVE_INFINITY,
 };
 
@@ -16,7 +18,7 @@ function topicIdsForWorkshop(workshop: Workshop) {
 function resolveFormat(requestedFormat: string, employees: string, budget: string): "webinar" | "live" {
   if (requestedFormat === "in-person") return "live";
   if (requestedFormat === "online") return "webinar";
-  if (budget === "under-2000" || employees === "200+" || employees === "51-200") return "webinar";
+  if (budget === "under-5000" || budget === "under-2000" || budget === "2000-5000" || employees === "200+" || employees === "51-200") return "webinar";
   return "live";
 }
 

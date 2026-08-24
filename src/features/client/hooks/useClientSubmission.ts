@@ -1,4 +1,5 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
+import { isLargeWorkshopRequest, WORKSHOP_REQUEST_MAX } from "../../../config/workshopRequestLimits";
 import { sendWorkshopRequestEmail } from "../../../emailService";
 import type { AssetDraftFolder, UploadedAsset } from "../../../driveAssetService";
 import {
@@ -66,7 +67,7 @@ export function useClientSubmission({
   const [sendingRequest, setSendingRequest] = useState(false);
   const [requestFinalized, setRequestFinalized] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
-  const [emailDeliveryMode, setEmailDeliveryMode] = useState<"sent" | "not_sent">("not_sent");
+  const [emailDeliveryMode, setEmailDeliveryMode] = useState<"pending" | "sent" | "not_sent">("pending");
 
   const submitRequest = async (deferMissingDates = false) => {
     if (selectedWorkshopRows.length === 0) {
@@ -81,7 +82,7 @@ export function useClientSubmission({
     if (!contactReady) {
       setContactTouched(true);
       setClientStep("Invio");
-      notify("Dati contatto mancanti", "Compila nome, cognome, azienda, telefono e una email valida per ricevere il recap.");
+      notify("Dati contatto mancanti", "Compila nome, cognome, azienda e una mail aziendale valida per ricevere il recap.");
       return;
     }
     if (!privacyAccepted) {
@@ -91,6 +92,18 @@ export function useClientSubmission({
       return;
     }
 
+    if (selectedWorkshopRows.length > WORKSHOP_REQUEST_MAX) {
+      setClientStep("Workshop");
+      notify("Troppi workshop", `Puoi inviare al massimo ${WORKSHOP_REQUEST_MAX} workshop nella stessa richiesta.`);
+      return;
+    }
+    if (isLargeWorkshopRequest(selectedWorkshopRows.length)) {
+      notify(
+        "Richiesta molto ampia",
+        `Stai inviando ${selectedWorkshopRows.length} workshop. FunniFin verificherà con te pianificazione e fattibilità.`,
+      );
+    }
+
     setSendingRequest(true);
     try {
       const requestWorkshops: RequestWorkshopRecord[] = selectedWorkshopRows.map(({ selection, workshop }) => ({
@@ -98,8 +111,8 @@ export function useClientSubmission({
         title: workshop.title,
         duration: selection.duration,
         format: selection.format,
-        date: selection.date,
-        time: selection.time,
+        date: selection.dateConfirmed ? selection.date : "",
+        time: selection.dateConfirmed && selection.date ? selection.time : "",
         price: getWorkshopSelectionPrice(workshop, selection, commercialConfig).total,
         custom: selection.custom,
         recordingIncluded: selection.recordingIncluded !== false,
@@ -140,7 +153,20 @@ export function useClientSubmission({
           version: privacyNoticeVersion,
         },
       });
-      const emailResult = await sendWorkshopRequestEmail({
+      onRequestCreated(request);
+      setProjectStatus(
+        "richiesta_inviata",
+        "Richiesta salvata",
+        "La richiesta è al sicuro. Stiamo inviando il recap email in background.",
+      );
+      setSubmittedEmail(contact.email.trim());
+      setEmailDeliveryMode("pending");
+      setRequestFinalized(true);
+      clearClientDraft();
+      clearClientSubmissionIdentity();
+      setSendingRequest(false);
+
+      void sendWorkshopRequestEmail({
         requestId: request.id,
         clientMutationId: request.clientMutationId || "",
         contact: request.contact,
@@ -155,24 +181,23 @@ export function useClientSubmission({
           recordingIncluded: workshop.recordingIncluded,
         })),
         quote: request.quote,
+      }).then(() => {
+        setEmailDeliveryMode("sent");
+        setProjectStatus(
+          "richiesta_inviata",
+          "Richiesta inviata",
+          "Il recap è stato inviato. FunniFin verificherà disponibilità e fattibilità.",
+        );
       }).catch((error) => {
         const message = error instanceof Error ? error.message : "Email non inviata.";
-        notify("Email non inviata", message);
-        return { sent: false };
+        setEmailDeliveryMode("not_sent");
+        setProjectStatus(
+          "richiesta_inviata",
+          "Richiesta salvata",
+          "La richiesta è al sicuro, ma il recap email non è partito. Il team FunniFin ti ricontatterà.",
+        );
+        notify("Email non inviata", `${message} La richiesta è comunque salvata.`);
       });
-      onRequestCreated(request);
-      setProjectStatus(
-        "richiesta_inviata",
-        "Richiesta inviata",
-        emailResult.sent
-          ? "Il recap è stato inviato. FunniFin verificherà disponibilità e fattibilità."
-          : "La richiesta è stata salvata, ma il recap email non è partito.",
-      );
-      setSubmittedEmail(contact.email.trim());
-      setEmailDeliveryMode(emailResult.sent ? "sent" : "not_sent");
-      setRequestFinalized(true);
-      clearClientDraft();
-      clearClientSubmissionIdentity();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Salvataggio richiesta o invio email non riuscito.";
       notify("Richiesta non completata", `${message} Controlla Apps Script e riprova: non marco questa richiesta come reale finché non viene salvata.`);

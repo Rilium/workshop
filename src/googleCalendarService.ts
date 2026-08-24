@@ -40,7 +40,7 @@ export type ExpertCalendarEventPayload = {
   date: string;
   time: string;
   duration: Duration;
-  format: "live" | "webinar" | "ibrido";
+  format: "live" | "webinar";
   expertName?: string;
   mode: "candidate" | "assigned_by_funnifin";
 };
@@ -65,7 +65,7 @@ export type CalendarEventPayload = {
     date: string;
     time: string;
     duration: Duration;
-    format: "live" | "webinar" | "ibrido";
+    format: "live" | "webinar";
     expertName?: string;
   }>;
   quoteTotal: number;
@@ -133,7 +133,7 @@ function assertCalendarPayloadDatesAllowed(dates: string[]) {
 export async function getWorkshopAvailability(params: {
   date: string;
   duration: Duration;
-  format: "live" | "webinar" | "ibrido";
+  format: "live" | "webinar";
   expertIds?: string[];
 }): Promise<CalendarAvailability> {
   assertCalendarDateAllowed(params.date);

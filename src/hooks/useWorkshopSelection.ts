@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { isLargeWorkshopRequest, WORKSHOP_REQUEST_MAX } from "../config/workshopRequestLimits";
 import type { CatalogBundle, Format, Selection, Workshop } from "../types/domain";
 
 export function useWorkshopSelection(
@@ -16,6 +17,11 @@ export function useWorkshopSelection(
     const workshop = workshops.find((item) => item.id === workshopId)!;
     const selectedWorkshop = selections.find((selection) => selection.workshopId === workshopId);
     const alreadySelected = Boolean(selectedWorkshop);
+    const nextCount = selections.length + (alreadySelected ? -1 : 1);
+    if (!alreadySelected && nextCount > WORKSHOP_REQUEST_MAX) {
+      notify("Limite workshop raggiunto", `Puoi inserire fino a ${WORKSHOP_REQUEST_MAX} workshop nella stessa richiesta.`);
+      return;
+    }
     const invalidatedBundleIds = selectedWorkshop?.bundleIds ?? (selectedWorkshop?.bundleId ? [selectedWorkshop.bundleId] : []);
     setSelections((current) => {
       const currentSelection = current.find((selection) => selection.workshopId === workshopId);
@@ -39,12 +45,19 @@ export function useWorkshopSelection(
           recordingIncluded: recordingDefault,
           promo: false,
           date: "",
-          time: "10:00",
+          time: "",
           dateConfirmed: false,
           status: "selezionato",
         },
       ];
     });
+    if (!alreadySelected && isLargeWorkshopRequest(nextCount)) {
+      notify(
+        "Richiesta molto ampia",
+        `Hai selezionato ${nextCount} workshop. Puoi continuare fino a ${WORKSHOP_REQUEST_MAX}; FunniFin verificherà con te pianificazione e fattibilità.`,
+      );
+      return;
+    }
     notify(
       alreadySelected ? "Workshop rimosso" : "Workshop aggiunto",
       alreadySelected
@@ -57,6 +70,13 @@ export function useWorkshopSelection(
 
   const addWorkshops = (workshopIds: string[], options?: { bundleId?: string; format?: Format }) => {
     const uniqueIds = Array.from(new Set(workshopIds));
+    const selectedIds = new Set(selections.map((selection) => selection.workshopId));
+    const newValidIds = uniqueIds.filter((id) => !selectedIds.has(id) && workshops.some((workshop) => workshop.id === id));
+    const nextCount = selections.length + newValidIds.length;
+    if (nextCount > WORKSHOP_REQUEST_MAX) {
+      notify("Limite workshop raggiunto", `Questa aggiunta porterebbe il percorso a ${nextCount} workshop. Il massimo per richiesta è ${WORKSHOP_REQUEST_MAX}.`);
+      return;
+    }
     setSelections((current) => {
       const selectedIds = new Set(current.map((selection) => selection.workshopId));
       const additions = uniqueIds
@@ -74,7 +94,7 @@ export function useWorkshopSelection(
             recordingIncluded: recordingDefault,
             promo: false,
             date: "",
-            time: "10:00",
+            time: "",
             dateConfirmed: false,
             status: "selezionato",
           } satisfies Selection;
@@ -82,9 +102,22 @@ export function useWorkshopSelection(
         .filter(Boolean) as Selection[];
       return [...current, ...additions];
     });
+    if (newValidIds.length > 0 && isLargeWorkshopRequest(nextCount)) {
+      notify(
+        "Richiesta molto ampia",
+        `Il percorso contiene ${nextCount} workshop. Puoi continuare fino a ${WORKSHOP_REQUEST_MAX}; FunniFin verificherà con te pianificazione e fattibilità.`,
+      );
+    }
   };
 
   const selectBundle = (bundle: CatalogBundle, format?: Format) => {
+    const selectedIds = new Set(selections.map((selection) => selection.workshopId));
+    const newValidIds = bundle.workshopIds.filter((id) => !selectedIds.has(id) && workshops.some((workshop) => workshop.id === id));
+    const nextCount = selections.length + newValidIds.length;
+    if (nextCount > WORKSHOP_REQUEST_MAX) {
+      notify("Limite workshop raggiunto", `Questo pacchetto porterebbe il percorso a ${nextCount} workshop. Il massimo per richiesta è ${WORKSHOP_REQUEST_MAX}.`);
+      return;
+    }
     const absorbedStandaloneCount = bundle.workshopIds.filter((workshopId) => {
       const selection = selections.find((item) => item.workshopId === workshopId);
       return selection && !(selection.bundleIds?.length || selection.bundleId);
@@ -116,14 +149,19 @@ export function useWorkshopSelection(
           recordingIncluded: existing?.recordingIncluded ?? recordingDefault,
           promo: existing?.promo ?? false,
           date: existing?.date ?? "",
-          time: existing?.time ?? "10:00",
+          time: existing?.time ?? "",
           dateConfirmed: existing?.dateConfirmed ?? false,
           status: existing?.status ?? "selezionato",
         });
       });
       return Array.from(byId.values());
     });
-    if (absorbedStandaloneCount > 0 || sharedBundleCount > 0) {
+    if (newValidIds.length > 0 && isLargeWorkshopRequest(nextCount)) {
+      notify(
+        "Richiesta molto ampia",
+        `Il percorso contiene ${nextCount} workshop. Puoi continuare fino a ${WORKSHOP_REQUEST_MAX}; FunniFin verificherà con te pianificazione e fattibilità.`,
+      );
+    } else if (absorbedStandaloneCount > 0 || sharedBundleCount > 0) {
       const details = [
         absorbedStandaloneCount > 0
           ? `${absorbedStandaloneCount} ${absorbedStandaloneCount === 1 ? "workshop singolo già presente è stato assorbito" : "workshop singoli già presenti sono stati assorbiti"}`
@@ -136,6 +174,17 @@ export function useWorkshopSelection(
     } else {
       notify("Pacchetto aggiunto", `${bundle.title} è stato aggiunto al percorso.`);
     }
+  };
+
+  const removeBundle = (bundle: CatalogBundle) => {
+    setSelections((current) => current.flatMap((selection) => {
+      const bundleIds = (selection.bundleIds ?? (selection.bundleId ? [selection.bundleId] : []))
+        .filter((bundleId) => bundleId !== bundle.id);
+      if (!bundle.workshopIds.includes(selection.workshopId)) return [selection];
+      if (bundleIds.length === 0) return [];
+      return [{ ...selection, bundleId: bundleIds[0], bundleIds }];
+    }));
+    notify("Pacchetto rimosso", `${bundle.title} è stato rimosso dal percorso.`);
   };
 
   const updateSelection = (workshopId: string, patch: Partial<Selection>) => {
@@ -155,9 +204,22 @@ export function useWorkshopSelection(
 
   useEffect(() => {
     if (workshops.length === 0) return;
-    const validWorkshopIds = new Set(workshops.map((workshop) => workshop.id));
-    setSelections((current) => current.filter((selection) => validWorkshopIds.has(selection.workshopId)));
+    const workshopById = new Map(workshops.map((workshop) => [workshop.id, workshop]));
+    setSelections((current) => current
+      .filter((selection) => workshopById.has(selection.workshopId))
+      .map((selection) => {
+        const workshop = workshopById.get(selection.workshopId)!;
+        const duration = workshop.durationOptions.includes(selection.duration)
+          ? selection.duration
+          : workshop.durationOptions[0];
+        const format = workshop.formatOptions.includes(selection.format)
+          ? selection.format
+          : workshop.formatOptions.includes("webinar") ? "webinar" : workshop.formatOptions[0];
+        return duration === selection.duration && format === selection.format
+          ? selection
+          : { ...selection, duration, format };
+      }));
   }, [workshops]);
 
-  return { selections, setSelections, toggleWorkshop, addWorkshops, selectBundle, updateSelection, clearSelections };
+  return { selections, setSelections, toggleWorkshop, addWorkshops, selectBundle, removeBundle, updateSelection, clearSelections };
 }

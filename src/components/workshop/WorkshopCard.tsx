@@ -33,7 +33,7 @@ import {
 } from "../../components/ui/FaIcons";
 import type { CatalogBundle, CommercialConfig, Duration, Format, Selection, Topic, Workshop } from "../../types/domain";
 import { money } from "../../utils/money";
-import { getWorkshopSelectionPrice, topicColorClass } from "../../utils/workshop";
+import { formatDuration, getWorkshopSelectionPrice, topicColorClass } from "../../utils/workshop";
 import { AppButton } from "../ui/AppButton";
 import { ExpandableCardText } from "../ui/ExpandableCardText";
 
@@ -109,9 +109,9 @@ export function WorkshopCard({
         </div>
       )}
       <div className="meta-grid">
-        <span title={selection?.duration ?? workshop.durationOptions.join(" / ")}>
+        <span title={selection ? formatDuration(selection.duration) : workshop.durationOptions.map(formatDuration).join(" / ")}>
           <Clock3 size={15} />
-          <span className="meta-label">{selection?.duration ?? workshop.durationOptions.join(" / ")}</span>
+          <span className="meta-label">{selection ? formatDuration(selection.duration) : workshop.durationOptions.map(formatDuration).join(" / ")}</span>
         </span>
         <span title={selection ? (selection.format === "live" ? "In presenza" : "Online") : "Online / In presenza"}>
           <Video size={15} />
@@ -127,7 +127,7 @@ export function WorkshopCard({
           <div className="config-row">
           <select value={selection.duration} onChange={(event) => onChange({ duration: event.target.value as Duration })}>
             {workshop.durationOptions.map((duration) => (
-              <option key={duration}>{duration}</option>
+              <option key={duration} value={duration}>{formatDuration(duration)}</option>
             ))}
           </select>
           <select value={selection.format} onChange={(event) => onChange({ format: event.target.value as Format })}>

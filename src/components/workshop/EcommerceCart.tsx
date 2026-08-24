@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, ChevronDown, Share2, Trash2, X } from "../../components/ui/FaIcons";
-import type { CommercialConfig, Quote, Selection, Workshop } from "../../types/domain";
+import { BookOpen, Check, ChevronDown, SlidersHorizontal, Share2, Trash2, X } from "../../components/ui/FaIcons";
+import type { CommercialConfig, Format, Quote, Selection, Workshop } from "../../types/domain";
 import { money } from "../../utils/money";
-import { getWorkshopSelectionPrice } from "../../utils/workshop";
+import { formatDuration, getWorkshopSelectionPrice } from "../../utils/workshop";
 import { AppButton } from "../ui/AppButton";
 import { Line } from "../ui/Line";
 import { RemoveWorkshopButton } from "../ui/RemoveWorkshopButton";
@@ -12,6 +12,7 @@ export function EcommerceCart({
   rows,
   quote,
   onRemove,
+  onChange,
   onClear,
   onShare,
   submitting = false,
@@ -22,6 +23,7 @@ export function EcommerceCart({
   rows: Array<{ selection: Selection; workshop: Workshop }>;
   quote: Quote;
   onRemove: (workshopId: string) => void;
+  onChange: (workshopId: string, patch: Partial<Selection>) => void;
   onClear: () => void;
   onShare: () => void | Promise<void>;
   submitting?: boolean;
@@ -158,12 +160,80 @@ export function EcommerceCart({
                       <span className="path-workshop-index" aria-hidden="true">{index + 1}</span>
                       <div className="path-workshop-copy">
                         <strong>{workshop.title}</strong>
-                        <span>{selection.duration} · {selection.format} · {selection.recordingIncluded === false ? "senza registrazione" : "registrazione inclusa"}</span>
+                        <span>{formatDuration(selection.duration)} · {selection.format} · {selection.recordingIncluded === false ? "senza registrazione" : "registrazione inclusa"}</span>
                         <div className="path-workshop-tags">
                           {price.liveExtra > 0 && <small>Live +{money(price.liveExtra)}</small>}
                           {selection.custom && <small>Su misura +{money(commercialConfig.customExtra)}</small>}
                           {selection.promo && <small className="is-saving">Promo data</small>}
                         </div>
+                        <details className="path-workshop-config">
+                          <summary>
+                            <span><SlidersHorizontal size={15} /> Modifica dettagli</span>
+                            <ChevronDown size={16} aria-hidden="true" />
+                          </summary>
+                          <div className="path-workshop-config-body">
+                            <label>
+                              <span>Durata</span>
+                              <select
+                                value={selection.duration}
+                                onChange={(event) => onChange(workshop.id, { duration: event.target.value as Selection["duration"] })}
+                              >
+                                {workshop.durationOptions.map((duration) => <option key={duration} value={duration}>{formatDuration(duration)}</option>)}
+                              </select>
+                            </label>
+                            <label>
+                              <span>Modalità</span>
+                              <select
+                                value={selection.format}
+                                onChange={(event) => onChange(workshop.id, { format: event.target.value as Format })}
+                              >
+                                {workshop.formatOptions.map((format) => (
+                                  <option key={format} value={format}>
+                                    {format === "webinar" ? "Online" : "In presenza"}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className="path-workshop-check">
+                              <input
+                                type="checkbox"
+                                checked={selection.recordingIncluded !== false}
+                                onChange={(event) => onChange(workshop.id, { recordingIncluded: event.target.checked })}
+                              />
+                              <span>
+                                <strong>Registrazione inclusa</strong>
+                                <small>{selection.recordingIncluded === false ? `Esclusa: -${money(commercialConfig.recordingOptOutDiscount)}` : "Inclusa nel prezzo"}</small>
+                              </span>
+                            </label>
+                            {workshop.customAvailable && (
+                              <div className={`path-workshop-custom ${selection.custom ? "active" : ""}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => onChange(workshop.id, {
+                                    custom: !selection.custom,
+                                    ...(selection.custom ? { customNote: "" } : {}),
+                                  })}
+                                  aria-pressed={selection.custom}
+                                >
+                                  <span>{selection.custom && <Check size={14} />}</span>
+                                  <strong>Rendi su misura</strong>
+                                  <em>+{money(commercialConfig.customExtra)}</em>
+                                </button>
+                                {selection.custom && (
+                                  <label>
+                                    <span>Note per FunniFin</span>
+                                    <textarea
+                                      value={selection.customNote ?? ""}
+                                      onChange={(event) => onChange(workshop.id, { customNote: event.target.value })}
+                                      placeholder="Platea, tono, esempi o obiettivi da considerare…"
+                                      rows={2}
+                                    />
+                                  </label>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </details>
                       </div>
                       <div className="path-workshop-price">
                         <strong>{money(price.total)}</strong>

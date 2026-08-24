@@ -10,7 +10,7 @@ export type WorkshopSessionItem = {
   date: string;
   time: string;
   duration: Duration;
-  format: "live" | "webinar" | "ibrido";
+  format: "live" | "webinar";
   expertName?: string;
 };
 

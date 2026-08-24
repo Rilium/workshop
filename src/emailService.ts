@@ -22,6 +22,7 @@ export type WorkshopRequestEmailPayload = {
     email: string;
     company: string;
     phone: string;
+    employeeCount: string;
   };
   workshops: EmailWorkshop[];
   quote: {
@@ -212,6 +213,7 @@ function buildEmailHtml(payload: WorkshopRequestEmailPayload) {
     [
       { label: "Email", value: payload.contact.email, href: `mailto:${payload.contact.email}` },
       { label: "Telefono", value: payload.contact.phone },
+      { label: "Dipendenti azienda", value: payload.contact.employeeCount },
     ],
   ]);
 
@@ -222,7 +224,7 @@ function buildEmailHtml(payload: WorkshopRequestEmailPayload) {
           <strong style="display:block;color:#171d1d;font-size:15px;line-height:1.35;margin-bottom:6px;">${workshop.title}</strong>
           <span style="display:inline-block;margin-right:6px;padding:3px 9px;border-radius:999px;background:rgba(28,175,185,0.12);color:#1cafb9;font-size:11px;font-weight:700;">${workshop.duration}</span>
           <span style="display:inline-block;margin-right:6px;padding:3px 9px;border-radius:999px;background:#f0f1f3;color:#747878;font-size:11px;font-weight:700;">${workshop.format}</span>
-          <span style="color:#8c9096;font-size:12px;">${workshop.date || "data da concordare"}${workshop.time ? " · " + workshop.time : ""}${workshop.custom ? " · su misura" : ""}${workshop.recordingIncluded === false ? " · senza registrazione" : " · registrazione disponibile"}</span>
+          <span style="color:#8c9096;font-size:12px;">${workshop.date ? `${workshop.date} · ${workshop.time || "orario da concordare"}` : "data e orario da concordare"}${workshop.custom ? " · su misura" : ""}${workshop.recordingIncluded === false ? " · senza registrazione" : " · registrazione disponibile"}</span>
         </td>
         <td align="right" style="padding:15px 16px;${i > 0 ? "border-top:1px solid #dde0e3;" : ""}white-space:nowrap;vertical-align:top;">
           <strong style="color:#1cafb9;font-size:15px;">${euro(workshop.price)}</strong>
@@ -283,7 +285,7 @@ function buildEmailHtml(payload: WorkshopRequestEmailPayload) {
 
 function buildEmailText(payload: WorkshopRequestEmailPayload) {
   const workshops = payload.workshops
-    .map((workshop) => `- ${workshop.title}: ${workshop.duration} · ${workshop.format} · ${workshop.date || "data da proporre"} ${workshop.time || ""} · ${workshop.recordingIncluded === false ? "senza registrazione" : "registrazione disponibile"} · ${euro(workshop.price)}`)
+    .map((workshop) => `- ${workshop.title}: ${workshop.duration} · ${workshop.format} · ${workshop.date ? `${workshop.date} ${workshop.time || "orario da concordare"}` : "data e orario da concordare"} · ${workshop.recordingIncluded === false ? "senza registrazione" : "registrazione disponibile"} · ${euro(workshop.price)}`)
     .join("\n");
 
   return [
@@ -293,6 +295,7 @@ function buildEmailText(payload: WorkshopRequestEmailPayload) {
     `Referente: ${payload.contact.firstName} ${payload.contact.lastName}`,
     `Email: ${payload.contact.email}`,
     `Telefono: ${payload.contact.phone}`,
+    `Dipendenti azienda: ${payload.contact.employeeCount || "Non indicato"}`,
     "",
     "Workshop:",
     workshops,
@@ -332,6 +335,7 @@ async function postAppsScriptJson<T>(scriptUrl: string, body: unknown): Promise<
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: serialized,
+    keepalive: true,
   });
   if (!response.ok) throw new Error(`Apps Script email HTTP ${response.status}`);
   const result = (await response.json().catch(() => null)) as (T & { ok?: boolean; error?: string }) | null;

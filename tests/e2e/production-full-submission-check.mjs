@@ -118,10 +118,12 @@ async function submitFromBrowser(page) {
     ]);
   }
   await successCard.waitFor({ timeout: 5_000 });
-  const successCopy = await successCard.innerText();
-  if (!successCopy.includes("riepilogo è stato inviato via email")) {
-    throw new Error(`La UI non conferma l'invio email: ${successCopy}`);
+  const savedCopy = await successCard.innerText();
+  if (!savedCopy.includes("Richiesta salvata")) {
+    throw new Error(`La UI non conferma rapidamente il salvataggio: ${savedCopy}`);
   }
+  await page.getByText("Il riepilogo è stato inviato via email. FunniFin verificherà date, disponibilità e fattibilità.", { exact: true })
+    .waitFor({ timeout: 30_000 });
   if (await page.getByText("Richiesta presa in carico", { exact: true }).count()) {
     throw new Error("La UI Cliente espone ancora il toast tecnico di presa in carico");
   }

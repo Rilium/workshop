@@ -20,6 +20,33 @@ function validCatalog(value) {
   );
 }
 
+function normalizedDurationOptions(label, currentOptions) {
+  const normalized = String(label || "").replace(",", ".").replace(/\s+/g, "");
+  if (normalized === "2") return ["1h", "2h"];
+  if (normalized.includes("1.30") && normalized.includes("2")) return ["1h", "1.5h", "2h"];
+  if (normalized.includes("1.30") || normalized.includes("1.5")) return ["1h", "1.5h"];
+  const validCurrent = Array.isArray(currentOptions)
+    ? currentOptions.filter((duration) => duration === "1h" || duration === "1.5h" || duration === "2h")
+    : [];
+  return Array.from(new Set(["1h", ...validCurrent]));
+}
+
+function normalizeCatalogDurations(catalog) {
+  return {
+    ...catalog,
+    workshops: catalog.workshops.map((workshop) => {
+      const formatOptions = Array.isArray(workshop.formatOptions)
+        ? workshop.formatOptions.filter((format) => format === "live" || format === "webinar")
+        : [];
+      return {
+        ...workshop,
+        durationOptions: normalizedDurationOptions(workshop.durationLabel, workshop.durationOptions),
+        formatOptions: formatOptions.length > 0 ? formatOptions : ["webinar", "live"],
+      };
+    }),
+  };
+}
+
 async function fetchOfficialCatalog(scriptUrl) {
   const url = new URL(scriptUrl);
   url.searchParams.set("action", "publicCatalog");
@@ -37,7 +64,7 @@ async function fetchOfficialCatalog(scriptUrl) {
       if (!response.ok) throw new Error(`Upstream catalog HTTP ${response.status}`);
       const catalog = await response.json();
       if (!validCatalog(catalog)) throw new Error("Upstream catalog contract invalid");
-      return catalog;
+      return normalizeCatalogDurations(catalog);
     } catch (error) {
       lastError = error;
     } finally {

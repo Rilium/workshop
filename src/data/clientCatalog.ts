@@ -58,8 +58,8 @@ const topicVisuals: Record<string, { icon: string; color: string }> = {
 
 function durationOptionsFromLabel(label: string): Duration[] {
   const normalized = label.replace(",", ".").replace(/\s+/g, "");
-  if (normalized === "2") return ["2h"];
-  if (normalized.includes("1.30") && normalized.includes("2")) return ["1.5h", "2h"];
+  if (normalized === "2") return ["1h", "2h"];
+  if (normalized.includes("1.30") && normalized.includes("2")) return ["1h", "1.5h", "2h"];
   if (normalized.includes("1.30") || normalized.includes("1.5")) return ["1h", "1.5h"];
   return normalized.includes("2") ? ["1h", "2h"] : ["1h"];
 }

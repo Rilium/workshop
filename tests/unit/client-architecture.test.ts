@@ -13,7 +13,32 @@ import {
 import { calculateQuote } from "../../src/hooks/useQuote";
 import { isTransientAppsScriptReadResponse } from "../../src/appsScriptTransport";
 import { isDefinitiveSessionValidationError } from "../../src/authService";
+import {
+  isLargeWorkshopRequest,
+  WORKSHOP_REQUEST_MAX,
+  WORKSHOP_REQUEST_WARNING_THRESHOLD,
+} from "../../src/config/workshopRequestLimits";
 import type { Selection } from "../../src/types/domain";
+
+test("la durata breve del catalogo propone un'ora come default e un'ora e trenta come alternativa", () => {
+  const shortWorkshops = fallbackCatalogWorkshops.filter((workshop) =>
+    workshop.durationLabel?.replace(/\s+/g, "").includes("1-1.30"),
+  );
+  assert.ok(shortWorkshops.length > 0);
+  shortWorkshops.forEach((workshop) => assert.deepEqual(workshop.durationOptions, ["1h", "1.5h"]));
+  assert.equal(
+    fallbackCatalogWorkshops.some((workshop) => workshop.durationOptions.includes("1h") && workshop.durationOptions.includes("1.5h")),
+    true,
+  );
+});
+
+test("le richieste ampie sono avvisate da 13 workshop e accettate fino a 25", () => {
+  assert.equal(WORKSHOP_REQUEST_WARNING_THRESHOLD, 12);
+  assert.equal(WORKSHOP_REQUEST_MAX, 25);
+  assert.equal(isLargeWorkshopRequest(12), false);
+  assert.equal(isLargeWorkshopRequest(13), true);
+  assert.equal(isLargeWorkshopRequest(25), true);
+});
 
 test("il reducer ripristina un draft parziale senza perdere i default", () => {
   const initial = createInitialClientFlowState({

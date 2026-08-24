@@ -200,7 +200,10 @@ async function run() {
     await page.locator(".survey-nav").getByRole("button", { name: "Continua" }).click();
     await answerCurrentQuestion(page, /51-200/);
     await answerCurrentQuestion(page, /^Online/);
-    await answerCurrentQuestion(page, /2.000 - 5.000 €/);
+    if ((await page.locator(".survey-option").count()) !== 3) {
+      throw new Error("La domanda sul budget deve mostrare esattamente tre fasce di prezzo");
+    }
+    await answerCurrentQuestion(page, /Fino a 5.000 €/);
 
     await page.getByRole("heading", { name: "Abbiamo trovato il percorso ideale" }).waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: /Aggiungi (il pacchetto|i workshop) consigliat/ }).waitFor({ timeout: 5000 });

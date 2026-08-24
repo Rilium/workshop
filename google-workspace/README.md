@@ -55,7 +55,7 @@ Poi redeploy.
 
 - Cliente: proposta date chiama `freeBusy` via Apps Script se `VITE_APPS_SCRIPT_DEPLOYMENT_URL` esiste.
 - FunniFin: `Verifica FreeBusy` legge i calendari reali.
-- FunniFin: `Conferma evento` crea evento Calendar con Meet se il formato include webinar/ibrido.
+- FunniFin: `Conferma evento` crea evento Calendar con Meet per i workshop online.
 - Cliente: invio richiesta manda email al cliente e a FunniFin tramite Apps Script.
 - Cliente: invio richiesta crea prima un record reale su Google Sheet (`Requests`) e poi manda il recap email.
 - Cliente: ogni richiesta crea/aggiorna anche il tab `UtentiClienti`, con i dati di chi compila, stato di avanzamento, preventivo, workshop, date e link operativi.

@@ -1,4 +1,4 @@
-import { BookOpen, Check, ChevronDown, Plus, Sparkles } from "../ui/FaIcons";
+import { BookOpen, Check, ChevronDown, Plus, Sparkles, Trash2 } from "../ui/FaIcons";
 import type { CatalogBundle, CommercialConfig, Workshop } from "../../types/domain";
 import { money } from "../../utils/money";
 import { getBundlePrice } from "../../utils/workshop";
@@ -10,6 +10,7 @@ export function BundleCard({
   workshops,
   selected,
   onSelect,
+  onRemove,
   onOpenWorkshop,
   commercialConfig,
 }: {
@@ -17,6 +18,7 @@ export function BundleCard({
   workshops: Workshop[];
   selected: boolean;
   onSelect: () => void;
+  onRemove?: () => void;
   onOpenWorkshop: (workshop: Workshop) => void;
   commercialConfig: CommercialConfig;
 }) {
@@ -63,9 +65,9 @@ export function BundleCard({
           ))}
         </ol>
       </details>
-      <AppButton variant={selected ? "outline" : "secondary"} onClick={onSelect} disabled={selected}>
-        {selected ? <Check size={16} /> : <Plus size={16} />}
-        {selected ? "Pacchetto selezionato" : "Aggiungi il pacchetto"}
+      <AppButton variant={selected ? "outline" : "secondary"} onClick={selected ? onRemove : onSelect}>
+        {selected ? <Trash2 size={16} /> : <Plus size={16} />}
+        {selected ? "Rimuovi il pacchetto" : "Aggiungi il pacchetto"}
       </AppButton>
     </article>
   );

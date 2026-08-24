@@ -508,7 +508,7 @@ label.has-error textarea {
 
 .guided-brand-lockup {
   display: block;
-  width: clamp(150px, 15vw, 230px);
+  width: clamp(110px, 11vw, 165px);
   height: auto;
   margin-bottom: var(--sp-2);
   object-fit: contain;
@@ -518,7 +518,7 @@ label.has-error textarea {
 .guided-result-head h1 {
   margin: 0;
   max-width: 1380px;
-  font-size: clamp(3.25rem, 5.8vw, 6rem);
+  font-size: clamp(2.275rem, 4.06vw, 4.2rem);
   line-height: 1.01;
   letter-spacing: -0.045em;
 }
@@ -533,11 +533,15 @@ label.has-error textarea {
   content: none;
 }
 
+.guided-title-desktop-break {
+  display: block;
+}
+
 .guided-choice-head p,
 .guided-result-head p {
   max-width: 1260px;
   margin: 0;
-  font-size: clamp(1.1rem, 2vw, 1.75rem);
+  font-size: clamp(0.875rem, 1.4vw, 1.225rem);
   line-height: 1.45;
   text-wrap: balance;
 }
@@ -2229,6 +2233,10 @@ label.has-error textarea {
 }
 
 @media (max-width: 640px) {
+  .guided-title-desktop-break {
+    display: none;
+  }
+
   .approval-card.submission-preview-card {
     grid-template-columns: 36px minmax(0, 1fr);
     gap: 11px;
@@ -2271,13 +2279,13 @@ label.has-error textarea {
   }
 
   .guided-choice-head h1 {
-    font-size: clamp(2.15rem, 10vw, 3rem);
+    font-size: clamp(1.55rem, 7vw, 2.1rem);
     line-height: 1.03;
     letter-spacing: -0.04em;
   }
 
   .guided-choice-head p {
-    font-size: var(--text-md);
+    font-size: 0.875rem;
     line-height: 1.45;
   }
 

@@ -6,7 +6,7 @@ const officialCatalog = {
   ok: true,
   source: "google-sheet",
   topics: [{ id: "topic-1" }],
-  workshops: [{ id: "workshop-1" }],
+  workshops: [{ id: "workshop-1", durationLabel: "1 - 1.30", durationOptions: ["1h", "1.5h"], formatOptions: ["webinar", "live", "ibrido"] }],
   rules: [],
   bundles: [],
   commercialConfig: { workshopBasePrice: 1000 },
@@ -44,6 +44,8 @@ test("il proxy espone solo cataloghi ufficiali validi con cache CDN", async () =
     await handler({ method: "GET" }, response);
     assert.equal(response.statusCode, 200);
     assert.equal(response.body.source, "google-sheet");
+    assert.deepEqual(response.body.workshops[0].durationOptions, ["1h", "1.5h"]);
+    assert.deepEqual(response.body.workshops[0].formatOptions, ["webinar", "live"]);
     assert.match(response.headers["cache-control"], /s-maxage=300/);
     assert.match(response.headers["cache-control"], /stale-while-revalidate=86400/);
   } finally {

@@ -23,7 +23,7 @@ export type RequestWorkshopRecord = {
   workshopId: string;
   title: string;
   duration: Duration;
-  format: "live" | "webinar" | "ibrido";
+  format: "live" | "webinar";
   date: string;
   time: string;
   price: number;
@@ -58,6 +58,7 @@ export type WorkshopRequestRecord = {
     email: string;
     company: string;
     phone: string;
+    employeeCount: string;
   };
   workshops: RequestWorkshopRecord[];
   quote: {
@@ -121,9 +122,9 @@ function normalizeWorkshopRecord(record: Partial<RequestWorkshopRecord> & { id?:
     workshopId: String(record.workshopId || record.id || ""),
     title: String(record.title || ""),
     duration: record.duration === "2h" ? "2h" : record.duration === "1.5h" ? "1.5h" : "1h",
-    format: record.format === "live" || record.format === "ibrido" ? record.format : "webinar",
+    format: record.format === "live" ? "live" : "webinar",
     date: String(record.date || ""),
-    time: String(record.time || ""),
+    time: record.date ? String(record.time || "") : "",
     price: Number(record.price || 0),
     custom: Boolean(record.custom),
     recordingIncluded: record.recordingIncluded !== false,
@@ -171,6 +172,7 @@ function normalizeWorkshopRequest(request: Partial<WorkshopRequestRecord> = {}):
       email: String(contact.email || request.email || ""),
       company: String(contact.company || request.company || ""),
       phone: String(contact.phone || request.phone || ""),
+      employeeCount: String(contact.employeeCount || ""),
     },
     workshops,
     quote: {

@@ -45,7 +45,9 @@ export const AUTH_ENTRY_CONFETTI_EVENT = "funnifin:entry-confetti";
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
-  const [loading, setLoading] = useState(true);
+  // La vista pubblica non deve attraversare un loader auth quando non esiste
+  // alcuna sessione da ripristinare: in quel caso può partire subito il catalogo.
+  const [loading, setLoading] = useState(() => Boolean(getStoredSession()));
 
   // Ripristina e rivalida la sessione al mount: lo snapshot locale non decide i permessi.
   useEffect(() => {

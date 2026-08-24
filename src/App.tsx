@@ -68,6 +68,22 @@ function ViewLoadingFallback() {
   );
 }
 
+function AppBootFallback() {
+  return (
+    <div className="app-shell role-cliente app-boot-skeleton" aria-busy="true">
+      <div className="app-boot-topbar">
+        <Skeleton className="skeleton-title" />
+        <Skeleton className="skeleton-button" />
+      </div>
+      <main className="app-boot-main">
+        <SkeletonCard lines={3} />
+        <SkeletonCard lines={2} />
+        <SkeletonCard lines={2} />
+      </main>
+    </div>
+  );
+}
+
 // ─── Inner app (dentro AuthProvider) ──────────────────────────────────────────
 
 function AppInner() {
@@ -121,7 +137,7 @@ function AppInner() {
     clearAllNotifications,
     refreshNotifications,
   } = useToasts(role, currentUser?.id, currentUser?.email);
-  const { selections, toggleWorkshop, addWorkshops, selectBundle, updateSelection, clearSelections } = useWorkshopSelection(
+  const { selections, toggleWorkshop, addWorkshops, selectBundle, removeBundle, updateSelection, clearSelections } = useWorkshopSelection(
     catalogWorkshops,
     notify,
     commercialConfig.recordingDefault,
@@ -217,19 +233,7 @@ function AppInner() {
 
   // Mostra login per ruoli non-Cliente quando non autenticato
   if (loading) {
-    return (
-      <div className="app-shell role-cliente app-boot-skeleton" aria-busy="true">
-        <div className="app-boot-topbar">
-          <Skeleton className="skeleton-title" />
-          <Skeleton className="skeleton-button" />
-        </div>
-        <main className="app-boot-main">
-          <SkeletonCard lines={3} />
-          <SkeletonCard lines={2} />
-          <SkeletonCard lines={2} />
-        </main>
-      </div>
-    );
+    return <AppBootFallback />;
   }
 
   // Se l'utente ha cliccato "Accedi" o la vista richiede auth, mostra LoginView
@@ -239,6 +243,13 @@ function AppInner() {
         <LoginView onClose={currentUser ? () => setShowLogin(false) : undefined} />
       </Suspense>
     );
+  }
+
+
+  // Auth e catalogo condividono lo stesso boot screen: nessun secondo loader
+  // o cambio di layout tra le due inizializzazioni eseguite in parallelo.
+  if (catalogStatus === "loading") {
+    return <AppBootFallback />;
   }
 
   const selectedWorkshops = selections
@@ -285,11 +296,12 @@ function AppInner() {
   };
   const isAuthenticated = Boolean(currentUser);
   const isClientView = role === "Cliente";
-  const isPublicClientDemo = isClientView && !isAuthenticated;
   const showTopbarSettings = !isClientView;
   const showTopbarRefresh = !isClientView;
   const showTopbarThemeToggle = !isClientView;
-  const showTopbarLogin = isPublicClientDemo;
+  // Il planner cliente è pubblico e non richiede un account. L'accesso resta
+  // disponibile solo tramite i link riservati ai ruoli operativi.
+  const showTopbarLogin = false;
   const showAppTopbar = !(isClientView && clientGuidedLayerActive);
 
   return (
@@ -396,7 +408,6 @@ function AppInner() {
         </div>
       )}
       <main className="main-content">
-        {catalogStatus === "loading" && <ViewLoadingFallback />}
         {catalogStatus === "error" && (
           <EmptyWorkflowState
             title="Catalogo temporaneamente non disponibile"
@@ -422,6 +433,7 @@ function AppInner() {
             toggleWorkshop={toggleWorkshop}
             addWorkshops={addWorkshops}
             selectBundle={selectBundle}
+            removeBundle={removeBundle}
             clearSelections={clearSelections}
             updateSelection={updateSelection}
             setProjectStatus={syncProjectStatus}

@@ -57,7 +57,7 @@ function asDurationOptions(values: string[]): Duration[] {
 }
 
 function asFormatOptions(values: string[]): Format[] {
-  return values.filter((value): value is Format => value === "live" || value === "webinar" || value === "ibrido");
+  return values.filter((value): value is Format => value === "live" || value === "webinar");
 }
 
 function normalizedCatalogTitle(value: string) {
