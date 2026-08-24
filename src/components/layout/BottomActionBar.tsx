@@ -116,17 +116,6 @@ export function BottomActionBar({
           >
             {primaryLabel}
           </AppButton>
-          {onSummaryClick && (
-            <button
-              type="button"
-              className="bottom-summary-button"
-              onClick={onSummaryClick}
-              aria-label={summaryAriaLabel ?? "Apri riepilogo"}
-              aria-haspopup="dialog"
-            >
-              Vedi percorso
-            </button>
-          )}
           {showPrimaryHint && (
             <small
               id={primaryHintId}
@@ -137,6 +126,17 @@ export function BottomActionBar({
             </small>
           )}
         </div>
+        {onSummaryClick && (
+          <button
+            type="button"
+            className="bottom-summary-button"
+            onClick={onSummaryClick}
+            aria-label={summaryAriaLabel ?? "Apri riepilogo"}
+            aria-haspopup="dialog"
+          >
+            Vedi percorso
+          </button>
+        )}
       </div>
     </aside>
   );
