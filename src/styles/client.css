@@ -1380,7 +1380,9 @@ label.has-error textarea {
   margin-left: auto;
 }
 
-.survey-profile-tab {
+.survey-topbar .survey-profile-tab {
+  width: auto;
+  height: auto;
   min-height: 40px;
   display: inline-flex;
   align-items: center;
@@ -1394,13 +1396,13 @@ label.has-error textarea {
   box-shadow: none;
 }
 
-.survey-profile-tab span {
+.survey-topbar .survey-profile-tab span {
   color: currentColor;
   font-size: var(--text-sm);
   font-weight: var(--fw-xbold);
 }
 
-.survey-profile-tab b {
+.survey-topbar .survey-profile-tab b {
   padding: 3px 7px;
   border-radius: var(--radius-pill);
   background: var(--brand-light);
@@ -2405,12 +2407,12 @@ label.has-error textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .survey-profile-tab {
+  .survey-topbar .survey-profile-tab {
     min-width: 72px;
     padding-inline: 9px;
   }
 
-  .survey-profile-tab span {
+  .survey-topbar .survey-profile-tab span {
     display: none;
   }
 
