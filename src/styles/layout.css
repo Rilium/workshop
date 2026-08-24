@@ -72,7 +72,24 @@
 }
 
 .topbar--public .brand-mark {
+  align-items: center;
   gap: 16px;
+}
+
+.topbar--public .brand-copy,
+.topbar--public .brand-title-row,
+.topbar--public .brand-title-row > strong {
+  display: flex;
+  align-items: center;
+}
+
+.topbar--public .brand-copy {
+  align-self: stretch;
+}
+
+.topbar--public .brand-title-row,
+.topbar--public .brand-title-row > strong {
+  height: 100%;
 }
 
 .topbar--public .logo-bubble {
