@@ -258,6 +258,7 @@ export function ClientView({
   const debugNotify = (title: string, body: string) => {
     if (import.meta.env.DEV) notify(title, body);
   };
+  const [surveyProfileOpen, setSurveyProfileOpen] = useState(false);
   const {
     state: clientFlowState,
     clientStep,
@@ -1322,25 +1323,46 @@ export function ClientView({
             </div>
           )}
         </main>
-        <aside className="survey-profile">
-          <strong>Profilo percorso</strong>
-          <div className="survey-profile-score">
-            <span style={{ "--score": `${matchScore}%` } as React.CSSProperties} />
+        <aside className={`survey-profile ${surveyProfileOpen ? "is-open" : ""}`} aria-label="Profilo del percorso">
+          <button
+            type="button"
+            className="survey-profile-tab"
+            onClick={() => setSurveyProfileOpen((open) => !open)}
+            aria-expanded={surveyProfileOpen}
+            aria-controls="survey-profile-panel"
+            title={surveyProfileOpen ? "Nascondi profilo percorso" : "Mostra profilo percorso"}
+          >
+            <Sparkles size={18} aria-hidden="true" />
+            <span>Profilo</span>
             <b>{matchScore}%</b>
-          </div>
-          <div className="survey-profile-grid">
-            {profileGridItems.map((item) => (
-              <div
-                className={item.value === "Da definire" || item.value === "Non ancora definito" || item.value === "Consigliato da FunniFin" ? "" : "filled"}
-                key={item.label}
-                title={`${item.label}: ${item.value}`}
-                aria-label={`${item.label}: ${item.value}`}
-              >
-                <span>{item.label}</span>
-                <em>{item.value}</em>
+          </button>
+          {surveyProfileOpen && (
+            <div className="survey-profile-panel" id="survey-profile-panel">
+              <header>
+                <strong>Profilo percorso</strong>
+                <button type="button" onClick={() => setSurveyProfileOpen(false)} aria-label="Chiudi profilo percorso">
+                  <X size={18} aria-hidden="true" />
+                </button>
+              </header>
+              <div className="survey-profile-score">
+                <span style={{ "--score": `${matchScore}%` } as React.CSSProperties} />
+                <b>{matchScore}%</b>
               </div>
-            ))}
-          </div>
+              <div className="survey-profile-grid">
+                {profileGridItems.map((item) => (
+                  <div
+                    className={item.value === "Da definire" || item.value === "Non ancora definito" || item.value === "Consigliato da FunniFin" ? "" : "filled"}
+                    key={item.label}
+                    title={`${item.label}: ${item.value}`}
+                    aria-label={`${item.label}: ${item.value}`}
+                  >
+                    <span>{item.label}</span>
+                    <em>{item.value}</em>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </aside>
         <footer className="survey-footer">
           <div className="survey-progress">
