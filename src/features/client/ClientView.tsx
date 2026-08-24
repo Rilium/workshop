@@ -1274,6 +1274,47 @@ export function ClientView({
             {surveyIndex === 0 ? <X size={24} /> : <ChevronLeft size={24} />}
           </button>
           <strong>{currentSurveyQuestion.id === "topics" ? "Ambiti" : currentSurveyQuestion.title}</strong>
+          <div className={`survey-profile-nav ${surveyProfileOpen ? "is-open" : ""}`}>
+            <button
+              type="button"
+              className="survey-profile-tab"
+              onClick={() => setSurveyProfileOpen((open) => !open)}
+              aria-expanded={surveyProfileOpen}
+              aria-controls="survey-profile-panel"
+              title={surveyProfileOpen ? "Nascondi profilo percorso" : "Mostra profilo percorso"}
+            >
+              <Sparkles size={17} aria-hidden="true" />
+              <span>Profilo percorso</span>
+              <b>{matchScore}%</b>
+            </button>
+            {surveyProfileOpen && (
+              <aside className="survey-profile-panel" id="survey-profile-panel" aria-label="Profilo del percorso">
+                <header>
+                  <strong>Profilo percorso</strong>
+                  <button type="button" onClick={() => setSurveyProfileOpen(false)} aria-label="Chiudi profilo percorso">
+                    <X size={18} aria-hidden="true" />
+                  </button>
+                </header>
+                <div className="survey-profile-score">
+                  <span style={{ "--score": `${matchScore}%` } as React.CSSProperties} />
+                  <b>{matchScore}%</b>
+                </div>
+                <div className="survey-profile-grid">
+                  {profileGridItems.map((item) => (
+                    <div
+                      className={item.value === "Da definire" || item.value === "Non ancora definito" || item.value === "Consigliato da FunniFin" ? "" : "filled"}
+                      key={item.label}
+                      title={`${item.label}: ${item.value}`}
+                      aria-label={`${item.label}: ${item.value}`}
+                    >
+                      <span>{item.label}</span>
+                      <em>{item.value}</em>
+                    </div>
+                  ))}
+                </div>
+              </aside>
+            )}
+          </div>
         </header>
         <main className="survey-question-panel" ref={surveyQuestionPanelRef}>
           <div className="survey-question-box">
@@ -1323,47 +1364,6 @@ export function ClientView({
             </div>
           )}
         </main>
-        <aside className={`survey-profile ${surveyProfileOpen ? "is-open" : ""}`} aria-label="Profilo del percorso">
-          <button
-            type="button"
-            className="survey-profile-tab"
-            onClick={() => setSurveyProfileOpen((open) => !open)}
-            aria-expanded={surveyProfileOpen}
-            aria-controls="survey-profile-panel"
-            title={surveyProfileOpen ? "Nascondi profilo percorso" : "Mostra profilo percorso"}
-          >
-            <Sparkles size={18} aria-hidden="true" />
-            <span>Profilo</span>
-            <b>{matchScore}%</b>
-          </button>
-          {surveyProfileOpen && (
-            <div className="survey-profile-panel" id="survey-profile-panel">
-              <header>
-                <strong>Profilo percorso</strong>
-                <button type="button" onClick={() => setSurveyProfileOpen(false)} aria-label="Chiudi profilo percorso">
-                  <X size={18} aria-hidden="true" />
-                </button>
-              </header>
-              <div className="survey-profile-score">
-                <span style={{ "--score": `${matchScore}%` } as React.CSSProperties} />
-                <b>{matchScore}%</b>
-              </div>
-              <div className="survey-profile-grid">
-                {profileGridItems.map((item) => (
-                  <div
-                    className={item.value === "Da definire" || item.value === "Non ancora definito" || item.value === "Consigliato da FunniFin" ? "" : "filled"}
-                    key={item.label}
-                    title={`${item.label}: ${item.value}`}
-                    aria-label={`${item.label}: ${item.value}`}
-                  >
-                    <span>{item.label}</span>
-                    <em>{item.value}</em>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </aside>
         <footer className="survey-footer">
           <div className="survey-progress">
             <span><i style={{ width: `${surveyProgress}%` }} /></span>
