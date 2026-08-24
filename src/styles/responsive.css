@@ -1646,6 +1646,8 @@
 .bottom-action-bar.client-bottom-bar .bottom-action-buttons--with-back,
 .bottom-action-bar.client-bottom-bar .bottom-action-buttons--with-back.bottom-action-buttons--with-secondary {
   align-items: center;
+  justify-self: end;
+  margin-left: auto;
   gap: var(--sp-2);
 }
 
@@ -1706,7 +1708,8 @@
   }
 
   .bottom-action-bar.client-bottom-bar .bottom-primary-group {
-    min-width: min(180px, 28vw);
+    width: auto;
+    min-width: 0;
     height: auto;
     align-items: stretch;
   }
@@ -1797,6 +1800,10 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .bottom-action-bar.client-bottom-bar .bottom-primary-group .bottom-primary-action {
+    width: 100%;
   }
 
   .bottom-action-bar.client-bottom-bar .bottom-action-buttons .bottom-back-btn {
