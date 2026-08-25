@@ -1172,6 +1172,7 @@ button:disabled {
 
 .contact-field-label {
   display: block;
+  white-space: nowrap;
 }
 
 .contact-field-label small {
