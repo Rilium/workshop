@@ -1170,6 +1170,16 @@ button:disabled {
   gap: var(--sp-2);
 }
 
+.contact-field-label {
+  display: block;
+}
+
+.contact-field-label small {
+  display: inline;
+  margin-left: 0.25rem;
+  white-space: nowrap;
+}
+
 .contact-grid input {
   min-height: 44px;
   border-color: var(--brand-mid);

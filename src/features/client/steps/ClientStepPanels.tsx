@@ -387,11 +387,11 @@ export function ClientSubmitStep({
                 {contactTouched && !contact.company.trim() && <small className="field-error">Campo obbligatorio</small>}
               </label>
               <label>
-                Telefono <small>(facoltativo)</small>
+                <span className="contact-field-label">Telefono <small>(facoltativo)</small></span>
                 <input value={contact.phone} onChange={(event) => setContact({ ...contact, phone: event.target.value })} autoComplete="tel" />
               </label>
               <label>
-                Numero dipendenti dell’azienda <small>(facoltativo)</small>
+                <span className="contact-field-label">Numero dipendenti dell’azienda <small>(facoltativo)</small></span>
                 <input
                   type="number"
                   min="1"
